@@ -1,0 +1,22 @@
+create schema explain_fqs;
+set current_schema=explain_fqs;
+--? Row Adapter  (cost=.* rows=9 width=4)
+--?   ->  CStore Scan on explain_fqs.t1  (cost=.* rows=9 width=4)
+         Filter: (t1.a < 10)
+(3 rows)
+
+insert into t1 values(1);
+--? Row Adapter  (cost=.* rows=1000 width=12)
+--?   ->  Vector Sort  (cost=.* rows=1000 width=12)
+         Sort Key: (count(a))
+--?         ->  Vector Sonic Hash Aggregate  (cost=.* rows=1000 width=12)
+               Group By Key: a
+--?               ->  CStore Scan on t1  (cost=.* rows=1000 width=4)
+                     Filter: (a < 1000)
+(5 rows)
+
+explain select * from t1 where t1.a = 10;
+--? Row Adapter  (cost=.* rows=1 width=4)
+--?   ->  CStore Scan on explain_fqs.t1  (cost=.* rows=1 width=4)
+         Filter: (t1.a = 10)
+(3 rows)

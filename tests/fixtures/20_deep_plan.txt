@@ -1,0 +1,21 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=100.00..110.00 rows=100 width=4) (actual time=0.100..0.110 rows=100 loops=1)
+  Sort Key: a1.val
+  ->  Hash Join  (cost=50.00..60.00 rows=100 width=4) (actual time=0.050..0.060 rows=100 loops=1)
+        Hash Cond: (a1.id = a2.id)
+        ->  Merge Join  (cost=25.00..30.00 rows=100 width=4) (actual time=0.025..0.030 rows=100 loops=1)
+              Merge Cond: (a1.id = a3.id)
+              ->  Hash Join  (cost=12.00..15.00 rows=100 width=4) (actual time=0.012..0.015 rows=100 loops=1)
+                    Hash Cond: (a1.id = a4.id)
+                    ->  Nested Loop  (cost=6.00..8.00 rows=50 width=4) (actual time=0.006..0.008 rows=50 loops=1)
+                          ->  Seq Scan on t1 a1  (cost=0.00..1.00 rows=10 width=4) (actual time=0.001..0.002 rows=10 loops=1)
+                          ->  Index Scan using idx on t2  (cost=0.00..0.50 rows=5 width=4) (actual time=0.001..0.001 rows=5 loops=10)
+                    ->  Hash  (cost=5.00..5.00 rows=10 width=4) (actual time=0.003..0.003 rows=10 loops=1)
+                          ->  Seq Scan on t3 a4  (cost=0.00..5.00 rows=10 width=4) (actual time=0.001..0.002 rows=10 loops=1)
+              ->  Sort  (cost=10.00..11.00 rows=50 width=4) (actual time=0.010..0.011 rows=50 loops=1)
+                    Sort Key: a3.id
+                    ->  Seq Scan on t4 a3  (cost=0.00..5.00 rows=50 width=4) (actual time=0.001..0.003 rows=50 loops=1)
+        ->  Hash  (cost=20.00..20.00 rows=100 width=4) (actual time=0.015..0.015 rows=100 loops=1)
+              ->  Seq Scan on t5 a2  (cost=0.00..20.00 rows=100 width=4) (actual time=0.001..0.010 rows=100 loops=1)
+Total runtime: 0.200 ms

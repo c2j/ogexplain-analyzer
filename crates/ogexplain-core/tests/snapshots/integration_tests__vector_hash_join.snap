@@ -1,0 +1,81 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 66
+expression: plan
+---
+root:
+  node_type:
+    type: VectorHashJoin
+  estimated:
+    startup_cost: 25.38
+    total_cost: 63.85
+    plan_rows: 1000
+    plan_width: 32
+  actual:
+    startup_time_ms: 1.234
+    total_time_ms: 3.567
+    rows: 1000
+    loops: 1
+    executed: true
+  properties:
+    - label: Hash Cond
+      value: (s.item_id = i.id)
+  children:
+    - node_type:
+        type: SeqScan
+      relation: sales
+      estimated:
+        startup_cost: 0
+        total_cost: 18.5
+        plan_rows: 1000
+        plan_width: 16
+      actual:
+        startup_time_ms: 0.012
+        total_time_ms: 0.456
+        rows: 1000
+        loops: 1
+        executed: true
+      indent_level: 1
+      line_number: 5
+    - node_type:
+        type: Hash
+      estimated:
+        startup_cost: 12
+        total_cost: 12
+        plan_rows: 500
+        plan_width: 16
+      actual:
+        startup_time_ms: 0.234
+        total_time_ms: 0.234
+        rows: 500
+        loops: 1
+        executed: true
+      properties:
+        - label: Buckets
+          value: "1024  Batches: 1  Memory Usage: 32kB"
+      structured_props:
+        hash_buckets: 1024
+        hash_batches: 1
+        hash_memory_usage: 32kB
+      children:
+        - node_type:
+            type: SeqScan
+          relation: items
+          estimated:
+            startup_cost: 0
+            total_cost: 12
+            plan_rows: 500
+            plan_width: 16
+          actual:
+            startup_time_ms: 0.008
+            total_time_ms: 0.123
+            rows: 500
+            loops: 1
+            executed: true
+          indent_level: 4
+          line_number: 8
+      indent_level: 1
+      line_number: 6
+  line_number: 3
+summary:
+  total_runtime_ms: 4.123

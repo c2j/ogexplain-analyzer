@@ -1,0 +1,10 @@
+--? Row Adapter  (cost=.* rows=734367 width=8)
+--?   ->  Vector Nest Loop  (cost=.* rows=734367 width=8)
+--?         ->  CStore Scan on t2  (cost=.* rows=1101 width=4)
+--?         ->  Vector Materialize  (cost=.* rows=667 width=4)
+--?               ->  CStore Scan on t1  (cost=.* rows=667 width=4)
+                     Filter: (a < (SubPlan 1))
+                     SubPlan 1
+--?                       ->  Row Adapter  (cost=.* rows=1 width=4)
+--?                             ->  CStore Scan on t2  (cost=.* rows=1 width=4)
+                                    Filter: (a = t1.a)

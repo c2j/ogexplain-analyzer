@@ -1,0 +1,6 @@
+QUERY PLAN
+----------------------------------------------------
+Seq Scan on documents  (cost=0.00..25000.00 rows=100 width=68) (actual time=0.034..123.456 rows=100 loops=1)
+  Filter: (content LIKE '%important%')
+  Rows Removed by Filter: 9900
+Total runtime: 124.089 ms

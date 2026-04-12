@@ -1,0 +1,6 @@
+QUERY PLAN
+----------------------------------------------------
+Seq Scan on t1  (cost=0.00..12.00 rows=100 width=4) (actual time=0.015..0.052 rows=100 loops=1)
+  Filter: (status = 'active')
+  Rows Removed by Filter: 50
+Total runtime: 0.123 ms

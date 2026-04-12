@@ -1,0 +1,8 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=100.00..110.00 rows=1000 width=44) (actual time=15.432..16.876 rows=1000 loops=1)
+  Sort Key: a.created_at
+  ->  Sort  (cost=50.00..60.00 rows=1000 width=44) (actual time=8.123..9.456 rows=1000 loops=1)
+        Sort Key: a.created_at
+        ->  Seq Scan on events a  (cost=0.00..20.00 rows=1000 width=44) (actual time=0.012..1.234 rows=1000 loops=1)
+Total runtime: 17.234 ms

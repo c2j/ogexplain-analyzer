@@ -1,0 +1,30 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 18
+expression: plan
+---
+root:
+  node_type:
+    type: SeqScan
+  relation: t1
+  estimated:
+    startup_cost: 0
+    total_cost: 12
+    plan_rows: 100
+    plan_width: 4
+  actual:
+    startup_time_ms: 0.015
+    total_time_ms: 0.052
+    rows: 100
+    loops: 1
+    executed: true
+  properties:
+    - label: Filter
+      value: "(status = 'active')"
+    - label: Rows Removed by Filter
+      value: "50"
+  structured_props:
+    rows_removed_by_filter: 50
+  line_number: 3
+summary:
+  total_runtime_ms: 0.123

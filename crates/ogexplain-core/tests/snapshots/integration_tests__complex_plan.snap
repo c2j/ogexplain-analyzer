@@ -1,0 +1,155 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 90
+expression: plan
+---
+root:
+  node_type:
+    type: Sort
+  estimated:
+    startup_cost: 263.85
+    total_cost: 275.35
+    plan_rows: 5000
+    plan_width: 48
+  actual:
+    startup_time_ms: 48.123
+    total_time_ms: 52.456
+    rows: 50000
+    loops: 1
+    executed: true
+  properties:
+    - label: Sort Key
+      value: l.created_at
+    - label: Sort Method
+      value: "external merge  Disk: 5840kB"
+  structured_props:
+    sort_method: external merge
+    sort_disk: 5840kB
+  children:
+    - node_type:
+        type: HashJoin
+      estimated:
+        startup_cost: 135.38
+        total_cost: 263.85
+        plan_rows: 500
+        plan_width: 48
+      actual:
+        startup_time_ms: 15.234
+        total_time_ms: 45.678
+        rows: 50000
+        loops: 1
+        executed: true
+      properties:
+        - label: Hash Cond
+          value: (l.order_id = o.id)
+      children:
+        - node_type:
+            type: SeqScan
+          relation: line_items
+          estimated:
+            startup_cost: 0
+            total_cost: 98.5
+            plan_rows: 50000
+            plan_width: 24
+          actual:
+            startup_time_ms: 0.015
+            total_time_ms: 12.345
+            rows: 500000
+            loops: 1
+            executed: true
+          properties:
+            - label: Filter
+              value: "(created_at > '2024-01-01'::timestamp without time zone)"
+            - label: Rows Removed by Filter
+              value: "1000000"
+          structured_props:
+            rows_removed_by_filter: 1000000
+          indent_level: 4
+          line_number: 8
+        - node_type:
+            type: Hash
+          estimated:
+            startup_cost: 18.5
+            total_cost: 18.5
+            plan_rows: 850
+            plan_width: 32
+          actual:
+            startup_time_ms: 0.456
+            total_time_ms: 0.456
+            rows: 850
+            loops: 1
+            executed: true
+          properties:
+            - label: Buckets
+              value: "1024  Batches: 1  Memory Usage: 48kB"
+          structured_props:
+            hash_buckets: 1024
+            hash_batches: 1
+            hash_memory_usage: 48kB
+          children:
+            - node_type:
+                type: NestedLoop
+              estimated:
+                startup_cost: 0.58
+                total_cost: 18.5
+                plan_rows: 850
+                plan_width: 32
+              actual:
+                startup_time_ms: 0.023
+                total_time_ms: 0.234
+                rows: 850
+                loops: 1
+                executed: true
+              children:
+                - node_type:
+                    type: SeqScan
+                  relation: orders
+                  estimated:
+                    startup_cost: 0
+                    total_cost: 12
+                    plan_rows: 200
+                    plan_width: 16
+                  actual:
+                    startup_time_ms: 0.008
+                    total_time_ms: 0.034
+                    rows: 200
+                    loops: 1
+                    executed: true
+                  properties:
+                    - label: Filter
+                      value: "(status = 'pending')"
+                    - label: Rows Removed by Filter
+                      value: "800"
+                  structured_props:
+                    rows_removed_by_filter: 800
+                  indent_level: 10
+                  line_number: 14
+                - node_type:
+                    type: IndexScan
+                  relation: customers
+                  estimated:
+                    startup_cost: 0.29
+                    total_cost: 0.32
+                    plan_rows: 1
+                    plan_width: 24
+                  actual:
+                    startup_time_ms: 0.001
+                    total_time_ms: 0.001
+                    rows: 4
+                    loops: 200
+                    executed: true
+                  properties:
+                    - label: Index Cond
+                      value: (id = o.customer_id)
+                  indent_level: 10
+                  line_number: 17
+              indent_level: 7
+              line_number: 13
+          indent_level: 4
+          line_number: 11
+      indent_level: 1
+      line_number: 6
+  line_number: 3
+summary:
+  total_runtime_ms: 55.789
+  peak_memory_kb: 8192

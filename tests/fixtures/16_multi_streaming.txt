@@ -1,0 +1,8 @@
+QUERY PLAN
+----------------------------------------------------
+Streaming(type: REDISTRIBUTE)  (cost=25.34..85.67 rows=2000 width=28) (actual time=2.234..12.567 rows=2000 loops=1)
+  Node/s: All datanodes
+  ->  Streaming(type: BROADCAST)  (cost=12.34..45.67 rows=500 width=28) (actual time=1.234..5.678 rows=500 loops=1)
+        Node/s: All datanodes
+        ->  Seq Scan on products  (cost=0.00..15.20 rows=500 width=28) (actual time=0.045..0.234 rows=500 loops=1)
+Total runtime: 13.012 ms

@@ -1,0 +1,32 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 26
+expression: plan
+---
+root:
+  node_type:
+    type: IndexScan
+  relation: orders
+  estimated:
+    startup_cost: 0.29
+    total_cost: 8.31
+    plan_rows: 1
+    plan_width: 68
+  actual:
+    startup_time_ms: 0.034
+    total_time_ms: 0.036
+    rows: 1
+    loops: 1
+    executed: true
+  properties:
+    - label: Index Cond
+      value: "(status = 'shipped')"
+    - label: Filter
+      value: (total > 1000)
+    - label: Rows Removed by Filter
+      value: "3"
+  structured_props:
+    rows_removed_by_filter: 3
+  line_number: 3
+summary:
+  total_runtime_ms: 0.089

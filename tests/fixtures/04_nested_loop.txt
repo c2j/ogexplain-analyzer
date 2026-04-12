@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+Nested Loop  (cost=0.58..27.68 rows=5 width=48) (actual time=0.033..0.112 rows=5 loops=1)
+  ->  Seq Scan on departments d  (cost=0.00..10.80 rows=80 width=20) (actual time=0.008..0.015 rows=80 loops=1)
+  ->  Index Scan using idx_emp_dept on employees e  (cost=0.29..0.34 rows=1 width=36) (actual time=0.001..0.001 rows=0 loops=80)
+        Index Cond: (dept_id = d.id)
+Total runtime: 0.156 ms

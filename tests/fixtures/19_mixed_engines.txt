@@ -1,0 +1,13 @@
+QUERY PLAN
+----------------------------------------------------
+Vector Hash Join  (cost=50.38..150.85 rows=5000 width=48) (actual time=1.234..5.678 rows=5000 loops=1)
+  Hash Cond: (s.item_id = i.id)
+  ->  Row Adapter  (cost=0.00..40.00 rows=5000 width=24) (actual time=0.015..2.345 rows=5000 loops=1)
+        ->  Vector Sort  (cost=0.00..35.00 rows=5000 width=24) (actual time=0.012..2.123 rows=5000 loops=1)
+              Sort Key: s.item_id
+              ->  Seq Scan on sales s  (cost=0.00..18.50 rows=5000 width=24) (actual time=0.008..0.456 rows=5000 loops=1)
+  ->  Vector Adapter  (cost=12.00..12.00 rows=5000 width=24) (actual time=0.234..0.234 rows=5000 loops=1)
+        ->  Hash  (cost=12.00..12.00 rows=5000 width=24) (actual time=0.234..0.234 rows=5000 loops=1)
+              Buckets: 8192  Batches: 1  Memory Usage: 256kB
+              ->  Seq Scan on items i  (cost=0.00..12.00 rows=5000 width=24) (actual time=0.008..0.123 rows=5000 loops=1)
+Total runtime: 6.123 ms

@@ -1,0 +1,6 @@
+QUERY PLAN
+----------------------------------------------------
+Streaming(type: GATHER)  (cost=12.34..45.67 rows=500 width=28) (actual time=1.234..2.567 rows=500 loops=1)
+  Node/s: All datanodes
+  ->  Seq Scan on products  (cost=0.00..15.20 rows=500 width=28) (actual time=0.045..0.234 rows=500 loops=1)
+Total runtime: 3.012 ms

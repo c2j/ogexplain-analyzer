@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+CStore Scan on analytics_events  (cost=0.00..45.20 rows=10000 width=64) (actual time=0.123..2.345 rows=10000 loops=1)
+  Filter: (event_date >= '2024-01-01'::date)
+  Rows Removed by Filter: 5000
+  CStore MinMax Skip: 8 from 10 CUs
+Total runtime: 2.890 ms

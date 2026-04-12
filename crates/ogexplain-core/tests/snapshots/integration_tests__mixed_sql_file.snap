@@ -1,0 +1,18 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 106
+expression: plan
+---
+root:
+  node_type:
+    type: RowAdapter
+  children:
+    - node_type:
+        type: CStoreScan
+      relation: explain_fqs.t1
+      properties:
+        - label: Filter
+          value: (t1.a < 10)
+      indent_level: 1
+      line_number: 2
+  line_number: 1

@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=63.85..66.35 rows=1000 width=44) (actual time=5.432..5.876 rows=1000 loops=1)
+  Sort Key: created_at
+  Sort Method: external merge  Disk: 48kB
+  ->  Seq Scan on events  (cost=0.00..20.00 rows=1000 width=44) (actual time=0.012..1.234 rows=1000 loops=1)
+Total runtime: 6.234 ms

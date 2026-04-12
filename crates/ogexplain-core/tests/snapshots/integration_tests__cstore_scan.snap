@@ -1,0 +1,32 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 74
+expression: plan
+---
+root:
+  node_type:
+    type: CStoreScan
+  relation: analytics_events
+  estimated:
+    startup_cost: 0
+    total_cost: 45.2
+    plan_rows: 10000
+    plan_width: 64
+  actual:
+    startup_time_ms: 0.123
+    total_time_ms: 2.345
+    rows: 10000
+    loops: 1
+    executed: true
+  properties:
+    - label: Filter
+      value: "(event_date >= '2024-01-01'::date)"
+    - label: Rows Removed by Filter
+      value: "5000"
+    - label: CStore MinMax Skip
+      value: 8 from 10 CUs
+  structured_props:
+    rows_removed_by_filter: 5000
+  line_number: 3
+summary:
+  total_runtime_ms: 2.89

@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+Index Scan using idx_orders_status on orders  (cost=0.29..8.31 rows=1 width=68) (actual time=0.034..0.036 rows=1 loops=1)
+  Index Cond: (status = 'shipped')
+  Filter: (total > 1000)
+  Rows Removed by Filter: 3
+Total runtime: 0.089 ms

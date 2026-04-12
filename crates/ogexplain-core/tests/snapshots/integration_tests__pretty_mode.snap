@@ -1,0 +1,87 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 82
+expression: plan
+---
+root:
+  node_type:
+    type: HashJoin
+  estimated:
+    startup_cost: 25.38
+    total_cost: 63.85
+    plan_rows: 200
+    plan_width: 16
+  actual:
+    startup_time_ms: 0.082
+    total_time_ms: 0.198
+    rows: 200
+    loops: 1
+    executed: true
+  properties:
+    - label: Hash Cond
+      value: (o.customer_id = c.id)
+  children:
+    - node_type:
+        type: SeqScan
+      relation: orders
+      estimated:
+        startup_cost: 0
+        total_cost: 18.5
+        plan_rows: 850
+        plan_width: 12
+      actual:
+        startup_time_ms: 0.008
+        total_time_ms: 0.042
+        rows: 850
+        loops: 1
+        executed: true
+      properties:
+        - label: Filter
+          value: "(status = 'active')"
+      indent_level: 1
+      line_number: 5
+    - node_type:
+        type: Hash
+      estimated:
+        startup_cost: 15.2
+        total_cost: 15.2
+        plan_rows: 520
+        plan_width: 8
+      actual:
+        startup_time_ms: 0.035
+        total_time_ms: 0.035
+        rows: 520
+        loops: 1
+        executed: true
+      properties:
+        - label: Buckets
+          value: "1024  Batches: 1  Memory Usage: 28kB"
+      structured_props:
+        hash_buckets: 1024
+        hash_batches: 1
+        hash_memory_usage: 28kB
+      children:
+        - node_type:
+            type: SeqScan
+          relation: customers
+          estimated:
+            startup_cost: 0
+            total_cost: 15.2
+            plan_rows: 520
+            plan_width: 8
+          actual:
+            startup_time_ms: 0.005
+            total_time_ms: 0.02
+            rows: 520
+            loops: 1
+            executed: true
+          indent_level: 4
+          line_number: 9
+      indent_level: 1
+      line_number: 7
+  line_number: 3
+summary:
+  total_runtime_ms: 0.456
+  executor_start_ms: 0.023
+  executor_run_ms: 0.312
+  executor_end_ms: 0.001

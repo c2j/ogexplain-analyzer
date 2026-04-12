@@ -1,0 +1,49 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 98
+expression: plan
+---
+root:
+  node_type:
+    type: RowAdapter
+  children:
+    - node_type:
+        type: VectorNestLoop
+      children:
+        - node_type:
+            type: CStoreScan
+          relation: t2
+          indent_level: 4
+          line_number: 3
+        - node_type:
+            type: VectorMaterialize
+          children:
+            - node_type:
+                type: CStoreScan
+              relation: t1
+              properties:
+                - label: Filter
+                  value: (a < (SubPlan 1))
+                - label: Raw
+                  value: SubPlan 1
+              children:
+                - node_type:
+                    type: RowAdapter
+                  children:
+                    - node_type:
+                        type: CStoreScan
+                      relation: t2
+                      properties:
+                        - label: Filter
+                          value: (a = t1.a)
+                      indent_level: 14
+                      line_number: 9
+                  indent_level: 11
+                  line_number: 8
+              indent_level: 7
+              line_number: 5
+          indent_level: 4
+          line_number: 4
+      indent_level: 1
+      line_number: 2
+  line_number: 1

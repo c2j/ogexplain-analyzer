@@ -1,0 +1,58 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 42
+expression: plan
+---
+root:
+  node_type:
+    type: NestedLoop
+  estimated:
+    startup_cost: 0.58
+    total_cost: 27.68
+    plan_rows: 5
+    plan_width: 48
+  actual:
+    startup_time_ms: 0.033
+    total_time_ms: 0.112
+    rows: 5
+    loops: 1
+    executed: true
+  children:
+    - node_type:
+        type: SeqScan
+      relation: departments
+      estimated:
+        startup_cost: 0
+        total_cost: 10.8
+        plan_rows: 80
+        plan_width: 20
+      actual:
+        startup_time_ms: 0.008
+        total_time_ms: 0.015
+        rows: 80
+        loops: 1
+        executed: true
+      indent_level: 1
+      line_number: 4
+    - node_type:
+        type: IndexScan
+      relation: employees
+      estimated:
+        startup_cost: 0.29
+        total_cost: 0.34
+        plan_rows: 1
+        plan_width: 36
+      actual:
+        startup_time_ms: 0.001
+        total_time_ms: 0.001
+        rows: 0
+        loops: 80
+        executed: true
+      properties:
+        - label: Index Cond
+          value: (dept_id = d.id)
+      indent_level: 1
+      line_number: 5
+  line_number: 3
+summary:
+  total_runtime_ms: 0.156

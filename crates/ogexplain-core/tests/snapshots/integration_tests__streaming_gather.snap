@@ -1,0 +1,43 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 58
+expression: plan
+---
+root:
+  node_type:
+    type: Streaming
+    variant: Gather
+  estimated:
+    startup_cost: 12.34
+    total_cost: 45.67
+    plan_rows: 500
+    plan_width: 28
+  actual:
+    startup_time_ms: 1.234
+    total_time_ms: 2.567
+    rows: 500
+    loops: 1
+    executed: true
+  properties:
+    - label: Node/s
+      value: All datanodes
+  children:
+    - node_type:
+        type: SeqScan
+      relation: products
+      estimated:
+        startup_cost: 0
+        total_cost: 15.2
+        plan_rows: 500
+        plan_width: 28
+      actual:
+        startup_time_ms: 0.045
+        total_time_ms: 0.234
+        rows: 500
+        loops: 1
+        executed: true
+      indent_level: 1
+      line_number: 5
+  line_number: 3
+summary:
+  total_runtime_ms: 3.012

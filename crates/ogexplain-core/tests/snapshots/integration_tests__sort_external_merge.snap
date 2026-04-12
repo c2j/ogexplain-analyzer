@@ -1,0 +1,47 @@
+---
+source: crates/ogexplain-core/tests/integration_tests.rs
+assertion_line: 50
+expression: plan
+---
+root:
+  node_type:
+    type: Sort
+  estimated:
+    startup_cost: 63.85
+    total_cost: 66.35
+    plan_rows: 1000
+    plan_width: 44
+  actual:
+    startup_time_ms: 5.432
+    total_time_ms: 5.876
+    rows: 1000
+    loops: 1
+    executed: true
+  properties:
+    - label: Sort Key
+      value: created_at
+    - label: Sort Method
+      value: "external merge  Disk: 48kB"
+  structured_props:
+    sort_method: external merge
+    sort_disk: 48kB
+  children:
+    - node_type:
+        type: SeqScan
+      relation: events
+      estimated:
+        startup_cost: 0
+        total_cost: 20
+        plan_rows: 1000
+        plan_width: 44
+      actual:
+        startup_time_ms: 0.012
+        total_time_ms: 1.234
+        rows: 1000
+        loops: 1
+        executed: true
+      indent_level: 1
+      line_number: 6
+  line_number: 3
+summary:
+  total_runtime_ms: 6.234

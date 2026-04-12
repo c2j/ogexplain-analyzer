@@ -1,0 +1,13 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=263.85..275.35 rows=500 width=48) (actual time=48.123..52.456 rows=500000 loops=1)
+  Sort Key: l.created_at
+  Sort Method: external merge  Disk: 5840kB
+  ->  Hash Join  (cost=135.38..263.85 rows=500 width=48) (actual time=15.234..45.678 rows=500000 loops=1)
+        Hash Cond: (l.order_id = o.id)
+        ->  Seq Scan on line_items l  (cost=0.00..98.50 rows=5000 width=24) (actual time=0.015..12.345 rows=500000 loops=1)
+              Filter: (created_at > '2024-01-01'::timestamp)
+        ->  Hash  (cost=18.50..18.50 rows=850 width=32) (actual time=0.456..0.456 rows=850 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 48kB
+              ->  Seq Scan on orders o  (cost=0.00..12.00 rows=850 width=16) (actual time=0.008..0.034 rows=850 loops=1)
+Total runtime: 55.789 ms
