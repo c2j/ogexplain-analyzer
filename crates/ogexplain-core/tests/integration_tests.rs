@@ -121,3 +121,40 @@ fn parse_multi_extracts_multiple_blocks() {
         plans.len()
     );
 }
+
+#[test]
+fn sql_extraction_from_mixed_input() {
+    let input = "\
+SELECT /*+ indexscan(diskann_t2 idx_vectors_10d_100) */ id, description
+FROM diskann_t2
+ORDER BY embedding <-> '[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]' LIMIT 3;
+                                      QUERY PLAN                                       
+---------------------------------------------------------------------------------------
+ [Bypass]
+ Limit
+   ->  Ann Index Scan using idx_vectors_10d_100 on diskann_t2
+         Order By: (embedding <-> '[0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5]'::vector)
+(4 rows)";
+
+    let extracted = ogexplain_core::sql::ExtractedContent::from_text(input);
+    assert!(extracted.has_sql, "Should detect SQL in mixed input");
+    assert!(
+        extracted.sql_text.contains("SELECT"),
+        "SQL text should contain SELECT: {:?}",
+        extracted.sql_text
+    );
+    assert!(
+        extracted.sql_text.contains("FROM diskann_t2"),
+        "SQL text should contain FROM clause: {:?}",
+        extracted.sql_text
+    );
+    assert!(
+        extracted.sql_text.contains("ORDER BY"),
+        "SQL text should contain ORDER BY: {:?}",
+        extracted.sql_text
+    );
+    assert!(
+        !extracted.sql_text.contains("QUERY PLAN"),
+        "SQL text should not contain EXPLAIN output"
+    );
+}

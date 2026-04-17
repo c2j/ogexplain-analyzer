@@ -1,0 +1,14 @@
+[package]
+name = "ogsql-complexity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQL complexity analyzer for OpenGauss/GaussDB queries"
+
+[dependencies]
+ogsql-parser = { git = "https://github.com/c2j/ogsql-parser" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+insta = { version = "1", features = ["yaml"] }

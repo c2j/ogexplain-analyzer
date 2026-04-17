@@ -7,6 +7,7 @@ use ratatui::Frame;
 use ogexplain_core::analyzer::{Finding, Severity};
 use ogexplain_core::model::PlanNode;
 use ogexplain_core::suggester::Suggestion;
+use ogsql_complexity::ComplexityReport;
 
 #[allow(clippy::too_many_arguments)]
 pub fn render(
@@ -15,6 +16,8 @@ pub fn render(
     node: Option<&PlanNode>,
     findings: &[Finding],
     suggestions: &[Suggestion],
+    complexity: Option<&ComplexityReport>,
+    show_complexity: bool,
     scroll: u16,
     focused: bool,
     total_lines: u16,
@@ -36,13 +39,20 @@ pub fn render(
         .borders(Borders::ALL)
         .border_style(border_style);
 
-    let lines = match node {
+    let mut lines = match node {
         Some(n) => build_detail_lines(n, findings.to_vec(), suggestions.to_vec()),
         None => vec![Line::from(Span::styled(
             " 粘贴 EXPLAIN 输出后按 Ctrl+P 解析",
             Style::default().fg(Color::DarkGray),
         ))],
     };
+
+    if show_complexity {
+        if let Some(report) = complexity {
+            lines.push(Line::from(Span::raw("")));
+            lines.extend(build_complexity_lines(report));
+        }
+    }
 
     let paragraph = Paragraph::new(lines)
         .block(block)
@@ -201,4 +211,152 @@ fn severity_style(sev: &Severity) -> (&'static str, Color) {
         Severity::Warning => ("⚠", Color::Yellow),
         Severity::Info => ("ℹ", Color::Green),
     }
+}
+
+fn build_complexity_lines(report: &ComplexityReport) -> Vec<Line<'static>> {
+    use ogsql_complexity::ComplexityLevel;
+
+    let mut lines = Vec::new();
+
+    lines.push(Line::from(Span::styled(
+        "── SQL 复杂度分析 ──",
+        Style::default()
+            .fg(Color::Magenta)
+            .add_modifier(Modifier::BOLD),
+    )));
+
+    let (level_color, _level_icon) = match report.overall_level {
+        ComplexityLevel::Trivial => (Color::Green, "●"),
+        ComplexityLevel::Simple => (Color::Green, "◐"),
+        ComplexityLevel::Moderate => (Color::Yellow, "◑"),
+        ComplexityLevel::Complex => (Color::Red, "◉"),
+        ComplexityLevel::VeryComplex => (Color::Magenta, "✖"),
+    };
+
+    lines.push(Line::from(vec![
+        Span::styled("  总分: ", Style::default().fg(Color::Gray)),
+        Span::styled(
+            format!("{:.1}", report.overall_score),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" {}", report.overall_level.label()),
+            Style::default()
+                .fg(level_color)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" ({})", report.profile),
+            Style::default().fg(Color::DarkGray),
+        ),
+    ]));
+
+    for (i, stmt) in report.statements.iter().enumerate() {
+        if report.statements.len() > 1 {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("  语句 #{} ", i + 1),
+                    Style::default().fg(Color::Yellow),
+                ),
+                Span::styled(
+                    format!("{:.1} 分", stmt.adjusted_score),
+                    Style::default().fg(Color::White),
+                ),
+            ]));
+        }
+
+        let m = &stmt.metrics;
+        let b = &stmt.weighted_breakdown;
+        let mut parts: Vec<String> = Vec::new();
+
+        if m.table_count > 0 {
+            parts.push(format!("{}表(={:.1})", m.table_count, b.tables));
+        }
+        if m.join_count > 0 {
+            parts.push(format!("{}连接(={:.1})", m.join_count, b.joins));
+        }
+        if m.where_condition_count > 0 {
+            parts.push(format!(
+                "{}条件(={:.1})",
+                m.where_condition_count, b.where_conditions
+            ));
+        }
+        if m.subquery_count > 0 {
+            parts.push(format!("{}子查询(={:.1})", m.subquery_count, b.subqueries));
+        }
+        if m.aggregate_function_count > 0 {
+            parts.push(format!(
+                "{}聚合(={:.1})",
+                m.aggregate_function_count, b.aggregate_functions
+            ));
+        }
+        if m.case_expression_count > 0 {
+            parts.push(format!(
+                "{}CASE(={:.1})",
+                m.case_expression_count, b.case_expressions
+            ));
+        }
+        if m.set_operation_count > 0 {
+            parts.push(format!(
+                "{}集合操作(={:.1})",
+                m.set_operation_count, b.set_operations
+            ));
+        }
+        if m.has_group_by {
+            parts.push(format!("GROUP BY({:.1})", b.group_by));
+        }
+        if m.has_order_by {
+            parts.push(format!("ORDER BY({:.1})", b.order_by));
+        }
+        if m.window_function_count > 0 {
+            parts.push(format!(
+                "{}窗口(={:.1})",
+                m.window_function_count, b.window_functions
+            ));
+        }
+        if m.cte_count > 0 {
+            parts.push(format!("{}CTE(={:.1})", m.cte_count, b.ctes));
+        }
+
+        for part in parts {
+            lines.push(Line::from(Span::styled(
+                format!("    {}", part),
+                Style::default().fg(Color::Gray),
+            )));
+        }
+
+        if m.subquery_depth > 0 {
+            lines.push(Line::from(Span::styled(
+                format!("    嵌套深度: {}", m.subquery_depth),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+
+        let sql_preview: String = stmt
+            .sql_text
+            .lines()
+            .take(2)
+            .map(|l| {
+                if l.len() > 60 {
+                    format!("{}...", &l[..60])
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        lines.push(Line::from(Span::styled(
+            format!("    SQL: {}", sql_preview),
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+
+    lines.push(Line::from(Span::styled(
+        "    [c] 切换复杂度视图",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    lines
 }

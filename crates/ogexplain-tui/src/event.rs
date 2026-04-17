@@ -102,6 +102,12 @@ pub fn handle_key(
             _ => None,
         },
 
+        // Complexity toggle: c when not in Input
+        (false, false, KeyCode::Char('c')) => match focus {
+            FocusTarget::Input => None,
+            _ => Some(Action::ToggleComplexity),
+        },
+
         // Multi-plan navigation: N/P in Browse mode
         (false, _, KeyCode::Char('n') | KeyCode::Char('N')) => match focus {
             FocusTarget::Tree | FocusTarget::Detail => Some(Action::NextPlan),

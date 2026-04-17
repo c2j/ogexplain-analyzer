@@ -26,4 +26,5 @@ pub enum Action {
     TreeBottom,
     NextPlan,
     PrevPlan,
+    ToggleComplexity,
 }

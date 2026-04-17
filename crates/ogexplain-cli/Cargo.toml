@@ -3,12 +3,16 @@ name = "ogexplain-cli"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "ogexplain"
 path = "src/main.rs"
 
 [dependencies]
 ogexplain-core = { path = "../ogexplain-core" }
+ogsql-complexity = { path = "../ogsql-complexity" }
 clap = { version = "4", features = ["derive"] }
 colored = "3"
 anyhow = "1"

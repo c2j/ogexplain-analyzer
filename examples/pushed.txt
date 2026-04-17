@@ -1,0 +1,67 @@
+QUERY PLAN                                                                                                                                                |
+----------------------------------------------------------------------------------------------------------------------------------------------------------+
+Aggregate  (cost=5281.01..5281.02 rows=1 width=1093)                                                                                                      |
+ ->  Nested Loop  (cost=151.72..4660.09 rows=85 width=37)                                                                                                |
+       ->  Index Scan using pk_par_sys_owner on par_sys_owner t3  (cost=0.01..2.30 rows=1 width=5)                                                       |
+             Index Cond: (((owner_code)::text = 'p_in_fund_code'::text) AND (to_char(now(), 'yyyymmdd'::text) >= (inure_begin_date)::text))              |
+             Filter: (to_char(now(), 'yyyymmdd'::text) <= (inure_end_date)::text)                                                                        |
+       ->  Hash Join  (cost=151.71..4656.94 rows=85 width=42)                                                                                            |
+             Hash Cond: (("*SELECT* 1".fund_code)::text = (t1.fund_code)::text)                                                                          |
+             ->  Append  (cost=0.00..4154.82 rows=68695 width=45)                                                                                        |
+                   ->  Subquery Scan on "*SELECT* 1"  (cost=0.00..2434.67 rows=958 width=44)                                                             |
+                         ->  Nested Loop  (cost=0.00..2425.09 rows=958 width=184)                                                                        |
+                               ->  Index Scan using idx_dat_fund_acct_date on dat_fund_acct_date u  (cost=0.00..17.25 rows=21 width=17)                  |
+                                     Index Cond: ((fnextdate)::text = '20250101'::text)                                                                  |
+                               ->  Index Scan using pk_cor_trd_acctbalbook on cor_trd_acctbalbook s  (cost=0.00..114.20 rows=46 width=175)               |
+                                     Index Cond: (((fund_code)::text = (u.fund_code)::text) AND ((coin_code)::text = '001'::text))                       |
+                   ->  Partition Iterator  (cost=700.09..1720.15 rows=67737 width=45)                                                                    |
+                         Iterations: 1                                                                                                                   |
+                         ->  Partitioned Bitmap Heap Scan on dat_trd_acctbalbook_his  (cost=700.09..1720.15 rows=67737 width=45)                         |
+                               Recheck Cond: (((accountdate)::text = '20250101'::text) AND ((coin_code)::text = '001'::text))                            |
+                               Selected Partitions:  268                                                                                                 |
+                               ->  Partitioned Bitmap Index Scan on pk_dat_trd_acctbalbook_his  (cost=0.00..683.16 rows=67737 width=0)                   |
+                                     Index Cond: (((accountdate)::text = '20250101'::text) AND ((coin_code)::text = '001'::text))                        |
+             ->  Hash  (cost=151.35..151.35 rows=29 width=20)                                                                                            |
+                   ->  Nested Loop  (cost=0.01..151.35 rows=29 width=20)                                                                                 |
+                         ->  Index Scan using pk_par_fund_accnt_relation on par_fund_accnt_relation t1  (cost=0.01..78.80 rows=27 width=13)              |
+                               Index Cond: (((seq_id)::text = 'p_in_fund_code'::text) AND (to_char(now(), 'yyyymmdd'::text) >= (inure_begin_date)::text))|
+                               Filter: (((check_state)::text = '1'::text) AND (to_char(now(), 'yyyymmdd'::text) <= (inure_end_date)::text))              |
+                         ->  Index Scan using pk_par_fund_info on par_fund_info t2  (cost=0.00..2.68 rows=1 width=7)                                     |
+                               Index Cond: ((fund_code)::text = (t1.fund_code)::text)                                                                    |
+                               Filter: ((fund_status)::text = '1'::text)                                                                                 |
+ SubPlan 1                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=1 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = '435310900005'::text)                                                                       |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=1 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text = '18'::text))                                             |
+ SubPlan 2                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=1 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = ANY ('{435310900002,440002600000}'::text[]))                                                |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=1 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text = '18'::text))                                             |
+ SubPlan 3                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=2 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = '435310900002'::text)                                                                       |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=2 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text <> '18'::text))                                            |
+ SubPlan 3                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=2 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = '435310900002'::text)                                                                       |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=2 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text <> '18'::text))                                            |
+ SubPlan 2                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=1 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = ANY ('{435310900002,440002600000}'::text[]))                                                |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=1 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text = '18'::text))                                             |
+ SubPlan 1                                                                                                                                               |
+   ->  Result  (cost=0.00..2.29 rows=1 width=0)                                                                                                          |
+         One-Time Filter: (("*SELECT* 1".label_code)::text = '435310900005'::text)                                                                       |
+         ->  Index Scan using pk_par_sys_annuity_fund on par_sys_annuity_fund f  (cost=0.00..2.29 rows=1 width=0)                                        |
+               Index Cond: (((security_id)::text = ("*SELECT* 1".class_value)::text) AND ('20250101'::text >= (inure_begin_date)::text))                 |
+               Filter: (('20250101'::text <= (inure_end_date)::text) AND ((invest_type)::text = '18'::text))                                             |

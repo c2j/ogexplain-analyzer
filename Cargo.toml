@@ -1,8 +1,42 @@
+[package]
+name = "ogexplain-analyzer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OpenGauss EXPLAIN plan analyzer with SQL complexity scoring"
+
+[features]
+default = []
+full = ["cli", "tui"]
+cli = ["dep:ogexplain-cli", "dep:anyhow"]
+tui = ["dep:ogexplain-tui", "dep:color-eyre"]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ogexplain"
+path = "src/bin/ogexplain.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "ogexplain-tui"
+path = "src/bin/ogexplain-tui.rs"
+required-features = ["tui"]
+
+[dependencies]
+ogexplain-core = { path = "crates/ogexplain-core" }
+ogexplain-cli = { path = "crates/ogexplain-cli", optional = true }
+ogexplain-tui = { path = "crates/ogexplain-tui", optional = true }
+anyhow = { version = "1", optional = true }
+color-eyre = { version = "0.6", optional = true }
+
 [workspace]
 members = [
     "crates/ogexplain-core",
     "crates/ogexplain-cli",
     "crates/ogexplain-tui",
+    "crates/ogsql-complexity",
 ]
 resolver = "2"
 
@@ -10,5 +44,3 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-
-

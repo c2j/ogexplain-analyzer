@@ -1,6 +1,7 @@
 pub mod analyzer;
 pub mod model;
 pub mod parser;
+pub mod sql;
 pub mod suggester;
 
 pub use parser::parse;

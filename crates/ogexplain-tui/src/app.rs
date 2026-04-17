@@ -105,6 +105,9 @@ pub struct App {
     plan_index: usize,
     report: Option<DiagnosticReport>,
     suggestions: Vec<Suggestion>,
+    complexity_report: Option<ogsql_complexity::ComplexityReport>,
+    extracted_sql: Option<String>,
+    show_complexity: bool,
 
     flattened_nodes: Vec<FlatNode>,
     selected_index: usize,
@@ -133,6 +136,9 @@ impl App {
             plan_index: 0,
             report: None,
             suggestions: Vec::new(),
+            complexity_report: None,
+            extracted_sql: None,
+            show_complexity: false,
             flattened_nodes: Vec::new(),
             selected_index: 0,
             expanded_lines: HashSet::new(),
@@ -184,7 +190,23 @@ impl App {
         let text = raw.replace('\r', "");
         self.error_message = None;
 
-        let _ = std::fs::write("/tmp/ogexplain_tui_debug.txt", &text);
+        let extracted = ogexplain_core::sql::ExtractedContent::from_text(&text);
+        if extracted.has_sql {
+            self.extracted_sql = Some(extracted.sql_text.clone());
+            match ogsql_complexity::analyze(&extracted.sql_text) {
+                Ok(report) => {
+                    self.complexity_report = Some(report);
+                    self.show_complexity = true;
+                }
+                Err(_) => {
+                    self.complexity_report = None;
+                }
+            }
+        } else {
+            self.extracted_sql = None;
+            self.complexity_report = None;
+            self.show_complexity = false;
+        }
 
         match ogexplain_core::parse_multi(&text) {
             Ok(plans) if !plans.is_empty() => {
@@ -193,23 +215,33 @@ impl App {
                 self.activate_plan(0);
             }
             Ok(_) => {
-                self.error_message = Some("No plan nodes found".to_string());
+                if self.complexity_report.is_some() {
+                    self.mode = AppMode::Browse;
+                    self.focus = FocusTarget::Tree;
+                } else {
+                    self.error_message = Some("No plan nodes found".to_string());
+                }
             }
             Err(e) => {
-                let preview: String = text
-                    .lines()
-                    .take(3)
-                    .map(|l| {
-                        if l.len() > 60 {
-                            format!("{}...", &l[..60])
-                        } else {
-                            l.to_string()
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(" | ");
-                self.error_message =
-                    Some(format!("{} ({}行 '{}')", e, text.lines().count(), preview));
+                if self.complexity_report.is_some() {
+                    self.mode = AppMode::Browse;
+                    self.focus = FocusTarget::Tree;
+                } else {
+                    let preview: String = text
+                        .lines()
+                        .take(3)
+                        .map(|l| {
+                            if l.len() > 60 {
+                                format!("{}...", &l[..60])
+                            } else {
+                                l.to_string()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    self.error_message =
+                        Some(format!("{} ({}行 '{}')", e, text.lines().count(), preview));
+                }
             }
         }
     }
@@ -497,6 +529,9 @@ impl App {
                 self.plans.clear();
                 self.report = None;
                 self.suggestions.clear();
+                self.complexity_report = None;
+                self.extracted_sql = None;
+                self.show_complexity = false;
                 self.flattened_nodes.clear();
                 self.severity_map.clear();
                 self.error_message = None;
@@ -510,6 +545,12 @@ impl App {
             Action::ToggleRawView => {
                 self.show_raw_view = !self.show_raw_view;
                 self.detail_scroll = 0;
+            }
+            Action::ToggleComplexity => {
+                if self.complexity_report.is_some() {
+                    self.show_complexity = !self.show_complexity;
+                    self.detail_scroll = 0;
+                }
             }
             Action::DetailPageUp => {
                 let page_size: u16 = 20;
@@ -686,6 +727,8 @@ impl App {
                 None,
                 &all_findings,
                 &self.suggestions,
+                self.complexity_report.as_ref(),
+                self.show_complexity,
                 self.detail_scroll,
                 self.focus == FocusTarget::Detail,
                 self.detail_line_count,
@@ -720,6 +763,8 @@ impl App {
                 node,
                 &findings,
                 &related_suggestions,
+                self.complexity_report.as_ref(),
+                self.show_complexity,
                 self.detail_scroll,
                 self.focus == FocusTarget::Detail,
                 self.detail_line_count,

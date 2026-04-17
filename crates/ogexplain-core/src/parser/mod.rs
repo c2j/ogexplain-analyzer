@@ -106,7 +106,7 @@ fn strip_regression_marker(line: &str) -> &str {
     line.strip_prefix("--?").unwrap_or(line)
 }
 
-fn is_sql_line(s: &str) -> bool {
+pub(crate) fn is_sql_line(s: &str) -> bool {
     let lower = s.to_lowercase();
     lower.starts_with("create ")
         || lower.starts_with("insert ")
@@ -125,7 +125,7 @@ fn is_sql_comment(lower: &str) -> bool {
     lower.starts_with("-- ") || lower == "--"
 }
 
-fn is_explain_sql_command(lower: &str) -> bool {
+pub(crate) fn is_explain_sql_command(lower: &str) -> bool {
     if !lower.starts_with("explain ") {
         return false;
     }
