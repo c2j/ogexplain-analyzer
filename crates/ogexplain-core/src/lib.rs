@@ -1,8 +1,12 @@
+rust_i18n::i18n!("i18n", fallback = "en");
+
 pub mod analyzer;
+pub mod i18n;
 pub mod model;
 pub mod parser;
 pub mod sql;
 pub mod suggester;
+pub mod summary;
 
 pub use parser::parse;
 pub use parser::parse_multi;

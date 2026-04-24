@@ -27,6 +27,7 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
     let mut current_explain: Vec<String> = Vec::new();
     let mut in_sql = false;
     let mut in_explain = false;
+    let mut prev_sql_ended_with_semi = false;
 
     let finalize_explain = |explain_lines: &[String]| -> Option<String> {
         let text = explain_lines.join("\n");
@@ -49,14 +50,7 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
             continue;
         }
 
-        let is_sql =
-            !in_explain && (is_sql_statement_start(trimmed) || crate::parser::is_sql_line(trimmed));
-        let is_explain_marker = trimmed == "QUERY PLAN" || trimmed.starts_with("---");
-        let is_explain_line = is_explain_output(trimmed) || is_explain_marker;
-        let is_rows_footer =
-            trimmed.starts_with('(') && trimmed.ends_with(" rows)") || trimmed == "(1 row)";
-
-        if is_rows_footer && in_explain {
+        if is_separator_comment(trimmed) && !in_explain {
             if !current_explain.is_empty() {
                 let sql = drain_sql(&mut current_sql, &mut in_sql);
                 let explain = finalize_explain(&current_explain);
@@ -66,14 +60,56 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
                         explain_text: explain,
                     });
                 }
-                current_explain.clear();
-                in_explain = false;
+            } else if !current_sql.is_empty() {
+                let sql = drain_sql(&mut current_sql, &mut in_sql);
+                if sql.is_some() {
+                    blocks.push(InputBlock {
+                        sql_text: sql,
+                        explain_text: String::new(),
+                    });
+                }
             }
+            current_explain.clear();
+            in_explain = false;
+            prev_sql_ended_with_semi = false;
+            continue;
+        }
+
+        let is_sql =
+            !in_explain && (is_sql_statement_start(trimmed) || crate::parser::is_sql_line(trimmed));
+        let is_explain_marker = trimmed == "QUERY PLAN" || trimmed.starts_with("---");
+        let is_explain_line = is_explain_output(trimmed) || is_explain_marker;
+        let is_rows_footer =
+            trimmed.starts_with('(') && trimmed.ends_with(" rows)") || trimmed == "(1 row)";
+
+        if is_rows_footer {
+            if in_explain && !current_explain.is_empty() {
+                let sql = drain_sql(&mut current_sql, &mut in_sql);
+                let explain = finalize_explain(&current_explain);
+                if let Some(explain) = explain {
+                    blocks.push(InputBlock {
+                        sql_text: sql,
+                        explain_text: explain,
+                    });
+                }
+            } else if in_explain || in_sql {
+                let sql = drain_sql(&mut current_sql, &mut in_sql);
+                if sql.is_some() {
+                    blocks.push(InputBlock {
+                        sql_text: sql,
+                        explain_text: String::new(),
+                    });
+                }
+            }
+            current_explain.clear();
+            in_explain = false;
+            prev_sql_ended_with_semi = false;
             continue;
         }
 
         if is_explain_line {
             in_explain = true;
+            prev_sql_ended_with_semi = false;
             if !is_explain_marker {
                 current_explain.push(line.to_string());
             }
@@ -81,6 +117,15 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
         }
 
         if is_sql && !in_explain {
+            if prev_sql_ended_with_semi && !current_sql.is_empty() {
+                let prev_sql = drain_sql(&mut current_sql, &mut in_sql);
+                if prev_sql.is_some() {
+                    blocks.push(InputBlock {
+                        sql_text: prev_sql,
+                        explain_text: String::new(),
+                    });
+                }
+            }
             in_sql = true;
             let sql_part = if crate::parser::is_explain_sql_command(&trimmed.to_lowercase()) {
                 extract_sql_from_explain_line(trimmed)
@@ -90,6 +135,7 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
             if let Some(part) = sql_part {
                 current_sql.push(part);
             }
+            prev_sql_ended_with_semi = trimmed.ends_with(';');
             continue;
         }
 
@@ -104,6 +150,7 @@ pub fn segment_input(text: &str) -> Vec<InputBlock> {
             if let Some(part) = sql_part {
                 current_sql.push(part);
             }
+            prev_sql_ended_with_semi = trimmed.ends_with(';');
         }
     }
 
@@ -230,6 +277,22 @@ impl ExtractedContent {
             has_sql,
         }
     }
+}
+
+/// Check if a line is a separator comment like `-- ===`, `-- ###`, `-- ---`, `-- @@@`, `-- ***`.
+fn is_separator_comment(s: &str) -> bool {
+    if !s.starts_with("--") {
+        return false;
+    }
+    let rest = s[2..].trim();
+    if rest.is_empty() {
+        return false;
+    }
+    let first = rest.chars().next().unwrap();
+    if !matches!(first, '=' | '@' | '#' | '-' | '*') {
+        return false;
+    }
+    rest.len() >= 3 && rest.chars().all(|c| c == first)
 }
 
 fn is_sql_statement_start(s: &str) -> bool {

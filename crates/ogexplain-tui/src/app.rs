@@ -7,6 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 use ratatui_textarea::TextArea;
+use rust_i18n::t;
 
 use ogexplain_core::analyzer::{DiagnosticReport, Finding, Severity};
 use ogexplain_core::model::node_type::NodeTypeCategory as NodeCategory;
@@ -106,6 +107,7 @@ pub struct App {
     report: Option<DiagnosticReport>,
     suggestions: Vec<Suggestion>,
     complexity_report: Option<ogsql_complexity::ComplexityReport>,
+    gauss_complexity_report: Option<ogsql_complexity::GaussDbComplexityReport>,
     extracted_sql: Option<String>,
     show_complexity: bool,
 
@@ -129,6 +131,12 @@ pub struct App {
     pub should_quit: bool,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl App {
     pub fn new() -> Self {
         Self {
@@ -137,6 +145,7 @@ impl App {
             report: None,
             suggestions: Vec::new(),
             complexity_report: None,
+            gauss_complexity_report: None,
             extracted_sql: None,
             show_complexity: false,
             flattened_nodes: Vec::new(),
@@ -202,9 +211,18 @@ impl App {
                     self.complexity_report = None;
                 }
             }
+            if let Ok(report) = ogsql_complexity::gauss_analyze(
+                &extracted.sql_text,
+                &ogsql_complexity::ComplexityConfig::default(),
+            ) {
+                self.gauss_complexity_report = Some(report);
+            } else {
+                self.gauss_complexity_report = None;
+            }
         } else {
             self.extracted_sql = None;
             self.complexity_report = None;
+            self.gauss_complexity_report = None;
             self.show_complexity = false;
         }
 
@@ -219,7 +237,7 @@ impl App {
                     self.mode = AppMode::Browse;
                     self.focus = FocusTarget::Tree;
                 } else {
-                    self.error_message = Some("No plan nodes found".to_string());
+                    self.error_message = Some(t!("tui.input.no_nodes").to_string());
                 }
             }
             Err(e) => {
@@ -240,7 +258,11 @@ impl App {
                         .collect::<Vec<_>>()
                         .join(" | ");
                     self.error_message =
-                        Some(format!("{} ({}行 '{}')", e, text.lines().count(), preview));
+                        Some(t!("tui.input.parse_error",
+                            error = e.to_string(),
+                            lines = text.lines().count(),
+                            preview = preview
+                        ).to_string());
                 }
             }
         }
@@ -446,7 +468,7 @@ impl App {
                                 self.do_parse();
                             }
                             Err(e) => {
-                                self.error_message = Some(format!("加载失败 {}: {}", path, e));
+                                self.error_message = Some(t!("tui.input.load_failed", path = path, error = e.to_string()).to_string());
                             }
                         }
                         return;
@@ -464,7 +486,7 @@ impl App {
                     self.do_parse();
                 }
                 Err(e) => {
-                    self.error_message = Some(format!("加载失败 {}: {}", path, e));
+                    self.error_message = Some(t!("tui.input.load_failed", path = path, error = e.to_string()).to_string());
                 }
             },
             Action::TreeUp => {
@@ -530,6 +552,7 @@ impl App {
                 self.report = None;
                 self.suggestions.clear();
                 self.complexity_report = None;
+                self.gauss_complexity_report = None;
                 self.extracted_sql = None;
                 self.show_complexity = false;
                 self.flattened_nodes.clear();
@@ -645,22 +668,22 @@ impl App {
 
         let right_spans: Vec<Span<'_>> = match self.mode {
             AppMode::Input => vec![
-                Span::styled(" 粘贴EXPLAIN文本后按 ", hint_style),
+                Span::styled(t!("tui.title.hint_paste"), hint_style),
                 Span::styled("Ctrl+P", key_style),
-                Span::styled(" 解析", hint_style),
+                Span::styled(t!("tui.title.hint_parse"), hint_style),
             ],
             AppMode::Browse => match self.focus {
                 FocusTarget::Input => vec![
-                    Span::styled(" 编辑区 ", mode_style),
+                    Span::styled(t!("tui.title.edit_area"), mode_style),
                     Span::styled("│ ", hint_style),
                     Span::styled("Ctrl+P", key_style),
-                    Span::styled(" 重新解析", hint_style),
+                    Span::styled(t!("tui.title.reparse"), hint_style),
                 ],
                 _ => vec![
-                    Span::styled(" 浏览模式 ", mode_style),
+                    Span::styled(t!("tui.title.browse_mode"), mode_style),
                     Span::styled("│ ", hint_style),
                     Span::styled("?", key_style),
-                    Span::styled(" 查看全部快捷键", hint_style),
+                    Span::styled(t!("tui.title.all_keys"), hint_style),
                 ],
             },
         };
@@ -704,7 +727,7 @@ impl App {
                 Style::default().fg(Color::DarkGray)
             };
             let block = Block::default()
-                .title(" 原始执行计划 (r 返回) ")
+                .title(t!("tui.raw.title"))
                 .borders(Borders::ALL)
                 .border_style(border_style);
 
@@ -729,9 +752,11 @@ impl App {
                 &self.suggestions,
                 self.complexity_report.as_ref(),
                 self.show_complexity,
+                self.gauss_complexity_report.as_ref(),
                 self.detail_scroll,
                 self.focus == FocusTarget::Detail,
                 self.detail_line_count,
+                self.current_plan(),
             );
         } else {
             let selected_node = self.selected_flat_node();
@@ -765,9 +790,11 @@ impl App {
                 &related_suggestions,
                 self.complexity_report.as_ref(),
                 self.show_complexity,
+                self.gauss_complexity_report.as_ref(),
                 self.detail_scroll,
                 self.focus == FocusTarget::Detail,
                 self.detail_line_count,
+                self.current_plan(),
             );
         }
     }
@@ -776,11 +803,11 @@ impl App {
         let focused = self.focus == FocusTarget::Input;
 
         let title = if self.error_message.is_some() {
-            " 输入 [错误] "
+            t!("tui.input.error")
         } else if self.mode == AppMode::Input {
-            " 输入 (Ctrl+P 解析) "
+            t!("tui.input.parse_hint")
         } else {
-            " 输入 "
+            t!("tui.input.title")
         };
 
         let border_style = if focused {
@@ -807,7 +834,7 @@ impl App {
 
         if let Some(err) = &self.error_message {
             let err_line = Line::from(Span::styled(
-                format!(" 错误: {}", err),
+                t!("tui.input.error_prefix", msg = err),
                 Style::default().fg(Color::Red),
             ));
             let inner = Block::default()

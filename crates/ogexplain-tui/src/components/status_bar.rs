@@ -3,6 +3,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
+use rust_i18n::t;
 
 use crate::app::{AppMode, FocusTarget};
 
@@ -23,81 +24,81 @@ pub fn render(
 
     let spans = match mode {
         AppMode::Input => vec![
-            span(" 粘贴EXPLAIN文本 → ", sep),
+            span(&t!("tui.status.paste_hint"), sep),
             span("Ctrl+P", k),
-            span("解析  ", d),
+            span(&t!("tui.status.parse"), d),
             span("Ctrl+L", k),
-            span("清空  ", d),
+            span(&t!("tui.status.clear"), d),
             span(":load", k),
-            span("文件  ", d),
+            span(&t!("tui.status.file"), d),
             span("│ ", sep),
             span("?", k),
-            span("帮助 ", d),
+            span(&t!("tui.status.help"), d),
         ],
         AppMode::Browse => match focus {
             FocusTarget::Tree => {
                 let mut v = Vec::new();
                 if multi {
-                    v.extend_from_slice(&[span("N/P", k), span("切换计划  ", d), span("│ ", sep)]);
+                    v.extend_from_slice(&[span("N/P", k), span(&t!("tui.status.switch_plan"), d), span("│ ", sep)]);
                 }
                 v.extend_from_slice(&[
                     span("↑↓", k),
-                    span("选择  ", d),
+                    span(&t!("tui.status.select"), d),
                     span("Enter", k),
-                    span("展开/折叠  ", d),
+                    span(&t!("tui.status.expand_collapse"), d),
                     span("E/W", k),
-                    span("全展开/全折叠  ", d),
+                    span(&t!("tui.status.all_expand_collapse"), d),
                     span("g/G", k),
-                    span("跳首/跳尾  ", d),
+                    span(&t!("tui.status.jump_top_bottom"), d),
                     span("│ ", sep),
                     span("r", k),
-                    span("原始计划  ", d),
+                    span(&t!("tui.status.raw_plan"), d),
                     span("c", k),
-                    span("复杂度  ", d),
+                    span(&t!("tui.status.complexity"), d),
                     span("F", k),
-                    span("全部诊断  ", d),
+                    span(&t!("tui.status.all_diag"), d),
                     span("?", k),
-                    span("帮助 ", d),
+                    span(&t!("tui.status.help"), d),
                 ]);
                 v
             }
             FocusTarget::Detail => {
                 let mut v = Vec::new();
                 if multi {
-                    v.extend_from_slice(&[span("N/P", k), span("切换计划  ", d), span("│ ", sep)]);
+                    v.extend_from_slice(&[span("N/P", k), span(&t!("tui.status.switch_plan"), d), span("│ ", sep)]);
                 }
                 v.extend_from_slice(&[
                     span("↑↓", k),
-                    span("滚动  ", d),
+                    span(&t!("tui.status.scroll"), d),
                     span("PgUp/PgDn", k),
-                    span("翻页  ", d),
+                    span(&t!("tui.status.page_up_down"), d),
                     span("Home/End", k),
-                    span("跳首/跳尾  ", d),
+                    span(&t!("tui.status.jump_top_bottom"), d),
                     span("│ ", sep),
                     span("r", k),
-                    span("原始计划  ", d),
+                    span(&t!("tui.status.raw_plan"), d),
                     span("c", k),
-                    span("复杂度  ", d),
+                    span(&t!("tui.status.complexity"), d),
                     span("F", k),
-                    span("回到节点  ", d),
+                    span(&t!("tui.status.back_to_node"), d),
                     span("Tab", k),
-                    span("切换面板  ", d),
+                    span(&t!("tui.status.switch_panel"), d),
                     span("?", k),
-                    span("帮助 ", d),
+                    span(&t!("tui.status.help"), d),
                 ]);
                 v
             }
             FocusTarget::Input => vec![
-                span("粘贴新EXPLAIN → ", sep),
+                span(&t!("tui.status.paste_new"), sep),
                 span("Ctrl+P", k),
-                span("重新解析  ", d),
+                span(&t!("tui.status.reparse"), d),
                 span("Ctrl+L", k),
-                span("清空  ", d),
+                span(&t!("tui.status.clear"), d),
                 span("│ ", sep),
                 span("Tab", k),
-                span("回到计划树  ", d),
+                span(&t!("tui.status.back_to_tree"), d),
                 span("?", k),
-                span("帮助 ", d),
+                span(&t!("tui.status.help"), d),
             ],
         },
     };

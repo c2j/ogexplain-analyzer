@@ -3,6 +3,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, HighlightSpacing, List, ListItem, ListState};
 use ratatui::Frame;
+use rust_i18n::t;
 
 use crate::app::FlatNode;
 use ogexplain_core::analyzer::Severity;
@@ -21,12 +22,11 @@ pub fn render(
     };
 
     let title = if nodes.is_empty() {
-        " 计划树 ".to_string()
+        t!("tui.tree.title")
     } else {
-        format!(
-            " 计划树 ({}/{}) ",
-            selected.min(nodes.len() - 1) + 1,
-            nodes.len()
+        t!("tui.tree.title_multi",
+            current = selected.min(nodes.len() - 1) + 1,
+            total = nodes.len()
         )
     };
 
@@ -57,7 +57,7 @@ pub fn render(
             };
 
             let rel = match &node.relation {
-                Some(r) if !r.is_empty() => format!(" 表={}", r),
+                Some(r) if !r.is_empty() => t!("tui.tree.relation", name = r).to_string(),
                 _ => String::new(),
             };
 

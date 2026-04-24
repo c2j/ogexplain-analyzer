@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use crate::model::{ComplexityMetrics, StatementTypeMultiplier};
 use ogsql_parser::ast::{
-    Expr, GroupByItem, InsertSource, SelectStatement, SelectTarget, SetOperation, Statement,
-    TableRef, WithClause,
+    ColumnConstraint, Expr, GroupByItem, InsertSource, SelectStatement, SelectTarget, SetOperation,
+    Statement, TableConstraint, TableRef, WithClause,
 };
 use ogsql_parser::ObjectName;
 
@@ -83,11 +83,24 @@ pub fn analyze_statement(stmt: &Statement) -> ComplexityMetrics {
     visitor.metrics
 }
 
+/// GaussDB-mode analysis: WHERE conditions counted as existence-only (1 per WHERE clause),
+/// and `line_count` is populated from the raw SQL text.
+pub fn analyze_statement_gauss(stmt: &Statement, sql_text: &str) -> ComplexityMetrics {
+    let mut visitor = ComplexityVisitor {
+        gaussdb_where_mode: true,
+        ..Default::default()
+    };
+    visitor.visit_statement(stmt);
+    visitor.metrics.line_count = sql_text.lines().count();
+    visitor.metrics
+}
+
 #[derive(Default)]
 struct ComplexityVisitor {
     metrics: ComplexityMetrics,
     cte_names: HashSet<String>,
     current_depth: usize,
+    gaussdb_where_mode: bool,
 }
 
 impl ComplexityVisitor {
@@ -96,6 +109,7 @@ impl ComplexityVisitor {
             Statement::Select(s) => self.visit_select(s),
             Statement::Insert(i) => {
                 self.metrics.table_count += 1;
+                self.metrics.hint_count += i.hints.len();
                 if let InsertSource::Select(sel) = &i.source {
                     self.visit_select(sel);
                 }
@@ -114,6 +128,7 @@ impl ComplexityVisitor {
                 self.visit_select(&if_.source);
             }
             Statement::Update(u) => {
+                self.metrics.hint_count += u.hints.len();
                 for t in &u.tables {
                     self.count_table_ref(t);
                 }
@@ -134,6 +149,7 @@ impl ComplexityVisitor {
                 }
             }
             Statement::Delete(d) => {
+                self.metrics.hint_count += d.hints.len();
                 for t in &d.tables {
                     self.count_table_ref(t);
                 }
@@ -151,6 +167,7 @@ impl ComplexityVisitor {
                 }
             }
             Statement::Merge(m) => {
+                self.metrics.hint_count += m.hints.len();
                 self.count_table_ref(&m.target);
                 self.count_table_ref(&m.source);
                 self.metrics.join_count += 1;
@@ -159,11 +176,31 @@ impl ComplexityVisitor {
             Statement::Explain(e) => {
                 self.visit_statement(&e.query);
             }
+            Statement::CreateTable(ct) => {
+                self.metrics.table_count += 1;
+                self.metrics.column_count = ct.columns.len();
+                for col in &ct.columns {
+                    for constraint in &col.constraints {
+                        match constraint {
+                            ColumnConstraint::Default(_) => self.metrics.computed_column_count += 1,
+                            ColumnConstraint::Check(_) => self.metrics.check_constraint_count += 1,
+                            _ => {}
+                        }
+                    }
+                }
+                for constraint in &ct.constraints {
+                    if matches!(constraint, TableConstraint::Check(_)) {
+                        self.metrics.check_constraint_count += 1;
+                    }
+                }
+            }
             _ => {}
         }
     }
 
     fn visit_select(&mut self, select: &SelectStatement) {
+        self.metrics.hint_count += select.hints.len();
+
         if let Some(with) = &select.with {
             self.visit_with_clause(with);
         }
@@ -285,6 +322,9 @@ impl ComplexityVisitor {
     }
 
     fn count_conditions(&self, expr: &Expr) -> usize {
+        if self.gaussdb_where_mode {
+            return 1;
+        }
         match expr {
             Expr::BinaryOp { op, left, right } => {
                 let op_upper = op.to_uppercase();

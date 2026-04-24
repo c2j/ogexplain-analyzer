@@ -278,3 +278,414 @@ fn test_distinct_flag() {
     let s = &report.statements[0];
     assert!(s.metrics.has_distinct, "Should detect DISTINCT");
 }
+
+// ============================================================================
+// GaussDB Scoring Tests
+// ============================================================================
+
+use ogsql_complexity::{gauss_analyze, ComplexityConfig, InputKind};
+
+#[test]
+fn test_gauss_simple_select() {
+    let sql = "SELECT * FROM users WHERE id = 1";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+    // table=1, where=1 (GaussDB mode counts WHERE as 1)
+    // score = 1×10 + 1×5 = 15
+    assert_eq!(report.overall_score, 15);
+}
+
+#[test]
+fn test_gauss_select_with_join() {
+    let sql =
+        "SELECT u.name, o.total FROM users u JOIN orders o ON u.id = o.user_id WHERE o.total > 100";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+    // table=2, join=1, where=1
+    // score = 2×10 + 1×15 + 1×5 = 40
+    assert_eq!(report.overall_score, 40);
+}
+
+#[test]
+fn test_gauss_select_complex() {
+    let sql = "SELECT department, CASE WHEN salary > 100000 THEN 'high' ELSE 'normal' END AS level, COUNT(*) AS cnt FROM employees WHERE department IN (SELECT name FROM departments WHERE active = 1) GROUP BY department ORDER BY cnt DESC";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+
+    let m = &report.pl_metrics;
+    assert!(
+        m.table_count >= 2,
+        "table_count should be >= 2, got {}",
+        m.table_count
+    );
+    assert!(
+        m.subquery_count >= 1,
+        "subquery_count >= 1, got {}",
+        m.subquery_count
+    );
+    assert!(m.aggregate_function_count >= 1);
+    assert!(m.case_expression_count >= 1);
+
+    let expected = m.table_count as i64 * 10
+        + m.join_count as i64 * 15
+        + m.where_condition_count as i64 * 5
+        + m.subquery_count as i64 * 20
+        + m.aggregate_function_count as i64 * 10
+        + m.case_expression_count as i64 * 5
+        + m.set_operation_count as i64 * 15
+        + if m.has_group_by { 5 } else { 0 }
+        + if m.has_order_by { 5 } else { 0 };
+    assert_eq!(report.overall_score, expected);
+}
+
+#[test]
+fn test_gauss_insert() {
+    let sql = "INSERT INTO logs (user_id, action) VALUES (1, 'login')";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+    // Non-SELECT formula: table_count × 10 + hint_count × 3
+    // table=1, hint=0 → 1×10 + 0×3 = 10
+    assert_eq!(report.overall_score, 10);
+}
+
+#[test]
+fn test_gauss_update_with_hint() {
+    let sql = "UPDATE users SET active = false WHERE last_login < '2024-01-01'";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+    let m = &report.pl_metrics;
+    assert!(
+        m.table_count >= 1,
+        "table_count >= 1, got {}",
+        m.table_count
+    );
+    let expected = m.table_count as i64 * 10 + m.hint_count as i64 * 3;
+    assert_eq!(report.overall_score, expected);
+}
+
+#[test]
+fn test_gauss_create_table() {
+    let sql = "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100) DEFAULT 'unknown', email VARCHAR(200), CHECK (id > 0))";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::SqlStatement);
+    let m = &report.pl_metrics;
+    // column_count=3 (id, name, email), computed_column=1 (DEFAULT), check_constraint=1 (CHECK)
+    assert_eq!(m.column_count, 3);
+    assert_eq!(m.computed_column_count, 1);
+    assert_eq!(m.check_constraint_count, 1);
+    // score = 10 + 3×2 + 1×15 + 1×10 = 41
+    assert_eq!(report.overall_score, 41);
+}
+
+#[test]
+fn test_gauss_where_exists_only() {
+    let sql = "SELECT * FROM users WHERE a = 1 AND b = 2 AND c = 3";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    // In GaussDB mode, WHERE counts as 1 regardless of AND/OR conditions
+    assert_eq!(report.pl_metrics.where_condition_count, 1);
+}
+
+#[test]
+fn test_gauss_hint_counting() {
+    let sql = "SELECT * FROM t1 JOIN t2 ON t1.id = t2.id";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(
+        report.pl_metrics.hint_count, 0,
+        "Query without hints should have hint_count=0"
+    );
+    assert_eq!(report.pl_metrics.table_count, 2);
+    assert_eq!(report.pl_metrics.join_count, 1);
+}
+
+#[test]
+fn test_gauss_simple_procedure() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE simple_proc()
+AS $$
+BEGIN
+    INSERT INTO logs (msg) VALUES ('hello');
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    assert!(report.overall_score >= 0);
+    assert_eq!(report.pl_metrics.loop_count, 0);
+    assert_eq!(report.pl_metrics.cursor_count, 0);
+    assert_eq!(report.pl_metrics.dynamic_sql_count, 0);
+}
+
+#[test]
+fn test_gauss_procedure_with_loops() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE loop_proc()
+AS $$
+DECLARE
+    i INT;
+    j INT;
+BEGIN
+    FOR i IN 1..10 LOOP
+        FOR j IN 1..5 LOOP
+            INSERT INTO logs (msg) VALUES ('nested');
+        END LOOP;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    assert_eq!(m.loop_count, 2, "Should have 2 loops");
+    assert_eq!(m.max_loop_nesting_level, 2, "Max loop nesting should be 2");
+}
+
+#[test]
+fn test_gauss_procedure_with_cursor() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE cursor_proc()
+AS $$
+DECLARE
+    cur CURSOR FOR SELECT id, name FROM users;
+    v_id INT;
+    v_name VARCHAR;
+BEGIN
+    OPEN cur;
+    FETCH cur INTO v_id, v_name;
+    CLOSE cur;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    assert_eq!(m.cursor_count, 1, "Should have 1 cursor declaration");
+    assert_eq!(
+        m.cursor_operation_count, 3,
+        "Should have 3 cursor ops (OPEN + FETCH + CLOSE)"
+    );
+}
+
+#[test]
+fn test_gauss_procedure_with_dynamic_sql() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE dynamic_proc()
+AS $$
+DECLARE
+    v_sql VARCHAR := 'SELECT * FROM users WHERE id = $1';
+BEGIN
+    EXECUTE IMMEDIATE v_sql USING 42;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    assert_eq!(m.dynamic_sql_count, 1, "Should have 1 dynamic SQL");
+    assert_eq!(
+        m.param_binding_count, 1,
+        "Should have 1 parameter binding (USING)"
+    );
+}
+
+#[test]
+fn test_gauss_procedure_with_transactions() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE tx_proc()
+AS $$
+BEGIN
+    INSERT INTO orders (user_id, total) VALUES (1, 100);
+    SAVEPOINT sp1;
+    UPDATE orders SET total = 200 WHERE user_id = 1;
+    COMMIT;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    // SAVEPOINT + COMMIT = 2 transaction control ops
+    assert_eq!(
+        m.transaction_control_count, 2,
+        "Should have 2 txn controls (SAVEPOINT + COMMIT), got {}",
+        m.transaction_control_count
+    );
+    // SAVEPOINT creates 1 subtransaction
+    assert_eq!(
+        m.subtransaction_count, 1,
+        "Should have 1 subtransaction (SAVEPOINT), got {}",
+        m.subtransaction_count
+    );
+}
+
+#[test]
+fn test_gauss_procedure_with_pragma() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE auto_proc()
+AS $$
+DECLARE
+    PRAGMA autonomous_transaction;
+BEGIN
+    INSERT INTO audit_log (msg) VALUES ('autonomous');
+    COMMIT;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    if m.uses_autonomous_transactions {
+        assert_eq!(report.score_breakdown.autonomous_transaction_bonus, 15);
+    } else {
+        assert_eq!(report.score_breakdown.autonomous_transaction_bonus, 0);
+    }
+    assert!(m.transaction_control_count >= 1, "Should detect COMMIT");
+}
+
+#[test]
+fn test_gauss_java_minimum_score() {
+    let sql = r#"
+CREATE FUNCTION java_func() RETURNS INTEGER
+LANGUAGE JAVA
+AS $$ return 42; $$
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    let m = &report.pl_metrics;
+    if m.java_stored_procedure_count > 0 {
+        assert!(
+            report.overall_score >= 50,
+            "Java stored procedure should have minimum score of 50, got {}",
+            report.overall_score
+        );
+    }
+}
+
+#[test]
+fn test_gauss_custom_functions() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE custom_fn_proc()
+AS $$
+BEGIN
+    PERFORM my_custom_func(42);
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let config = ComplexityConfig {
+        custom_functions: vec!["my_custom_func".into()],
+        ..Default::default()
+    };
+    let report = gauss_analyze(sql, &config).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    assert!(
+        report.pl_metrics.custom_function_count <= 1,
+        "custom_function_count should be 0 or 1, got {}",
+        report.pl_metrics.custom_function_count
+    );
+}
+
+#[test]
+fn test_gauss_anonymous_block() {
+    let sql = r#"
+DO $$
+BEGIN
+    FOR i IN 1..10 LOOP
+        INSERT INTO logs (msg) VALUES ('hello');
+    END LOOP;
+END;
+$$
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::AnonymousBlock);
+    assert_eq!(report.pl_metrics.loop_count, 1, "Should have 1 loop");
+}
+
+#[test]
+fn test_gauss_empty_input() {
+    let result = gauss_analyze("", &ComplexityConfig::default());
+    assert!(result.is_err(), "Empty input should return error");
+}
+
+#[test]
+fn test_gauss_procedure_full_formula() {
+    let sql = r#"
+CREATE OR REPLACE PROCEDURE full_proc()
+AS $$
+DECLARE
+    cur CURSOR FOR SELECT id, name FROM users;
+    v_id INT;
+    v_name VARCHAR;
+    v_sql VARCHAR;
+BEGIN
+    OPEN cur;
+    FOR i IN 1..5 LOOP
+        INSERT INTO logs (msg) VALUES ('processing');
+    END LOOP;
+    CLOSE cur;
+
+    EXECUTE IMMEDIATE v_sql USING v_id;
+
+    SAVEPOINT sp1;
+    COMMIT;
+END;
+$$ LANGUAGE plpgsql
+"#;
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    assert_eq!(report.input_kind, InputKind::StoredProcedure);
+    let m = &report.pl_metrics;
+    let bd = &report.score_breakdown;
+
+    // Each breakdown component should equal its weight × metric count
+    assert_eq!(
+        bd.loop_complexity,
+        m.loop_count as i64 * 15 + m.max_loop_nesting_level as i64 * 20
+    );
+    assert_eq!(
+        bd.cursor_complexity,
+        m.cursor_count as i64 * 10 + m.cursor_operation_count as i64 * 5
+    );
+    assert_eq!(bd.dynamic_sql_complexity, m.dynamic_sql_count as i64 * 15);
+    assert_eq!(
+        bd.param_binding_complexity,
+        m.param_binding_count as i64 * 5
+    );
+    assert_eq!(
+        bd.transaction_complexity,
+        m.transaction_control_count as i64 * 10 + m.transaction_nesting_level as i64 * 20
+    );
+
+    assert_eq!(bd.custom_function_complexity, 0);
+    assert_eq!(bd.high_weight_table_complexity, 0);
+    assert_eq!(bd.nested_procedure_complexity, 0);
+    assert_eq!(bd.high_weight_procedure_complexity, 0);
+    assert_eq!(bd.autonomous_transaction_bonus, 0);
+    assert_eq!(bd.java_procedure_complexity, 0);
+    assert_eq!(bd.java_type_conversion_complexity, 0);
+    assert_eq!(bd.package_complexity, 0);
+}
+
+#[test]
+fn test_gauss_score_breakdown_populated() {
+    let sql = "SELECT * FROM users WHERE id = 1";
+    let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
+    let bd = &report.score_breakdown;
+
+    // For a plain SELECT, PL-specific breakdown fields must be 0
+    assert_eq!(bd.loop_complexity, 0);
+    assert_eq!(bd.cursor_complexity, 0);
+    assert_eq!(bd.dynamic_sql_complexity, 0);
+    assert_eq!(bd.transaction_complexity, 0);
+    assert_eq!(bd.autonomous_transaction_bonus, 0);
+    assert_eq!(bd.java_procedure_complexity, 0);
+    assert_eq!(bd.package_complexity, 0);
+
+    // sql_statement_scores should have exactly one entry
+    assert_eq!(
+        report.sql_statement_scores.len(),
+        1,
+        "Should have exactly 1 SQL statement score"
+    );
+    // That entry should equal the overall score for a standalone SELECT
+    assert_eq!(report.sql_statement_scores[0], report.overall_score);
+
+    // sql_statements_sum in breakdown should also match
+    assert_eq!(bd.sql_statements_sum, report.overall_score);
+}

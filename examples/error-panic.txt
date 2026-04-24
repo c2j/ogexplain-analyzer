@@ -1,0 +1,113 @@
+
+SELECT -1 * NVL(SUM(T.DGH_VALUE), 0) / 100
+               INTO V_EXT_QUANTITY
+               FROM V_DAT_TRD_PROXY_BALANCE T,
+                    V_PAR_INVEST_ACNT_INFO  N,
+                    PAR_SYS_SECURITIES      V
+              WHERE T.BCRQ = v_deal_date
+                AND T.MEMBER_ACNT = N.INVEST_ACNT
+                AND N.ACNT_ID = R_SECU_DTL.ACCOUNT_ID
+                AND V.SECURITY_ID = R_SECU_DTL.SECURITY_ID
+                AND T.PRODUCT_CODE = DECODE(V.MAIN_MARKET_CODE,GLOBAL_TSH_MARKET_CODE,V.STOCK_CODE||'SH',
+                GLOBAL_TSZ_MARKET_CODE,V.STOCK_CODE||'SZ',V.STOCK_CODE)
+                AND V.STOCK_STATUS = '00' --上市流通
+                AND V.MAIN_MARKET_CODE IN ('003', '046',GLOBAL_TSH_MARKET_CODE,GLOBAL_TSZ_MARKET_CODE) --上清所
+                AND v_deal_date BETWEEN V.INURE_BEGIN_DATE AND V.INURE_END_DATE;
+
+SELECT b.fund_name, --组合代码
+a.ref_no, --关联流水号
+a.seq_code, --序号
+a.accnt_code, --账号
+a.accnt_name, --账号名称
+a.accnt_date, --入账日期
+a.debit, --借方发生
+a.credit, --贷方发生
+a.balance, --当前余额
+c.coin_name, --币种名称
+a.summary, --摘要
+a.opp_accnt, --对方帐号
+a.opp_name, --对方户名
+a.report_type, --报表类型
+a.begin_date, --开始日期
+a.end_date, --结束日期
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'', --占位用
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              ''
+FROM dat_zl_accounthistoryresult a
+LEFT JOIN par_fund_info b ON a.fund_id = b.fund_id
+LEFT JOIN par_sys_coin c ON a.coin_code = c.coin_code
+WHERE a.send_recv = '1'
+AND a.fund_id = p_i_fund_id
+AND a.begin_date = p_i_data_date
+AND b.fund_code IN (SELECT fund_code
+FROM v_fundcode_priv
+WHERE user_id = i_user_id
+AND role = i_role_id)
+        and rownum <=10000
+        ORDER BY a.seq_code,
+a.ref_no;
+Query Plan
+==========================
+Sort  (cost=31.92..31.93 rows=1 width=247)
+ Sort Key: a.seq_code, a.ref_no
+ ->  Rownum  (cost=27.32..31.91 rows=1 width=247)
+       StopKey: (ROWNUM <= 10000)
+       ->  Nested Loop Left Join  (cost=27.32..31.91 rows=1 width=247)
+             ->  Hash Left Join  (cost=27.32..29.62 rows=1 width=247)
+                   Hash Cond: ((a.fund_id)::text = (b.fund_id)::text)
+                   Filter: (hashed SubPlan 1)
+                   ->  Partition Iterator  (cost=0.00..2.29 rows=1 width=232)
+                         Iterations: 1
+                         ->  Partitioned Index Scan using ind_dat_zl_acnthisresult on dat_zl_accounthistoryresult a  (cost=0.00..2.29 rows=1 width=232)
+                               Index Cond: (((begin_date)::text = '202405'::text) AND ((fund_id)::text = '202405'::text) AND ((send_recv)::text = '1'::text))
+                               Selected Partitions:  21
+                   ->  Hash  (cost=2.28..2.28 rows=1 width=41)
+                         ->  Index Scan using uk_par_fund_info on par_fund_info b  (cost=0.00..2.28 rows=1 width=41)
+                               Index Cond: ((fund_id)::text = '202405'::text)
+                   SubPlan 1
+                     ->  Subquery Scan on v_fundcode_priv  (cost=24.84..25.00 rows=8 width=34)
+                           ->  HashAggregate  (cost=24.84..24.92 rows=8 width=20)
+                                 Group By Key: f.user_id, f.role_id, f.fund_code
+                                 ->  Append  (cost=0.00..24.78 rows=8 width=20)
+                                       ->  Nested Loop Semi Join  (cost=0.00..4.58 rows=1 width=21)
+                                             ->  Index Only Scan using pk_fundcode_priv_fund on fundcode_priv_fund f  (cost=0.00..2.28 rows=1 width=21)
+                                                   Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text))
+                                             ->  Index Only Scan using pk_par_fund_info on par_fund_info fi  (cost=0.00..2.28 rows=1 width=7)
+                                                   Index Cond: (fund_code = (f.fund_code)::text)
+                                       ->  Nested Loop  (cost=0.00..17.83 rows=6 width=20)
+                                             ->  Nested Loop  (cost=0.00..15.82 rows=7 width=22)
+                                                   ->  Nested Loop  (cost=0.00..9.17 rows=1 width=24)
+                                                         ->  Nested Loop  (cost=0.00..6.87 rows=1 width=19)
+                                                               ->  Nested Loop  (cost=0.00..4.58 rows=1 width=17)
+                                                                     ->  Index Only Scan using pk_fundcode_priv_asset on fundcode_priv_asset a  (cost=0.00..2.28 rows=1 width=15)
+                                                                           Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text))
+                                                                     ->  Index Only Scan using pk_fundcode_priv_invest on fundcode_priv_invest i  (cost=0.00..2.28 rows=1 width=15)
+                                                                           Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text))
+                                                               ->  Index Only Scan using pk_fundcode_priv_fundkind on fundcode_priv_fundkind fk  (cost=0.00..2.28 rows=1 width=15)
+                                                                     Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text))
+                                                         ->  Index Only Scan using pk_fundcode_priv_area on fundcode_priv_area c  (cost=0.00..2.28 rows=1 width=18)
+                                                               Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text))
+                                                   ->  Index Scan using ind_par_fund_info on par_fund_info f  (cost=0.00..6.60 rows=5 width=20)
+                                                         Index Cond: (((area_code)::text = (c.area_code)::text) AND ((asset_type)::text = (a.asset_type)::text) AND ((fund_kind)::text = (fk.fund_kind)::text) AND ((invest_kind)::text = (i.invest_kind)::text))
+                                                         Filter: ((fund_status)::text <> '2'::text)
+                                             ->  Index Only Scan using pk_fundcode_priv_lite on fundcode_priv_lite d  (cost=0.00..0.28 rows=1 width=15)
+                                                   Index Cond: ((user_id = '202405'::text) AND (role_id = '202405'::text) AND (lite_flag = (f.lite_flag)::text))
+                                       ->  Index Scan using ind__priv_hand_over on priv_hand_over p  (cost=0.00..2.29 rows=1 width=22)
+                                             Index Cond: (((targetuser_id)::text = '202405'::text) AND ((role_id)::text = '202405'::text))
+                                             Filter: ((falg)::text = '1'::text)
+             ->  Index Scan using pk_par_sys_coin on par_sys_coin c  (cost=0.00..2.28 rows=1 width=8)
+                   Index Cond: ((a.coin_code)::text = (coin_code)::text)
+(00 rows)

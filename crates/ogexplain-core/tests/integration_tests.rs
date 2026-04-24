@@ -158,3 +158,122 @@ ORDER BY embedding <-> '[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]' LIMI
         "SQL text should not contain EXPLAIN output"
     );
 }
+
+#[test]
+fn segment_pure_sql_with_semicolons() {
+    let input = "\
+SELECT * FROM users WHERE id = 1;
+
+SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id;
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(
+        blocks[0].sql_text.as_deref(),
+        Some("SELECT * FROM users WHERE id = 1;")
+    );
+    assert!(blocks[0].explain_text.is_empty());
+    assert_eq!(
+        blocks[1].sql_text.as_deref(),
+        Some("SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id;")
+    );
+    assert!(blocks[1].explain_text.is_empty());
+}
+
+#[test]
+fn segment_sql_with_separator_comments() {
+    let input = "\
+SELECT * FROM users WHERE id = 1;
+-- ========================================
+SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id;
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(
+        blocks[0].sql_text.as_deref(),
+        Some("SELECT * FROM users WHERE id = 1;")
+    );
+    assert!(blocks[0].explain_text.is_empty());
+    assert_eq!(
+        blocks[1].sql_text.as_deref(),
+        Some("SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id;")
+    );
+    assert!(blocks[1].explain_text.is_empty());
+}
+
+#[test]
+fn segment_mixed_sql_explain_with_separator() {
+    let input = "\
+SELECT * FROM users WHERE id = 1;
+-- ========================================
+                                    QUERY PLAN
+--------------------------------------------------------------------------------
+ Seq Scan on users  (cost=0.00..35.50 rows=2550 width=4)
+(1 row)
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(
+        blocks[0].sql_text.as_deref(),
+        Some("SELECT * FROM users WHERE id = 1;")
+    );
+    assert!(blocks[0].explain_text.is_empty());
+    assert!(blocks[1].sql_text.is_none());
+    assert!(blocks[1].explain_text.contains("Seq Scan"));
+}
+
+#[test]
+fn segment_sql_without_semicolons() {
+    let input = "\
+SELECT * FROM users
+WHERE id = 1
+AND status = 'active'
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 1);
+    let sql = blocks[0].sql_text.as_deref().unwrap();
+    assert!(sql.contains("SELECT * FROM users"));
+    assert!(sql.contains("WHERE id = 1"));
+    assert!(sql.contains("AND status = 'active'"));
+    assert!(blocks[0].explain_text.is_empty());
+}
+
+#[test]
+fn segment_multiple_explain_preserved() {
+    let input = "\
+SELECT 1;
+                                QUERY PLAN
+--------------------------------------------------------------------------
+ Result  (cost=0.00..0.01 rows=1 width=4)
+(1 row)
+
+SELECT 2;
+                                QUERY PLAN
+--------------------------------------------------------------------------
+ Result  (cost=0.00..0.01 rows=1 width=4)
+(1 row)
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(blocks[0].sql_text.as_deref(), Some("SELECT 1;"));
+    assert!(blocks[0].explain_text.contains("Result"));
+    assert_eq!(blocks[1].sql_text.as_deref(), Some("SELECT 2;"));
+    assert!(blocks[1].explain_text.contains("Result"));
+}
+
+#[test]
+fn segment_separator_in_explain_ignored() {
+    let input = "\
+                                QUERY PLAN
+--------------------------------------------------------------------------
+ Result  (cost=0.00..0.01 rows=1 width=4)
+-- =======================================================================
+ Seq Scan on users  (cost=0.00..35.50 rows=2550 width=4)
+(2 rows)
+";
+    let blocks = ogexplain_core::sql::segment_input(input);
+    assert_eq!(blocks.len(), 1);
+    assert!(blocks[0].sql_text.is_none());
+    assert!(blocks[0].explain_text.contains("Result"));
+    assert!(blocks[0].explain_text.contains("Seq Scan"));
+}

@@ -1,3 +1,5 @@
+rust_i18n::i18n!("../ogexplain-core/i18n", fallback = "en");
+
 pub mod action;
 pub mod app;
 pub mod components;
@@ -17,6 +19,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
 use app::App;
+use rust_i18n::t;
 
 #[derive(Parser)]
 #[command(
@@ -45,7 +48,7 @@ pub fn run() -> color_eyre::Result<()> {
     if let Some(file) = cli.file {
         if let Err(e) = app.load_file(&file) {
             app = App::new();
-            app.set_error(format!("加载文件 '{}' 失败: {}", file, e));
+            app.set_error(t!("tui.load_failed", path = file, error = e.to_string()).to_string());
         }
     }
 

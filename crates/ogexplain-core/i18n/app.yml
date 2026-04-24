@@ -1,0 +1,1128 @@
+_version: 2
+
+# ═══════════════════════════════════════════════
+# CLI strings
+# ═══════════════════════════════════════════════
+
+cli.about:
+  en: "OpenGauss EXPLAIN plan analyzer"
+  zh-CN: "OpenGauss EXPLAIN 执行计划分析工具"
+
+cli.analyze.about:
+  en: "Analyze an EXPLAIN output file"
+  zh-CN: "分析 EXPLAIN 输出文件"
+
+cli.analyze.help_file:
+  en: "Path to EXPLAIN output file, or '-' for stdin"
+  zh-CN: "EXPLAIN 输出文件路径，或 '-' 从标准输入读取"
+
+cli.analyze.help_output:
+  en: "Output format"
+  zh-CN: "输出格式"
+
+cli.analyze.help_threshold:
+  en: "Minimum severity threshold"
+  zh-CN: "最低严重级别阈值"
+
+cli.analyze.help_quiet:
+  en: "Only show findings, no summary"
+  zh-CN: "仅显示诊断结果，不显示摘要"
+
+cli.analyze.help_verbose:
+  en: "Verbose output"
+  zh-CN: "详细输出"
+
+cli.analyze.help_multi:
+  en: "Parse all EXPLAIN blocks in file"
+  zh-CN: "解析文件中所有 EXPLAIN 块"
+
+cli.analyze.help_csv:
+  en: "Export summary to CSV file (use '-' for stdout)"
+  zh-CN: "导出摘要到 CSV 文件（使用 '-' 输出到标准输出）"
+
+cli.analyze.help_lang:
+  en: "Language (en, zh-CN, auto)"
+  zh-CN: "语言 (en, zh-CN, auto)"
+
+# CLI report
+cli.report.header:
+  en: "  OpenGauss Execution Plan Analysis Report"
+  zh-CN: "  OpenGauss 执行计划分析报告"
+
+cli.report.separator:
+  en: "══════════════════════════════════════════════"
+  zh-CN: "══════════════════════════════════════════════"
+
+cli.report.block_header:
+  en: "═══ Block %{current}/%{total} ═══"
+  zh-CN: "═══ 第 %{current}/%{total} 块 ═══"
+
+cli.report.block_header_sql_only:
+  en: "═══ Block %{current}/%{total} (SQL only) ═══"
+  zh-CN: "═══ 第 %{current}/%{total} 块（仅SQL） ═══"
+
+# CLI findings
+cli.findings.critical:
+  en: "Critical (%{count})"
+  zh-CN: "严重 (%{count})"
+
+cli.findings.warnings:
+  en: "Warnings (%{count})"
+  zh-CN: "警告 (%{count})"
+
+cli.findings.info:
+  en: "Info (%{count})"
+  zh-CN: "提示 (%{count})"
+
+cli.findings.no_issues:
+  en: "No issues found."
+  zh-CN: "未发现问题。"
+
+cli.findings.suggestions:
+  en: "Suggestions"
+  zh-CN: "优化建议"
+
+cli.finding.node:
+  en: "Node: \"%{node}\" (line %{line})"
+  zh-CN: "节点: \"%{node}\" (行 %{line})"
+
+cli.finding.suggestion:
+  en: "Suggestion: %{text}"
+  zh-CN: "建议: %{text}"
+
+cli.finding.confidence_high:
+  en: "High"
+  zh-CN: "高"
+
+cli.finding.confidence_medium:
+  en: "Medium"
+  zh-CN: "中"
+
+cli.finding.confidence_low:
+  en: "Low"
+  zh-CN: "低"
+
+# CLI plan tree
+cli.tree.header:
+  en: "Plan Tree"
+  zh-CN: "计划树"
+
+cli.tree.on_relation:
+  en: " on %{relation}"
+  zh-CN: " 在 %{relation} 上"
+
+cli.tree.never_executed:
+  en: "(never executed)"
+  zh-CN: "(未执行)"
+
+cli.tree.total_runtime:
+  en: "  Total runtime: %{time} ms"
+  zh-CN: "  总运行时间: %{time} ms"
+
+cli.tree.peak_memory:
+  en: "  Peak memory: %{mem} kB"
+  zh-CN: "  峰值内存: %{mem} kB"
+
+# CLI summary table
+cli.summary.title:
+  en: "  Structured Summary"
+  zh-CN: "  结构化摘要"
+
+cli.summary.col_num:
+  en: "#"
+  zh-CN: "#"
+
+cli.summary.col_sql:
+  en: "SQL Preview"
+  zh-CN: "SQL 预览"
+
+cli.summary.col_tables:
+  en: "Tbl"
+  zh-CN: "表"
+
+cli.summary.col_joins:
+  en: "Join"
+  zh-CN: "连接"
+
+cli.summary.col_subq:
+  en: "SubQ"
+  zh-CN: "子查询"
+
+cli.summary.col_whr:
+  en: "Whr"
+  zh-CN: "条件"
+
+cli.summary.col_agg:
+  en: "Agg"
+  zh-CN: "聚合"
+
+cli.summary.col_case:
+  en: "Case"
+  zh-CN: "CASE"
+
+cli.summary.col_set:
+  en: "Set"
+  zh-CN: "集合"
+
+cli.summary.col_grp:
+  en: "Grp"
+  zh-CN: "分组"
+
+cli.summary.col_ord:
+  en: "Ord"
+  zh-CN: "排序"
+
+cli.summary.col_dst:
+  en: "Dst"
+  zh-CN: "去重"
+
+cli.summary.col_hnt:
+  en: "Hnt"
+  zh-CN: "Hint"
+
+cli.summary.col_cte:
+  en: "CTE"
+  zh-CN: "CTE"
+
+cli.summary.col_win:
+  en: "Win"
+  zh-CN: "窗口"
+
+cli.summary.col_dep:
+  en: "Dep"
+  zh-CN: "深度"
+
+cli.summary.col_score:
+  en: "Score"
+  zh-CN: "评分"
+
+cli.summary.col_level:
+  en: "Level"
+  zh-CN: "级别"
+
+cli.summary.col_gscore:
+  en: "GScore"
+  zh-CN: "G评分"
+
+cli.summary.col_type:
+  en: "Type"
+  zh-CN: "类型"
+
+cli.summary.col_op:
+  en: "Op"
+  zh-CN: "操作"
+
+cli.summary.col_cost:
+  en: "Cost"
+  zh-CN: "代价"
+
+cli.summary.col_time:
+  en: "Time"
+  zh-CN: "时间"
+
+cli.summary.col_rows:
+  en: "Rows"
+  zh-CN: "行数"
+
+cli.summary.col_estdelta:
+  en: "EstΔ"
+  zh-CN: "估算偏差"
+
+cli.summary.col_spill:
+  en: "Spill"
+  zh-CN: "溢出"
+
+cli.summary.col_mem:
+  en: "Mem"
+  zh-CN: "内存"
+
+cli.summary.col_hitpct:
+  en: "Hit%"
+  zh-CN: "命中%"
+
+cli.summary.col_tmpr:
+  en: "TmpR"
+  zh-CN: "临时读"
+
+cli.summary.col_tmpw:
+  en: "TmpW"
+  zh-CN: "临时写"
+
+cli.summary.col_fltr:
+  en: "FltR"
+  zh-CN: "过滤行"
+
+cli.summary.col_erows:
+  en: "ERows"
+  zh-CN: "估算行"
+
+cli.summary.col_loops:
+  en: "Loops"
+  zh-CN: "循环"
+
+cli.summary.col_net:
+  en: "Net"
+  zh-CN: "网络"
+
+cli.summary.col_ptime:
+  en: "PTime"
+  zh-CN: "规划时间"
+
+cli.summary.col_cwi:
+  en: "C/W/I"
+  zh-CN: "C/W/I"
+
+cli.summary.col_tags:
+  en: "Tags"
+  zh-CN: "标签"
+
+cli.summary.no_sql:
+  en: "<no sql>"
+  zh-CN: "<无SQL>"
+
+# CLI complexity section
+cli.complexity.title:
+  en: "SQL Complexity"
+  zh-CN: "SQL 复杂度"
+
+cli.complexity.score:
+  en: "score %{score}"
+  zh-CN: "评分 %{score}"
+
+cli.complexity.gauss_score:
+  en: "  GaussDB Score: "
+  zh-CN: "  GaussDB评分: "
+
+cli.complexity.type:
+  en: "  Type: %{subtype} (%{category})"
+  zh-CN: "  类型: %{subtype} (%{category})"
+
+cli.complexity.dim_sql_structure:
+  en: "SQL Structure=%{val}"
+  zh-CN: "SQL结构=%{val}"
+
+cli.complexity.dim_pl_logic:
+  en: "PL Logic=%{val}"
+  zh-CN: "PL逻辑=%{val}"
+
+cli.complexity.dim_advanced:
+  en: "Advanced=%{val}"
+  zh-CN: "高级特性=%{val}"
+
+cli.complexity.dim_extension:
+  en: "Extension=%{val}"
+  zh-CN: "扩展=%{val}"
+
+cli.complexity.dimensions:
+  en: "  Dimensions: %{dims}"
+  zh-CN: "  维度: %{dims}"
+
+cli.complexity.tags:
+  en: "  Tags: %{tags}"
+  zh-CN: "  标签: %{tags}"
+
+cli.complexity.gauss_metrics:
+  en: "  -- GaussDB Metrics --"
+  zh-CN: "  ── GaussDB 指标 ──"
+
+cli.complexity.tables:
+  en: "Tables: %{count}(=%{score})"
+  zh-CN: "表: %{count}(=%{score})"
+
+cli.complexity.joins:
+  en: "Joins: %{count}(=%{score})"
+  zh-CN: "连接: %{count}(=%{score})"
+
+cli.complexity.where:
+  en: "WHERE: %{count}(=%{score})"
+  zh-CN: "WHERE: %{count}(=%{score})"
+
+cli.complexity.subqueries:
+  en: "Subqueries: %{count}(=%{score})"
+  zh-CN: "子查询: %{count}(=%{score})"
+
+cli.complexity.aggregates:
+  en: "Aggregates: %{count}(=%{score})"
+  zh-CN: "聚合: %{count}(=%{score})"
+
+cli.complexity.cases:
+  en: "CASE: %{count}(=%{score})"
+  zh-CN: "CASE: %{count}(=%{score})"
+
+cli.complexity.group_by:
+  en: "GROUP BY(=%{score})"
+  zh-CN: "GROUP BY(=%{score})"
+
+cli.complexity.order_by:
+  en: "ORDER BY(=%{score})"
+  zh-CN: "ORDER BY(=%{score})"
+
+cli.complexity.hints:
+  en: "Hints: %{count}(=%{score})"
+  zh-CN: "Hint: %{count}(=%{score})"
+
+cli.complexity.set_ops:
+  en: "Set Ops: %{count}(=%{score})"
+  zh-CN: "集合: %{count}(=%{score})"
+
+cli.complexity.ctes:
+  en: "CTE: %{count}"
+  zh-CN: "CTE: %{count}"
+
+cli.complexity.windows:
+  en: "Windows: %{count}"
+  zh-CN: "窗口: %{count}"
+
+cli.complexity.distinct:
+  en: "DISTINCT"
+  zh-CN: "DISTINCT"
+
+cli.complexity.nesting_depth:
+  en: "Nesting Depth: %{depth}"
+  zh-CN: "嵌套深度: %{depth}"
+
+cli.complexity.loops:
+  en: "    Loops: %{count} (nesting: %{depth}, =%{score})"
+  zh-CN: "    循环: %{count} (嵌套深度: %{depth}, =%{score})"
+
+cli.complexity.cursors:
+  en: "    Cursors: %{count} (ops: %{ops}, =%{score})"
+  zh-CN: "    游标: %{count} (操作: %{ops}, =%{score})"
+
+cli.complexity.dynamic_sql:
+  en: "    Dynamic SQL: %{count} (params: %{params})"
+  zh-CN: "    动态SQL: %{count} (参数绑定: %{params})"
+
+cli.complexity.tx_control:
+  en: "    Tx Control: %{count} (autonomous: %{auto})"
+  zh-CN: "    事务控制: %{count} (自治事务: %{auto})"
+
+cli.complexity.yes:
+  en: "Yes"
+  zh-CN: "是"
+
+cli.complexity.no:
+  en: "No"
+  zh-CN: "否"
+
+# CLI complexity per-statement
+cli.complexity_stmt.tables:
+  en: "%{count}Tbl(=%{score})"
+  zh-CN: "%{count}表(=%{score})"
+
+cli.complexity_stmt.joins:
+  en: "%{count}Join(=%{score})"
+  zh-CN: "%{count}连接(=%{score})"
+
+cli.complexity_stmt.conditions:
+  en: "%{count}Cond(=%{score})"
+  zh-CN: "%{count}条件(=%{score})"
+
+cli.complexity_stmt.subqueries:
+  en: "%{count}SubQ(=%{score})"
+  zh-CN: "%{count}子查询(=%{score})"
+
+cli.complexity_stmt.aggregates:
+  en: "%{count}Agg(=%{score})"
+  zh-CN: "%{count}聚合(=%{score})"
+
+cli.complexity_stmt.cases:
+  en: "%{count}CASE(=%{score})"
+  zh-CN: "%{count}CASE(=%{score})"
+
+cli.complexity_stmt.set_ops:
+  en: "%{count}SetOp(=%{score})"
+  zh-CN: "%{count}集合(=%{score})"
+
+cli.complexity_stmt.group_by:
+  en: "GROUP BY(%{score})"
+  zh-CN: "GROUP BY(%{score})"
+
+cli.complexity_stmt.order_by:
+  en: "ORDER BY(%{score})"
+  zh-CN: "ORDER BY(%{score})"
+
+cli.complexity_stmt.windows:
+  en: "%{count}Win(=%{score})"
+  zh-CN: "%{count}窗口(=%{score})"
+
+cli.complexity_stmt.ctes:
+  en: "%{count}CTE(=%{score})"
+  zh-CN: "%{count}CTE(=%{score})"
+
+cli.complexity_stmt.nesting_depth:
+  en: "    Nesting Depth: %{depth}"
+  zh-CN: "    嵌套深度: %{depth}"
+
+# CLI errors
+cli.error.parse_failed:
+  en: "Failed to parse EXPLAIN output"
+  zh-CN: "解析 EXPLAIN 输出失败"
+
+cli.error.stdin_read:
+  en: "Failed to read from stdin"
+  zh-CN: "从标准输入读取失败"
+
+cli.error.file_read:
+  en: "Failed to read file: %{path}"
+  zh-CN: "读取文件失败: %{path}"
+
+cli.error.csv_write:
+  en: "Failed to write CSV to %{path}"
+  zh-CN: "写入 CSV 失败: %{path}"
+
+# ═══════════════════════════════════════════════
+# TUI strings
+# ═══════════════════════════════════════════════
+
+# TUI clap
+tui.about:
+  en: "Interactive EXPLAIN plan analyzer"
+  zh-CN: "交互式 EXPLAIN 执行计划分析器"
+
+tui.help_file:
+  en: "EXPLAIN output file to load on startup"
+  zh-CN: "启动时加载的 EXPLAIN 输出文件"
+
+# TUI title bar
+tui.title.hint_paste:
+  en: " Paste EXPLAIN text, press "
+  zh-CN: " 粘贴EXPLAIN文本后按 "
+
+tui.title.hint_parse:
+  en: " Parse"
+  zh-CN: " 解析"
+
+tui.title.edit_area:
+  en: " Edit Area "
+  zh-CN: " 编辑区 "
+
+tui.title.reparse:
+  en: " Re-parse"
+  zh-CN: " 重新解析"
+
+tui.title.browse_mode:
+  en: " Browse Mode "
+  zh-CN: " 浏览模式 "
+
+tui.title.all_keys:
+  en: " View all shortcuts"
+  zh-CN: " 查看全部快捷键"
+
+# TUI input panel
+tui.input.error:
+  en: " Input [Error] "
+  zh-CN: " 输入 [错误] "
+
+tui.input.parse_hint:
+  en: " Input (Ctrl+P to parse) "
+  zh-CN: " 输入 (Ctrl+P 解析) "
+
+tui.input.title:
+  en: " Input "
+  zh-CN: " 输入 "
+
+tui.input.error_prefix:
+  en: " Error: %{msg}"
+  zh-CN: " 错误: %{msg}"
+
+tui.input.no_nodes:
+  en: "No plan nodes found"
+  zh-CN: "未找到计划节点"
+
+tui.input.parse_error:
+  en: "%{error} (%{lines} lines '%{preview}')"
+  zh-CN: "%{error} (%{lines}行 '%{preview}')"
+
+tui.input.load_failed:
+  en: "Load failed %{path}: %{error}"
+  zh-CN: "加载失败 %{path}: %{error}"
+
+# TUI raw view
+tui.raw.title:
+  en: " Raw Plan (r to return) "
+  zh-CN: " 原始执行计划 (r 返回) "
+
+# TUI load error
+tui.load_failed:
+  en: "Failed to load file '%{path}': %{error}"
+  zh-CN: "加载文件 '%{path}' 失败: %{error}"
+
+# TUI detail panel
+tui.detail.title:
+  en: " Node Detail "
+  zh-CN: " 节点详情 "
+
+tui.detail.title_scrolled:
+  en: " Node Detail (line %{current}/%{total}) "
+  zh-CN: " 节点详情 (行 %{current}/%{total}) "
+
+tui.detail.empty_hint:
+  en: " Paste EXPLAIN output and press Ctrl+P to parse"
+  zh-CN: " 粘贴 EXPLAIN 输出后按 Ctrl+P 解析"
+
+tui.detail.section_node:
+  en: "-- Node --"
+  zh-CN: "── 节点 ──"
+
+tui.detail.section_buffers:
+  en: "-- Buffers --"
+  zh-CN: "── 缓冲区 ──"
+
+tui.detail.section_properties:
+  en: "-- Properties --"
+  zh-CN: "── 属性 ──"
+
+tui.detail.section_diagnostics:
+  en: "-- Diagnostics --"
+  zh-CN: "── 诊断 ──"
+
+tui.detail.section_suggestions:
+  en: "-- Suggestions --"
+  zh-CN: "── 建议 ──"
+
+tui.detail.section_metrics:
+  en: "-- Plan Metrics --"
+  zh-CN: "── 执行计划指标 ──"
+
+tui.detail.label_type:
+  en: "Type: "
+  zh-CN: "类型: "
+
+tui.detail.label_table:
+  en: "Table: "
+  zh-CN: "表: "
+
+tui.detail.label_cost:
+  en: "Cost: "
+  zh-CN: "代价: "
+
+tui.detail.label_actual:
+  en: "Actual: "
+  zh-CN: "实际: "
+
+tui.detail.not_executed:
+  en: "  (not executed)"
+  zh-CN: "  (未执行)"
+
+tui.detail.shared_buffers:
+  en: "  Shared: hit=%{hit} read=%{read} dirtied=%{dirtied} written=%{written}"
+  zh-CN: "  共享: 命中=%{hit} 读取=%{read} 写脏=%{dirtied} 写入=%{written}"
+
+tui.detail.temp_buffers:
+  en: "  Temp: read=%{read} written=%{written}"
+  zh-CN: "  临时: 读取=%{read} 写入=%{written}"
+
+tui.detail.cache_hit_rate:
+  en: "  Cache Hit Rate: "
+  zh-CN: "  缓存命中率: "
+
+tui.detail.temp_read:
+  en: "read=%{kb}kB"
+  zh-CN: "读取=%{kb}kB"
+
+tui.detail.temp_written:
+  en: "written=%{kb}kB"
+  zh-CN: "写入=%{kb}kB"
+
+tui.detail.filter_removed:
+  en: "  Filter Removed: "
+  zh-CN: "  过滤淘汰行: "
+
+tui.detail.estimated_rows:
+  en: "Est Rows: "
+  zh-CN: "估算行: "
+
+tui.detail.actual_rows:
+  en: "Act Rows: "
+  zh-CN: "实际行: "
+
+tui.detail.loops:
+  en: "Loops: "
+  zh-CN: "循环: "
+
+tui.detail.network:
+  en: "  Network: "
+  zh-CN: "  网络传输: "
+
+tui.detail.planner_time:
+  en: "  Planner Time: "
+  zh-CN: "  规划耗时: "
+
+tui.detail.total_time:
+  en: "  Total Time: "
+  zh-CN: "  总耗时: "
+
+# TUI detail — complexity
+tui.detail.section_complexity:
+  en: "-- SQL Complexity --"
+  zh-CN: "── SQL 复杂度分析 ──"
+
+tui.detail.total_score:
+  en: "  Score: "
+  zh-CN: "  总分: "
+
+tui.detail.statement_n:
+  en: "  Statement #%{n} "
+  zh-CN: "  语句 #%{n} "
+
+tui.detail.score_pts:
+  en: "%{score} pts"
+  zh-CN: "%{score} 分"
+
+# TUI detail — GaussDB complexity
+tui.detail.section_gauss:
+  en: "-- GaussDB Complexity --"
+  zh-CN: "── GaussDB 复杂度评估 ──"
+
+tui.detail.gauss_score:
+  en: "  Score: "
+  zh-CN: "  评分: "
+
+tui.detail.gauss_type:
+  en: "  Type: "
+  zh-CN: "  类型: "
+
+tui.detail.gauss_dim_sql:
+  en: "SQL Structure=%{val}"
+  zh-CN: "SQL结构=%{val}"
+
+tui.detail.gauss_dim_pl:
+  en: "PL Logic=%{val}"
+  zh-CN: "PL逻辑=%{val}"
+
+tui.detail.gauss_dim_adv:
+  en: "Advanced=%{val}"
+  zh-CN: "高级特性=%{val}"
+
+tui.detail.gauss_dim_ext:
+  en: "Extension=%{val}"
+  zh-CN: "扩展=%{val}"
+
+tui.detail.gauss_dimensions:
+  en: "  Dimensions: "
+  zh-CN: "  维度: "
+
+tui.detail.gauss_tags:
+  en: "  Tags: "
+  zh-CN: "  标签: "
+
+# TUI detail — GaussDB metrics
+tui.detail.gauss_sql_metrics:
+  en: "  -- SQL Metrics --"
+  zh-CN: "  ── SQL指标 ──"
+
+tui.detail.gauss_pl_metrics:
+  en: "  -- PL Metrics --"
+  zh-CN: "  ── 存储过程指标 ──"
+
+tui.detail.metric_tables:
+  en: "Tables"
+  zh-CN: "表"
+
+tui.detail.metric_joins:
+  en: "Joins"
+  zh-CN: "连接"
+
+tui.detail.metric_subqueries:
+  en: "Subqueries"
+  zh-CN: "子查询"
+
+tui.detail.metric_aggregates:
+  en: "Aggregates"
+  zh-CN: "聚合"
+
+tui.detail.metric_set_ops:
+  en: "SetOps"
+  zh-CN: "集合"
+
+tui.detail.metric_windows:
+  en: "Windows"
+  zh-CN: "窗口"
+
+tui.detail.metric_depth:
+  en: "Depth:%{depth}"
+  zh-CN: "深度:%{depth}"
+
+tui.detail.pl_loops:
+  en: "    Loops: %{count}%{nesting}"
+  zh-CN: "    循环: %{count}%{nesting}"
+
+tui.detail.pl_nesting:
+  en: " (nesting: %{depth})"
+  zh-CN: " (嵌套深度: %{depth})"
+
+tui.detail.pl_cursors:
+  en: "    Cursors: %{count} (ops: %{ops})"
+  zh-CN: "    游标: %{count} (操作: %{ops})"
+
+tui.detail.pl_dynamic_sql:
+  en: "    Dynamic SQL: %{count} (params: %{params})"
+  zh-CN: "    动态SQL: %{count} (参数绑定: %{params})"
+
+tui.detail.pl_autonomous:
+  en: " [Autonomous]"
+  zh-CN: " [自治事务]"
+
+tui.detail.pl_tx_control:
+  en: "    Tx Control: %{count}%{auto}"
+  zh-CN: "    事务控制: %{count}%{auto}"
+
+tui.detail.pl_java:
+  en: "    Java Stored Proc: %{count}"
+  zh-CN: "    Java存储过程: %{count}"
+
+tui.detail.score_breakdown:
+  en: "  Score Detail: %{details}"
+  zh-CN: "  评分明细: %{details}"
+
+tui.detail.bd_enhanced:
+  en: "Enhanced=%{val}"
+  zh-CN: "增强=%{val}"
+
+tui.detail.bd_loops:
+  en: "Loops=%{val}"
+  zh-CN: "循环=%{val}"
+
+tui.detail.bd_cursors:
+  en: "Cursors=%{val}"
+  zh-CN: "游标=%{val}"
+
+tui.detail.bd_dynamic_sql:
+  en: "DynSQL=%{val}"
+  zh-CN: "动态SQL=%{val}"
+
+tui.detail.bd_tx:
+  en: "Tx=%{val}"
+  zh-CN: "事务=%{val}"
+
+tui.detail.bd_autonomous:
+  en: "Autonomous=%{val}"
+  zh-CN: "自治=%{val}"
+
+tui.detail.bd_hint:
+  en: "Hint=%{val}"
+  zh-CN: "Hint=%{val}"
+
+tui.detail.toggle_complexity:
+  en: "    [c] Toggle complexity view"
+  zh-CN: "    [c] 切换复杂度视图"
+
+# TUI detail — complexity per-statement (used in build_complexity_lines)
+tui.detail.complexity_stmt_tables:
+  en: "%{count}Tbl(=%{score})"
+  zh-CN: "%{count}表(=%{score})"
+
+tui.detail.complexity_stmt_joins:
+  en: "%{count}Join(=%{score})"
+  zh-CN: "%{count}连接(=%{score})"
+
+tui.detail.complexity_stmt_conditions:
+  en: "%{count}Cond(=%{score})"
+  zh-CN: "%{count}条件(=%{score})"
+
+tui.detail.complexity_stmt_subqueries:
+  en: "%{count}SubQ(=%{score})"
+  zh-CN: "%{count}子查询(=%{score})"
+
+tui.detail.complexity_stmt_aggregates:
+  en: "%{count}Agg(=%{score})"
+  zh-CN: "%{count}聚合(=%{score})"
+
+tui.detail.complexity_stmt_cases:
+  en: "%{count}CASE(=%{score})"
+  zh-CN: "%{count}CASE(=%{score})"
+
+tui.detail.complexity_stmt_set_ops:
+  en: "%{count}SetOp(=%{score})"
+  zh-CN: "%{count}集合操作(=%{score})"
+
+tui.detail.complexity_stmt_windows:
+  en: "%{count}Win(=%{score})"
+  zh-CN: "%{count}窗口(=%{score})"
+
+tui.detail.complexity_stmt_nesting:
+  en: "    Nesting Depth: %{depth}"
+  zh-CN: "    嵌套深度: %{depth}"
+
+# TUI tree panel
+tui.tree.title:
+  en: " Plan Tree "
+  zh-CN: " 计划树 "
+
+tui.tree.title_multi:
+  en: " Plan Tree (%{current}/%{total}) "
+  zh-CN: " 计划树 (%{current}/%{total}) "
+
+tui.tree.relation:
+  en: " Rel=%{name}"
+  zh-CN: " 表=%{name}"
+
+# TUI summary bar
+tui.summary.plan:
+  en: " Plan %{current}/%{total} "
+  zh-CN: " 计划 %{current}/%{total} "
+
+tui.summary.switch:
+  en: " N/P switch |"
+  zh-CN: " N/P切换 │"
+
+tui.summary.findings:
+  en: " Findings: "
+  zh-CN: " 发现: "
+
+tui.summary.critical:
+  en: " %{count} Critical"
+  zh-CN: " %{count} 严重"
+
+tui.summary.warnings:
+  en: " %{count} Warnings"
+  zh-CN: " %{count} 警告"
+
+tui.summary.info:
+  en: " %{count} Info"
+  zh-CN: " %{count} 提示"
+
+tui.summary.total:
+  en: "%{count} total"
+  zh-CN: "共 %{count} 项"
+
+tui.summary.view_all:
+  en: " [F] View all"
+  zh-CN: " [F] 查看全部"
+
+tui.summary.no_issues:
+  en: "No issues"
+  zh-CN: "无问题"
+
+tui.summary.time:
+  en: "  Time: %{time}ms"
+  zh-CN: "  耗时: %{time}ms"
+
+tui.summary.memory:
+  en: "  Memory: %{mem}KB"
+  zh-CN: "  内存: %{mem}KB"
+
+tui.summary.nodes:
+  en: "  Nodes: %{count}"
+  zh-CN: "  节点: %{count}个"
+
+# TUI status bar — input mode
+tui.status.paste_hint:
+  en: " Paste EXPLAIN text → "
+  zh-CN: " 粘贴EXPLAIN文本 → "
+
+tui.status.parse:
+  en: "Parse  "
+  zh-CN: "解析  "
+
+tui.status.clear:
+  en: "Clear  "
+  zh-CN: "清空  "
+
+tui.status.file:
+  en: "File  "
+  zh-CN: "文件  "
+
+tui.status.help:
+  en: "Help "
+  zh-CN: "帮助 "
+
+# TUI status bar — browse mode
+tui.status.switch_plan:
+  en: "Switch Plan  "
+  zh-CN: "切换计划  "
+
+tui.status.select:
+  en: "Select  "
+  zh-CN: "选择  "
+
+tui.status.expand_collapse:
+  en: "Expand/Collapse  "
+  zh-CN: "展开/折叠  "
+
+tui.status.all_expand_collapse:
+  en: "All Expand/Collapse  "
+  zh-CN: "全展开/全折叠  "
+
+tui.status.jump_top_bottom:
+  en: "Top/Bottom  "
+  zh-CN: "跳首/跳尾  "
+
+tui.status.raw_plan:
+  en: "Raw Plan  "
+  zh-CN: "原始计划  "
+
+tui.status.complexity:
+  en: "Complexity  "
+  zh-CN: "复杂度  "
+
+tui.status.all_diag:
+  en: "All Diag  "
+  zh-CN: "全部诊断  "
+
+tui.status.back_to_node:
+  en: "Back to Node  "
+  zh-CN: "回到节点  "
+
+tui.status.switch_panel:
+  en: "Switch Panel  "
+  zh-CN: "切换面板  "
+
+tui.status.scroll:
+  en: "Scroll  "
+  zh-CN: "滚动  "
+
+tui.status.page_up_down:
+  en: "Page Up/Down  "
+  zh-CN: "翻页  "
+
+# TUI status bar — input in browse mode
+tui.status.paste_new:
+  en: "Paste new EXPLAIN → "
+  zh-CN: "粘贴新EXPLAIN → "
+
+tui.status.reparse:
+  en: "Re-parse  "
+  zh-CN: "重新解析  "
+
+tui.status.back_to_tree:
+  en: "Back to Tree  "
+  zh-CN: "回到计划树  "
+
+# TUI help overlay
+tui.help.title:
+  en: " Keyboard Shortcuts (?) Close "
+  zh-CN: " 快捷键帮助 (?) 关闭 "
+
+tui.help.section_nav:
+  en: " Navigation"
+  zh-CN: " 导航"
+
+tui.help.up:
+  en: "Move up"
+  zh-CN: "上移"
+
+tui.help.down:
+  en: "Move down"
+  zh-CN: "下移"
+
+tui.help.top:
+  en: "Jump to top"
+  zh-CN: "跳到树顶"
+
+tui.help.bottom:
+  en: "Jump to bottom"
+  zh-CN: "跳到树底"
+
+tui.help.switch_panel:
+  en: "Switch panel"
+  zh-CN: "切换面板"
+
+tui.help.section_tree:
+  en: " Plan Tree"
+  zh-CN: " 计划树"
+
+tui.help.expand_collapse:
+  en: "Expand/Collapse"
+  zh-CN: "展开/折叠"
+
+tui.help.expand_all:
+  en: "Expand all"
+  zh-CN: "全部展开"
+
+tui.help.collapse_all:
+  en: "Collapse all"
+  zh-CN: "全部折叠"
+
+tui.help.toggle_diag:
+  en: "Toggle all diagnostics"
+  zh-CN: "切换全部诊断"
+
+tui.help.section_detail:
+  en: " Detail Panel"
+  zh-CN: " 详情面板"
+
+tui.help.scroll_up:
+  en: "Scroll up"
+  zh-CN: "滚动上"
+
+tui.help.scroll_down:
+  en: "Scroll down"
+  zh-CN: "滚动下"
+
+tui.help.page_up:
+  en: "Page up"
+  zh-CN: "上翻页"
+
+tui.help.page_down:
+  en: "Page down"
+  zh-CN: "下翻页"
+
+tui.help.jump_top:
+  en: "Jump to top"
+  zh-CN: "跳到顶部"
+
+tui.help.jump_bottom:
+  en: "Jump to bottom"
+  zh-CN: "跳到底部"
+
+tui.help.section_input:
+  en: " Input"
+  zh-CN: " 输入"
+
+tui.help.parse:
+  en: "Parse plan"
+  zh-CN: "解析执行计划"
+
+tui.help.clear:
+  en: "Clear input"
+  zh-CN: "清空输入"
+
+tui.help.load:
+  en: "Load file"
+  zh-CN: "加载文件"
+
+tui.help.section_other:
+  en: " Other"
+  zh-CN: " 其他"
+
+tui.help.raw_view:
+  en: "Raw plan view"
+  zh-CN: "原始执行计划视图"
+
+tui.help.help:
+  en: "Help"
+  zh-CN: "帮助"
+
+tui.help.quit:
+  en: "Quit"
+  zh-CN: "退出"
+
+tui.help.section_colors:
+  en: " Node Colors"
+  zh-CN: " 节点颜色"
+
+tui.help.color_scan:
+  en: "  Blue=Scan "
+  zh-CN: "  蓝色=Scan "
+
+tui.help.color_join:
+  en: "Magenta=Join"
+  zh-CN: "洋红=Join"
+
+tui.help.color_agg:
+  en: "  Cyan=Aggregate"
+  zh-CN: "  青色=Aggregate"
+
+tui.help.color_sort:
+  en: "  Yellow=Sort "
+  zh-CN: "  黄色=Sort "
+
+tui.help.color_dml:
+  en: "Green=DML"
+  zh-CN: "绿色=DML"
+
+tui.help.color_stream:
+  en: "  Red=Streaming"
+  zh-CN: "  红色=Streaming"

@@ -17,6 +17,7 @@ ratatui = "0.30"
 crossterm = "0.29"
 tui-tree-widget = "0.24"
 ratatui-textarea = "0.8"
+rust-i18n = "3"
 tokio = { version = "1", features = ["full"] }
 color-eyre = "0.6"
 clap = { version = "4", features = ["derive"] }
