@@ -21,7 +21,11 @@ pub fn render(
 
     if total_plans > 1 {
         parts.push(Span::styled(
-            t!("tui.summary.plan", current = plan_index + 1, total = total_plans),
+            t!(
+                "tui.summary.plan",
+                current = plan_index + 1,
+                total = total_plans
+            ),
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
@@ -53,7 +57,10 @@ pub fn render(
             if !parts.is_empty() {
                 parts.push(Span::raw(" "));
             }
-            parts.push(Span::styled(t!("tui.summary.findings"), Style::default().fg(Color::White)));
+            parts.push(Span::styled(
+                t!("tui.summary.findings"),
+                Style::default().fg(Color::White),
+            ));
 
             if criticals > 0 {
                 parts.push(Span::styled(
@@ -96,8 +103,14 @@ pub fn render(
             if !parts.is_empty() {
                 parts.push(Span::raw(" "));
             }
-            parts.push(Span::styled(t!("tui.summary.findings"), Style::default().fg(Color::White)));
-            parts.push(Span::styled(t!("tui.summary.no_issues"), Style::default().fg(Color::Green)));
+            parts.push(Span::styled(
+                t!("tui.summary.findings"),
+                Style::default().fg(Color::White),
+            ));
+            parts.push(Span::styled(
+                t!("tui.summary.no_issues"),
+                Style::default().fg(Color::Green),
+            ));
             append_summary_stats(&mut parts, plan_summary);
         }
         None => {}

@@ -24,7 +24,8 @@ pub fn render(
     let title = if nodes.is_empty() {
         t!("tui.tree.title")
     } else {
-        t!("tui.tree.title_multi",
+        t!(
+            "tui.tree.title_multi",
             current = selected.min(nodes.len() - 1) + 1,
             total = nodes.len()
         )

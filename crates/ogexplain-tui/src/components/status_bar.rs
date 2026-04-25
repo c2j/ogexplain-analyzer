@@ -39,7 +39,11 @@ pub fn render(
             FocusTarget::Tree => {
                 let mut v = Vec::new();
                 if multi {
-                    v.extend_from_slice(&[span("N/P", k), span(&t!("tui.status.switch_plan"), d), span("│ ", sep)]);
+                    v.extend_from_slice(&[
+                        span("N/P", k),
+                        span(&t!("tui.status.switch_plan"), d),
+                        span("│ ", sep),
+                    ]);
                 }
                 v.extend_from_slice(&[
                     span("↑↓", k),
@@ -65,7 +69,11 @@ pub fn render(
             FocusTarget::Detail => {
                 let mut v = Vec::new();
                 if multi {
-                    v.extend_from_slice(&[span("N/P", k), span(&t!("tui.status.switch_plan"), d), span("│ ", sep)]);
+                    v.extend_from_slice(&[
+                        span("N/P", k),
+                        span(&t!("tui.status.switch_plan"), d),
+                        span("│ ", sep),
+                    ]);
                 }
                 v.extend_from_slice(&[
                     span("↑↓", k),

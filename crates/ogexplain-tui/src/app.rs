@@ -257,12 +257,15 @@ impl App {
                         })
                         .collect::<Vec<_>>()
                         .join(" | ");
-                    self.error_message =
-                        Some(t!("tui.input.parse_error",
+                    self.error_message = Some(
+                        t!(
+                            "tui.input.parse_error",
                             error = e.to_string(),
                             lines = text.lines().count(),
                             preview = preview
-                        ).to_string());
+                        )
+                        .to_string(),
+                    );
                 }
             }
         }
@@ -468,7 +471,10 @@ impl App {
                                 self.do_parse();
                             }
                             Err(e) => {
-                                self.error_message = Some(t!("tui.input.load_failed", path = path, error = e.to_string()).to_string());
+                                self.error_message = Some(
+                                    t!("tui.input.load_failed", path = path, error = e.to_string())
+                                        .to_string(),
+                                );
                             }
                         }
                         return;
@@ -486,7 +492,9 @@ impl App {
                     self.do_parse();
                 }
                 Err(e) => {
-                    self.error_message = Some(t!("tui.input.load_failed", path = path, error = e.to_string()).to_string());
+                    self.error_message = Some(
+                        t!("tui.input.load_failed", path = path, error = e.to_string()).to_string(),
+                    );
                 }
             },
             Action::TreeUp => {

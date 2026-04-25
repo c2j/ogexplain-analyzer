@@ -32,7 +32,11 @@ pub fn render(
     };
 
     let title = if total_lines > 0 {
-        t!("tui.detail.title_scrolled", current = scroll, total = total_lines)
+        t!(
+            "tui.detail.title_scrolled",
+            current = scroll,
+            total = total_lines
+        )
     } else {
         t!("tui.detail.title")
     };
@@ -85,20 +89,29 @@ fn build_detail_lines(
     )));
 
     lines.push(Line::from(vec![
-        Span::styled(t!("tui.detail.label_type"), Style::default().fg(Color::Gray)),
+        Span::styled(
+            t!("tui.detail.label_type"),
+            Style::default().fg(Color::Gray),
+        ),
         Span::raw(node.node_type.to_string()),
     ]));
 
     if let Some(rel) = &node.relation {
         lines.push(Line::from(vec![
-            Span::styled(t!("tui.detail.label_table"), Style::default().fg(Color::Gray)),
+            Span::styled(
+                t!("tui.detail.label_table"),
+                Style::default().fg(Color::Gray),
+            ),
             Span::raw(rel.clone()),
         ]));
     }
 
     if let Some(est) = &node.estimated {
         lines.push(Line::from(vec![
-            Span::styled(t!("tui.detail.label_cost"), Style::default().fg(Color::Gray)),
+            Span::styled(
+                t!("tui.detail.label_cost"),
+                Style::default().fg(Color::Gray),
+            ),
             Span::raw(format!(
                 "{:.2}..{:.2} (rows={:.0}, width={})",
                 est.startup_cost, est.total_cost, est.plan_rows, est.plan_width
@@ -108,7 +121,10 @@ fn build_detail_lines(
 
     if let Some(act) = &node.actual {
         lines.push(Line::from(vec![
-            Span::styled(t!("tui.detail.label_actual"), Style::default().fg(Color::Gray)),
+            Span::styled(
+                t!("tui.detail.label_actual"),
+                Style::default().fg(Color::Gray),
+            ),
             Span::raw(format!(
                 "startup={:.3}ms total={:.3}ms rows={:.0} loops={:.0}",
                 act.startup_time_ms, act.total_time_ms, act.rows, act.loops
@@ -131,22 +147,20 @@ fn build_detail_lines(
                 .add_modifier(Modifier::BOLD),
         )));
         if buffers.shared_hit > 0 || buffers.shared_read > 0 {
-            lines.push(Line::from(
-                t!("tui.detail.shared_buffers",
-                    hit = buffers.shared_hit,
-                    read = buffers.shared_read,
-                    dirtied = buffers.shared_dirtied,
-                    written = buffers.shared_written
-                ),
-            ));
+            lines.push(Line::from(t!(
+                "tui.detail.shared_buffers",
+                hit = buffers.shared_hit,
+                read = buffers.shared_read,
+                dirtied = buffers.shared_dirtied,
+                written = buffers.shared_written
+            )));
         }
         if buffers.temp_read > 0 || buffers.temp_written > 0 {
-            lines.push(Line::from(
-                t!("tui.detail.temp_buffers",
-                    read = buffers.temp_read,
-                    written = buffers.temp_written
-                ),
-            ));
+            lines.push(Line::from(t!(
+                "tui.detail.temp_buffers",
+                read = buffers.temp_read,
+                written = buffers.temp_written
+            )));
         }
     }
 
@@ -258,14 +272,7 @@ fn aggregate_from_tree(node: &PlanNode, summary: Option<&PlanSummary>) -> AggMet
     let mut temp_written: i64 = 0;
     let mut max_filter: f64 = 0.0;
 
-    fn walk(
-        n: &PlanNode,
-        hit: &mut i64,
-        read: &mut i64,
-        tr: &mut i64,
-        tw: &mut i64,
-        mf: &mut f64,
-    ) {
+    fn walk(n: &PlanNode, hit: &mut i64, read: &mut i64, tr: &mut i64, tw: &mut i64, mf: &mut f64) {
         if let Some(b) = &n.buffers {
             *hit += b.shared_hit;
             *read += b.shared_read;
@@ -364,7 +371,10 @@ fn build_exec_metrics(root: &PlanNode, summary: Option<&PlanSummary>) -> Vec<Lin
         let mut parts: Vec<Span<'static>> = vec![Span::styled("  Temp: ", label)];
         if m.total_temp_read_kb > 0.0 {
             parts.push(Span::styled(
-                t!("tui.detail.temp_read", kb = format!("{:.0}", m.total_temp_read_kb)),
+                t!(
+                    "tui.detail.temp_read",
+                    kb = format!("{:.0}", m.total_temp_read_kb)
+                ),
                 val,
             ));
         }
@@ -373,7 +383,10 @@ fn build_exec_metrics(root: &PlanNode, summary: Option<&PlanSummary>) -> Vec<Lin
                 parts.push(Span::raw("  "));
             }
             parts.push(Span::styled(
-                t!("tui.detail.temp_written", kb = format!("{:.0}", m.total_temp_written_kb)),
+                t!(
+                    "tui.detail.temp_written",
+                    kb = format!("{:.0}", m.total_temp_written_kb)
+                ),
                 val,
             ));
         }
@@ -466,7 +479,10 @@ fn build_complexity_lines(
     };
 
     lines.push(Line::from(vec![
-        Span::styled(t!("tui.detail.total_score"), Style::default().fg(Color::Gray)),
+        Span::styled(
+            t!("tui.detail.total_score"),
+            Style::default().fg(Color::Gray),
+        ),
         Span::styled(
             format!("{:.1}", report.overall_score),
             Style::default()
@@ -493,7 +509,10 @@ fn build_complexity_lines(
                     Style::default().fg(Color::Yellow),
                 ),
                 Span::styled(
-                    t!("tui.detail.score_pts", score = format!("{:.1}", stmt.adjusted_score)),
+                    t!(
+                        "tui.detail.score_pts",
+                        score = format!("{:.1}", stmt.adjusted_score)
+                    ),
                     Style::default().fg(Color::White),
                 ),
             ]));
@@ -504,25 +523,74 @@ fn build_complexity_lines(
         let mut parts: Vec<String> = Vec::new();
 
         if m.table_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_tables", count = m.table_count, score = format!("{:.1}", b.tables)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_tables",
+                    count = m.table_count,
+                    score = format!("{:.1}", b.tables)
+                )
+                .to_string(),
+            );
         }
         if m.join_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_joins", count = m.join_count, score = format!("{:.1}", b.joins)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_joins",
+                    count = m.join_count,
+                    score = format!("{:.1}", b.joins)
+                )
+                .to_string(),
+            );
         }
         if m.where_condition_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_conditions", count = m.where_condition_count, score = format!("{:.1}", b.where_conditions)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_conditions",
+                    count = m.where_condition_count,
+                    score = format!("{:.1}", b.where_conditions)
+                )
+                .to_string(),
+            );
         }
         if m.subquery_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_subqueries", count = m.subquery_count, score = format!("{:.1}", b.subqueries)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_subqueries",
+                    count = m.subquery_count,
+                    score = format!("{:.1}", b.subqueries)
+                )
+                .to_string(),
+            );
         }
         if m.aggregate_function_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_aggregates", count = m.aggregate_function_count, score = format!("{:.1}", b.aggregate_functions)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_aggregates",
+                    count = m.aggregate_function_count,
+                    score = format!("{:.1}", b.aggregate_functions)
+                )
+                .to_string(),
+            );
         }
         if m.case_expression_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_cases", count = m.case_expression_count, score = format!("{:.1}", b.case_expressions)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_cases",
+                    count = m.case_expression_count,
+                    score = format!("{:.1}", b.case_expressions)
+                )
+                .to_string(),
+            );
         }
         if m.set_operation_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_set_ops", count = m.set_operation_count, score = format!("{:.1}", b.set_operations)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_set_ops",
+                    count = m.set_operation_count,
+                    score = format!("{:.1}", b.set_operations)
+                )
+                .to_string(),
+            );
         }
         if m.has_group_by {
             parts.push(format!("GROUP BY({:.1})", b.group_by));
@@ -531,7 +599,14 @@ fn build_complexity_lines(
             parts.push(format!("ORDER BY({:.1})", b.order_by));
         }
         if m.window_function_count > 0 {
-            parts.push(t!("tui.detail.complexity_stmt_windows", count = m.window_function_count, score = format!("{:.1}", b.window_functions)).to_string());
+            parts.push(
+                t!(
+                    "tui.detail.complexity_stmt_windows",
+                    count = m.window_function_count,
+                    score = format!("{:.1}", b.window_functions)
+                )
+                .to_string(),
+            );
         }
         if m.cte_count > 0 {
             parts.push(format!("{}CTE(={:.1})", m.cte_count, b.ctes));
@@ -546,7 +621,10 @@ fn build_complexity_lines(
 
         if m.subquery_depth > 0 {
             lines.push(Line::from(Span::styled(
-                t!("tui.detail.complexity_stmt_nesting", depth = m.subquery_depth),
+                t!(
+                    "tui.detail.complexity_stmt_nesting",
+                    depth = m.subquery_depth
+                ),
                 Style::default().fg(Color::DarkGray),
             )));
         }
@@ -586,7 +664,10 @@ fn build_complexity_lines(
             ComplexityLevel::Complex | ComplexityLevel::VeryComplex => Color::Red,
         };
         lines.push(Line::from(vec![
-            Span::styled(t!("tui.detail.gauss_score"), Style::default().fg(Color::Gray)),
+            Span::styled(
+                t!("tui.detail.gauss_score"),
+                Style::default().fg(Color::Gray),
+            ),
             Span::styled(
                 format!("{}", gauss.overall_score),
                 Style::default()
@@ -610,7 +691,10 @@ fn build_complexity_lines(
             SqlCategory::DCL => Color::White,
         };
         lines.push(Line::from(vec![
-            Span::styled(t!("tui.detail.gauss_type"), Style::default().fg(Color::Gray)),
+            Span::styled(
+                t!("tui.detail.gauss_type"),
+                Style::default().fg(Color::Gray),
+            ),
             Span::styled(
                 format!("{} ({})", gauss.sql_sub_type, gauss.sql_category.label()),
                 Style::default().fg(cat_color),
@@ -633,7 +717,10 @@ fn build_complexity_lines(
         }
         if !dim_parts.is_empty() {
             lines.push(Line::from(vec![
-                Span::styled(t!("tui.detail.gauss_dimensions"), Style::default().fg(Color::Gray)),
+                Span::styled(
+                    t!("tui.detail.gauss_dimensions"),
+                    Style::default().fg(Color::Gray),
+                ),
                 Span::styled(dim_parts.join(" "), Style::default().fg(Color::White)),
             ]));
         }
@@ -645,7 +732,10 @@ fn build_complexity_lines(
                 .map(|t_tag| format!("{}{}", t_tag.icon(), t_tag.label()))
                 .collect();
             lines.push(Line::from(vec![
-                Span::styled(t!("tui.detail.gauss_tags"), Style::default().fg(Color::Gray)),
+                Span::styled(
+                    t!("tui.detail.gauss_tags"),
+                    Style::default().fg(Color::Gray),
+                ),
                 Span::styled(tag_str.join(" "), Style::default().fg(Color::Yellow)),
             ]));
         }
@@ -654,12 +744,7 @@ fn build_complexity_lines(
         let m = &gauss.pl_metrics;
         let mut metric_parts: Vec<Span<'static>> = Vec::new();
 
-        fn add_metric(
-            parts: &mut Vec<Span<'static>>,
-            label: &str,
-            count: usize,
-            weight: i64,
-        ) {
+        fn add_metric(parts: &mut Vec<Span<'static>>, label: &str, count: usize, weight: i64) {
             if count > 0 {
                 if !parts.is_empty() {
                     parts.push(Span::raw("  "));
@@ -671,40 +756,75 @@ fn build_complexity_lines(
             }
         }
 
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_tables"), m.table_count, 10);
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_joins"), m.join_count, 15);
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_tables"),
+            m.table_count,
+            10,
+        );
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_joins"),
+            m.join_count,
+            15,
+        );
         add_metric(&mut metric_parts, "WHERE", m.where_condition_count, 5);
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_subqueries"), m.subquery_count, 20);
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_aggregates"), m.aggregate_function_count, 10);
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_subqueries"),
+            m.subquery_count,
+            20,
+        );
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_aggregates"),
+            m.aggregate_function_count,
+            10,
+        );
         add_metric(&mut metric_parts, "CASE", m.case_expression_count, 5);
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_set_ops"), m.set_operation_count, 15);
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_set_ops"),
+            m.set_operation_count,
+            15,
+        );
         add_metric(&mut metric_parts, "Hint", m.hint_count, 3);
         add_metric(&mut metric_parts, "CTE", m.cte_count, 0);
-        add_metric(&mut metric_parts, &t!("tui.detail.metric_windows"), m.window_function_count, 0);
+        add_metric(
+            &mut metric_parts,
+            &t!("tui.detail.metric_windows"),
+            m.window_function_count,
+            0,
+        );
 
         if m.has_group_by {
-            if !metric_parts.is_empty() { metric_parts.push(Span::raw("  ")); }
+            if !metric_parts.is_empty() {
+                metric_parts.push(Span::raw("  "));
+            }
             metric_parts.push(Span::styled(
                 format!("GROUP BY(={})", 5),
                 Style::default().fg(Color::Gray),
             ));
         }
         if m.has_order_by {
-            if !metric_parts.is_empty() { metric_parts.push(Span::raw("  ")); }
+            if !metric_parts.is_empty() {
+                metric_parts.push(Span::raw("  "));
+            }
             metric_parts.push(Span::styled(
                 format!("ORDER BY(={})", 5),
                 Style::default().fg(Color::Gray),
             ));
         }
         if m.has_distinct {
-            if !metric_parts.is_empty() { metric_parts.push(Span::raw("  ")); }
-            metric_parts.push(Span::styled(
-                "DISTINCT",
-                Style::default().fg(Color::Gray),
-            ));
+            if !metric_parts.is_empty() {
+                metric_parts.push(Span::raw("  "));
+            }
+            metric_parts.push(Span::styled("DISTINCT", Style::default().fg(Color::Gray)));
         }
         if m.subquery_depth > 0 {
-            if !metric_parts.is_empty() { metric_parts.push(Span::raw("  ")); }
+            if !metric_parts.is_empty() {
+                metric_parts.push(Span::raw("  "));
+            }
             metric_parts.push(Span::styled(
                 t!("tui.detail.metric_depth", depth = m.subquery_depth),
                 Style::default().fg(Color::Gray),
@@ -740,21 +860,33 @@ fn build_complexity_lines(
                     String::new()
                 };
                 lines.push(Line::from(Span::styled(
-                    t!("tui.detail.pl_loops", count = m.loop_count, nesting = nesting),
+                    t!(
+                        "tui.detail.pl_loops",
+                        count = m.loop_count,
+                        nesting = nesting
+                    ),
                     Style::default().fg(Color::Gray),
                 )));
             }
 
             if m.cursor_count > 0 {
                 lines.push(Line::from(Span::styled(
-                    t!("tui.detail.pl_cursors", count = m.cursor_count, ops = m.cursor_operation_count),
+                    t!(
+                        "tui.detail.pl_cursors",
+                        count = m.cursor_count,
+                        ops = m.cursor_operation_count
+                    ),
                     Style::default().fg(Color::Gray),
                 )));
             }
 
             if m.dynamic_sql_count > 0 {
                 lines.push(Line::from(Span::styled(
-                    t!("tui.detail.pl_dynamic_sql", count = m.dynamic_sql_count, params = m.param_binding_count),
+                    t!(
+                        "tui.detail.pl_dynamic_sql",
+                        count = m.dynamic_sql_count,
+                        params = m.param_binding_count
+                    ),
                     Style::default().fg(Color::Gray),
                 )));
             }
@@ -766,7 +898,11 @@ fn build_complexity_lines(
                     String::new()
                 };
                 lines.push(Line::from(Span::styled(
-                    t!("tui.detail.pl_tx_control", count = m.transaction_control_count, auto = auto_str),
+                    t!(
+                        "tui.detail.pl_tx_control",
+                        count = m.transaction_control_count,
+                        auto = auto_str
+                    ),
                     Style::default().fg(Color::Gray),
                 )));
             }
@@ -792,13 +928,20 @@ fn build_complexity_lines(
             bd_parts.push(t!("tui.detail.bd_cursors", val = bd.cursor_complexity).to_string());
         }
         if bd.dynamic_sql_complexity > 0 {
-            bd_parts.push(t!("tui.detail.bd_dynamic_sql", val = bd.dynamic_sql_complexity).to_string());
+            bd_parts
+                .push(t!("tui.detail.bd_dynamic_sql", val = bd.dynamic_sql_complexity).to_string());
         }
         if bd.transaction_complexity > 0 {
             bd_parts.push(t!("tui.detail.bd_tx", val = bd.transaction_complexity).to_string());
         }
         if bd.autonomous_transaction_bonus > 0 {
-            bd_parts.push(t!("tui.detail.bd_autonomous", val = bd.autonomous_transaction_bonus).to_string());
+            bd_parts.push(
+                t!(
+                    "tui.detail.bd_autonomous",
+                    val = bd.autonomous_transaction_bonus
+                )
+                .to_string(),
+            );
         }
         if bd.hint_complexity > 0 {
             bd_parts.push(t!("tui.detail.bd_hint", val = bd.hint_complexity).to_string());
