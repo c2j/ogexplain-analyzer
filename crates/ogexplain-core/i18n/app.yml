@@ -44,6 +44,66 @@ cli.analyze.help_lang:
   en: "Language (en, zh-CN, auto)"
   zh-CN: "语言 (en, zh-CN, auto)"
 
+cli.explain.about:
+  en: "Connect to database and EXPLAIN a SQL statement"
+  zh-CN: "连接数据库并获取 SQL 的执行计划"
+
+cli.explain.help_dsn:
+  en: "Database connection string (e.g. 'host=localhost user=postgres dbname=mydb')"
+  zh-CN: "数据库连接串（如 'host=localhost user=postgres dbname=mydb'）"
+
+cli.explain.help_sql:
+  en: "SQL statement to explain (inline string)"
+  zh-CN: "要分析的 SQL 语句（内联字符串）"
+
+cli.explain.help_sql_file:
+  en: "SQL statement to explain (file path)"
+  zh-CN: "要分析的 SQL 语句（文件路径）"
+
+cli.explain.help_analyze:
+  en: "Run EXPLAIN ANALYZE (actually executes the query)"
+  zh-CN: "运行 EXPLAIN ANALYZE（会实际执行查询）"
+
+cli.explain.help_output:
+  en: "Output format"
+  zh-CN: "输出格式"
+
+cli.explain.help_threshold:
+  en: "Minimum severity threshold"
+  zh-CN: "最低严重级别阈值"
+
+cli.explain.help_quiet:
+  en: "Only show findings, no summary"
+  zh-CN: "仅显示诊断结果，不显示摘要"
+
+cli.explain.help_csv:
+  en: "Export summary to CSV file (use '-' for stdout)"
+  zh-CN: "导出摘要到 CSV 文件（使用 '-' 输出到标准输出）"
+
+cli.explain.help_lang:
+  en: "Language (en, zh-CN, auto)"
+  zh-CN: "语言 (en, zh-CN, auto)"
+
+cli.explain.error.connect:
+  en: "Failed to connect to database"
+  zh-CN: "连接数据库失败"
+
+cli.explain.error.query:
+  en: "Failed to execute EXPLAIN"
+  zh-CN: "执行 EXPLAIN 失败"
+
+cli.explain.error.no_sql:
+  en: "No SQL provided. Use -s <sql> or -f <file>"
+  zh-CN: "未提供 SQL。请使用 -s <sql> 或 -f <file>"
+
+cli.explain.error.read_file:
+  en: "Failed to read SQL file: %{path}"
+  zh-CN: "读取 SQL 文件失败: %{path}"
+
+cli.explain.warning_analyze:
+  en: "⚠ EXPLAIN ANALYZE will execute the query. Use with caution on DML statements."
+  zh-CN: "⚠ EXPLAIN ANALYZE 会实际执行查询。对 DML 语句请谨慎使用。"
+
 # CLI report
 cli.report.header:
   en: "  OpenGauss Execution Plan Analysis Report"
