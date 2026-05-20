@@ -13,9 +13,7 @@ pub fn detect_locale() -> String {
 
 /// Auto-detects from system unless `locale` is explicitly provided.
 pub fn init(locale: Option<&str>) {
-    let loc = locale
-        .map(|s| s.to_string())
-        .unwrap_or_else(detect_locale);
+    let loc = locale.map(|s| s.to_string()).unwrap_or_else(detect_locale);
     LOCALE.set(loc.clone()).ok();
     rust_i18n::set_locale(&loc);
 }

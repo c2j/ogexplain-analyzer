@@ -128,9 +128,7 @@ impl SummaryRow {
         let gauss_pl_logic = complexity.and_then(|c| c.gauss_pl_logic);
         let gauss_advanced_feature = complexity.and_then(|c| c.gauss_advanced_feature);
         let gauss_extension = complexity.and_then(|c| c.gauss_extension);
-        let gauss_tags = complexity
-            .map(|c| c.gauss_tags.clone())
-            .unwrap_or_default();
+        let gauss_tags = complexity.map(|c| c.gauss_tags.clone()).unwrap_or_default();
 
         let root_op = format!("{}", root.node_type);
         let total_cost = root.estimated.as_ref().map(|e| e.total_cost).unwrap_or(0.0);
@@ -162,10 +160,7 @@ impl SummaryRow {
             .summary
             .as_ref()
             .and_then(|s| s.total_network_kb.map(|v| v as f64));
-        let planner_time_ms = plan
-            .summary
-            .as_ref()
-            .and_then(|s| s.planner_runtime_ms);
+        let planner_time_ms = plan.summary.as_ref().and_then(|s| s.planner_runtime_ms);
 
         let (critical_count, warning_count, info_count) =
             diag.findings

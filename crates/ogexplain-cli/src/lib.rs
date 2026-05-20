@@ -9,6 +9,9 @@ use ogexplain_core::summary::{ComplexityInput, SummaryRow};
 use rust_i18n::t;
 use std::io::{self, Read};
 
+#[cfg(feature = "db")]
+pub mod db;
+
 #[derive(Parser)]
 #[command(name = "ogexplain")]
 #[command(version)]
@@ -33,6 +36,35 @@ enum Commands {
         multi: bool,
         #[arg(long)]
         csv: Option<String>,
+        #[arg(long, default_value = "auto")]
+        lang: String,
+    },
+    Explain {
+        /// Database connection string
+        #[arg(short, long)]
+        dsn: String,
+        /// SQL statement (inline)
+        #[arg(short = 's', long)]
+        sql: Option<String>,
+        /// SQL file path
+        #[arg(short = 'f', long = "sql-file")]
+        sql_file: Option<String>,
+        /// Run EXPLAIN ANALYZE (actually executes the query)
+        #[arg(long)]
+        analyze: bool,
+        /// Output format
+        #[arg(short, long, default_value = "text")]
+        output: String,
+        /// Minimum severity threshold
+        #[arg(long, default_value = "info")]
+        threshold: String,
+        /// Only show findings, no summary
+        #[arg(short, long)]
+        quiet: bool,
+        /// Export summary to CSV
+        #[arg(long)]
+        csv: Option<String>,
+        /// Language
         #[arg(long, default_value = "auto")]
         lang: String,
     },
@@ -98,16 +130,34 @@ fn to_complexity_input(
         tables: first.metrics.table_count,
         joins: first.metrics.join_count,
         subqueries: first.metrics.subquery_count,
-        where_conditions: gauss_report.map(|g| g.pl_metrics.where_condition_count).unwrap_or(0),
-        aggregates: gauss_report.map(|g| g.pl_metrics.aggregate_function_count).unwrap_or(0),
-        cases: gauss_report.map(|g| g.pl_metrics.case_expression_count).unwrap_or(0),
-        set_ops: gauss_report.map(|g| g.pl_metrics.set_operation_count).unwrap_or(0),
+        where_conditions: gauss_report
+            .map(|g| g.pl_metrics.where_condition_count)
+            .unwrap_or(0),
+        aggregates: gauss_report
+            .map(|g| g.pl_metrics.aggregate_function_count)
+            .unwrap_or(0),
+        cases: gauss_report
+            .map(|g| g.pl_metrics.case_expression_count)
+            .unwrap_or(0),
+        set_ops: gauss_report
+            .map(|g| g.pl_metrics.set_operation_count)
+            .unwrap_or(0),
         ctes: gauss_report.map(|g| g.pl_metrics.cte_count).unwrap_or(0),
-        windows: gauss_report.map(|g| g.pl_metrics.window_function_count).unwrap_or(0),
-        has_group_by: gauss_report.map(|g| g.pl_metrics.has_group_by).unwrap_or(false),
-        has_order_by: gauss_report.map(|g| g.pl_metrics.has_order_by).unwrap_or(false),
-        has_distinct: gauss_report.map(|g| g.pl_metrics.has_distinct).unwrap_or(false),
-        subquery_depth: gauss_report.map(|g| g.pl_metrics.subquery_depth).unwrap_or(0),
+        windows: gauss_report
+            .map(|g| g.pl_metrics.window_function_count)
+            .unwrap_or(0),
+        has_group_by: gauss_report
+            .map(|g| g.pl_metrics.has_group_by)
+            .unwrap_or(false),
+        has_order_by: gauss_report
+            .map(|g| g.pl_metrics.has_order_by)
+            .unwrap_or(false),
+        has_distinct: gauss_report
+            .map(|g| g.pl_metrics.has_distinct)
+            .unwrap_or(false),
+        subquery_depth: gauss_report
+            .map(|g| g.pl_metrics.subquery_depth)
+            .unwrap_or(0),
         hints: gauss_report.map(|g| g.pl_metrics.hint_count).unwrap_or(0),
         score: Some(report.overall_score),
         level: Some(report.overall_level.label().to_string()),
@@ -157,17 +207,61 @@ fn print_summary_table(rows: &[SummaryRow]) {
         let tbl = format!("{}", row.tables);
         let join = format!("{}", row.joins);
         let subq = format!("{}", row.subqueries);
-        let whr = if row.where_conditions > 0 { format!("{}", row.where_conditions) } else { "-".to_string() };
-        let agg = if row.aggregates > 0 { format!("{}", row.aggregates) } else { "-".to_string() };
-        let case = if row.cases > 0 { format!("{}", row.cases) } else { "-".to_string() };
-        let set = if row.set_ops > 0 { format!("{}", row.set_ops) } else { "-".to_string() };
-        let grp = if row.has_group_by { "Y".to_string() } else { "-".to_string() };
-        let ord = if row.has_order_by { "Y".to_string() } else { "-".to_string() };
-        let dst = if row.has_distinct { "Y".to_string() } else { "-".to_string() };
-        let hnt = if row.hints > 0 { format!("{}", row.hints) } else { "-".to_string() };
-        let cte = if row.ctes > 0 { format!("{}", row.ctes) } else { "-".to_string() };
-        let win = if row.windows > 0 { format!("{}", row.windows) } else { "-".to_string() };
-        let dep = if row.subquery_depth > 0 { format!("{}", row.subquery_depth) } else { "-".to_string() };
+        let whr = if row.where_conditions > 0 {
+            format!("{}", row.where_conditions)
+        } else {
+            "-".to_string()
+        };
+        let agg = if row.aggregates > 0 {
+            format!("{}", row.aggregates)
+        } else {
+            "-".to_string()
+        };
+        let case = if row.cases > 0 {
+            format!("{}", row.cases)
+        } else {
+            "-".to_string()
+        };
+        let set = if row.set_ops > 0 {
+            format!("{}", row.set_ops)
+        } else {
+            "-".to_string()
+        };
+        let grp = if row.has_group_by {
+            "Y".to_string()
+        } else {
+            "-".to_string()
+        };
+        let ord = if row.has_order_by {
+            "Y".to_string()
+        } else {
+            "-".to_string()
+        };
+        let dst = if row.has_distinct {
+            "Y".to_string()
+        } else {
+            "-".to_string()
+        };
+        let hnt = if row.hints > 0 {
+            format!("{}", row.hints)
+        } else {
+            "-".to_string()
+        };
+        let cte = if row.ctes > 0 {
+            format!("{}", row.ctes)
+        } else {
+            "-".to_string()
+        };
+        let win = if row.windows > 0 {
+            format!("{}", row.windows)
+        } else {
+            "-".to_string()
+        };
+        let dep = if row.subquery_depth > 0 {
+            format!("{}", row.subquery_depth)
+        } else {
+            "-".to_string()
+        };
         let score = match row.score {
             Some(s) => format!("{:.1}", s),
             None => "-".to_string(),
@@ -333,7 +427,11 @@ fn fmt_csv_opt_i64(v: Option<i64>) -> String {
 }
 
 fn fmt_csv_bool(v: bool) -> &'static str {
-    if v { "Y" } else { "N" }
+    if v {
+        "Y"
+    } else {
+        "N"
+    }
 }
 
 fn fmt_csv_pushdown(status: &ogexplain_core::summary::PushdownStatus) -> &'static str {
@@ -455,103 +553,190 @@ pub fn run() -> Result<()> {
         .subcommand(
             clap::Command::new("analyze")
                 .about(t!("cli.analyze.about").to_string())
-                .arg(clap::Arg::new("file").required(true).help(t!("cli.analyze.help_file").to_string()))
-                .arg(clap::Arg::new("output").short('o').long("output").default_value("text").help(t!("cli.analyze.help_output").to_string()))
-                .arg(clap::Arg::new("threshold").long("threshold").default_value("info").help(t!("cli.analyze.help_threshold").to_string()))
-                .arg(clap::Arg::new("quiet").short('q').long("quiet").action(clap::ArgAction::SetTrue).help(t!("cli.analyze.help_quiet").to_string()))
-                .arg(clap::Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).help(t!("cli.analyze.help_verbose").to_string()))
-                .arg(clap::Arg::new("multi").long("multi").action(clap::ArgAction::SetTrue).help(t!("cli.analyze.help_multi").to_string()))
-                .arg(clap::Arg::new("csv").long("csv").help(t!("cli.analyze.help_csv").to_string()))
-                .arg(clap::Arg::new("lang").long("lang").default_value("auto").help(t!("cli.analyze.help_lang").to_string()))
+                .arg(
+                    clap::Arg::new("file")
+                        .required(true)
+                        .help(t!("cli.analyze.help_file").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("output")
+                        .short('o')
+                        .long("output")
+                        .default_value("text")
+                        .help(t!("cli.analyze.help_output").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("threshold")
+                        .long("threshold")
+                        .default_value("info")
+                        .help(t!("cli.analyze.help_threshold").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("quiet")
+                        .short('q')
+                        .long("quiet")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.analyze.help_quiet").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("verbose")
+                        .short('v')
+                        .long("verbose")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.analyze.help_verbose").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("multi")
+                        .long("multi")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.analyze.help_multi").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("csv")
+                        .long("csv")
+                        .help(t!("cli.analyze.help_csv").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("lang")
+                        .long("lang")
+                        .default_value("auto")
+                        .help(t!("cli.analyze.help_lang").to_string()),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("explain")
+                .about(t!("cli.explain.about").to_string())
+                .arg(
+                    clap::Arg::new("dsn")
+                        .short('d')
+                        .long("dsn")
+                        .required(true)
+                        .help(t!("cli.explain.help_dsn").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("sql")
+                        .short('s')
+                        .long("sql")
+                        .help(t!("cli.explain.help_sql").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("sql_file")
+                        .short('f')
+                        .long("sql-file")
+                        .help(t!("cli.explain.help_sql_file").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("analyze")
+                        .long("analyze")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.explain.help_analyze").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("output")
+                        .short('o')
+                        .long("output")
+                        .default_value("text")
+                        .help(t!("cli.explain.help_output").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("threshold")
+                        .long("threshold")
+                        .default_value("info")
+                        .help(t!("cli.explain.help_threshold").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("quiet")
+                        .short('q')
+                        .long("quiet")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.explain.help_quiet").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("csv")
+                        .long("csv")
+                        .help(t!("cli.explain.help_csv").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("lang")
+                        .long("lang")
+                        .default_value("auto")
+                        .help(t!("cli.explain.help_lang").to_string()),
+                ),
         );
 
     let matches = cmd.get_matches();
-    let (sub_name, args) = match matches.subcommand() {
-        Some((name, args)) => (name, args),
-        None => ("analyze", &matches),
-    };
-    let _ = sub_name;
 
-    let file = args.get_one::<String>("file").map(|s: &String| s.as_str()).unwrap_or("-");
-    let output = args.get_one::<String>("output").map(|s: &String| s.as_str()).unwrap_or("text");
-    let threshold = args.get_one::<String>("threshold").map(|s: &String| s.as_str()).unwrap_or("info");
-    let quiet = args.get_flag("quiet");
-    let _verbose = args.get_flag("verbose");
-    let _multi = args.get_flag("multi");
-    let csv: Option<String> = args.get_one::<String>("csv").cloned();
+    match matches.subcommand() {
+        Some(("explain", args)) => {
+            #[cfg(feature = "db")]
+            {
+                let dsn = args.get_one::<String>("dsn").unwrap();
+                let sql: Option<String> = args.get_one::<String>("sql").cloned();
+                let sql_file: Option<String> = args.get_one::<String>("sql_file").cloned();
+                let analyze = args.get_flag("analyze");
+                let output = args
+                    .get_one::<String>("output")
+                    .map(|s| s.as_str())
+                    .unwrap_or("text");
+                let threshold = args
+                    .get_one::<String>("threshold")
+                    .map(|s| s.as_str())
+                    .unwrap_or("info");
+                let quiet = args.get_flag("quiet");
+                let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
-    {
-        let input = read_input(file)?;
+                return run_explain(
+                    dsn,
+                    sql.as_deref(),
+                    sql_file.as_deref(),
+                    analyze,
+                    output,
+                    threshold,
+                    quiet,
+                    csv.as_deref(),
+                );
+            }
+            #[cfg(not(feature = "db"))]
+            {
+                let _ = args;
+                anyhow::bail!("Database support not compiled. Rebuild with --features db");
+            }
+        }
+        _ => {
+            let (sub_name, args) = match matches.subcommand() {
+                Some((name, args)) => (name, args),
+                None => ("analyze", &matches),
+            };
+            let _ = sub_name;
 
-        let blocks = ogexplain_core::sql::segment_input(&input);
-        let mut summary_rows: Vec<SummaryRow> = Vec::new();
+            let file = args
+                .get_one::<String>("file")
+                .map(|s: &String| s.as_str())
+                .unwrap_or("-");
+            let output = args
+                .get_one::<String>("output")
+                .map(|s: &String| s.as_str())
+                .unwrap_or("text");
+            let threshold = args
+                .get_one::<String>("threshold")
+                .map(|s: &String| s.as_str())
+                .unwrap_or("info");
+            let quiet = args.get_flag("quiet");
+            let _verbose = args.get_flag("verbose");
+            let _multi = args.get_flag("multi");
+            let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
-        if blocks.is_empty() {
-            let plan =
-                ogexplain_core::parse(&input).context(t!("cli.error.parse_failed").to_string())?;
-            let complexity = try_complexity(&input);
-            let gauss_complexity = try_gauss_complexity(&input);
-            let complexity_input = complexity
-                .as_ref()
-                .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-            let diag = ogexplain_core::analyze(&plan);
-            let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
-            output_block_with_diag(
-                &plan,
-                &diag,
-                output,
-                &threshold,
-                quiet,
-                complexity.as_ref(),
-                gauss_complexity.as_ref(),
-                1,
-                1,
-                Some(&row),
-            )?;
-            summary_rows.push(row);
-        } else if blocks.len() == 1 {
-            let block = &blocks[0];
-            let plan = ogexplain_core::parse(&block.explain_text)
-                .context(t!("cli.error.parse_failed").to_string())?;
-            let complexity = block
-                .sql_text
-                .as_ref()
-                .and_then(|sql| ogsql_complexity::analyze(sql).ok());
-            let gauss_complexity = block
-                .sql_text
-                .as_ref()
-                .and_then(|sql| ogsql_complexity::gauss_analyze(sql, &ogsql_complexity::ComplexityConfig::default()).ok());
-            let complexity_input = complexity
-                .as_ref()
-                .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-            let diag = ogexplain_core::analyze(&plan);
-            let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
-            output_block_with_diag(
-                &plan,
-                &diag,
-                output,
-                &threshold,
-                quiet,
-                complexity.as_ref(),
-                gauss_complexity.as_ref(),
-                1,
-                1,
-                Some(&row),
-            )?;
-            summary_rows.push(row);
-        } else {
-            for (i, block) in blocks.iter().enumerate() {
-                let num = i + 1;
-                let total = blocks.len();
-                if let Ok(plan) = ogexplain_core::parse(&block.explain_text) {
-                    let complexity = block
-                        .sql_text
-                        .as_ref()
-                        .and_then(|sql| ogsql_complexity::analyze(sql).ok());
-                    let gauss_complexity = block
-                        .sql_text
-                        .as_ref()
-                        .and_then(|sql| ogsql_complexity::gauss_analyze(sql, &ogsql_complexity::ComplexityConfig::default()).ok());
+            {
+                let input = read_input(file)?;
+
+                let blocks = ogexplain_core::sql::segment_input(&input);
+                let mut summary_rows: Vec<SummaryRow> = Vec::new();
+
+                if blocks.is_empty() {
+                    let plan = ogexplain_core::parse(&input)
+                        .context(t!("cli.error.parse_failed").to_string())?;
+                    let complexity = try_complexity(&input);
+                    let gauss_complexity = try_gauss_complexity(&input);
                     let complexity_input = complexity
                         .as_ref()
                         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
@@ -561,28 +746,165 @@ pub fn run() -> Result<()> {
                         &plan,
                         &diag,
                         output,
-                        &threshold,
+                        threshold,
                         quiet,
                         complexity.as_ref(),
                         gauss_complexity.as_ref(),
-                        num,
-                        total,
+                        1,
+                        1,
                         Some(&row),
                     )?;
                     summary_rows.push(row);
-                } else if let Some(sql) = &block.sql_text {
-                    output_sql_only(sql, output, num, total)?;
+                } else if blocks.len() == 1 {
+                    let block = &blocks[0];
+                    let plan = ogexplain_core::parse(&block.explain_text)
+                        .context(t!("cli.error.parse_failed").to_string())?;
+                    let complexity = block
+                        .sql_text
+                        .as_ref()
+                        .and_then(|sql| ogsql_complexity::analyze(sql).ok());
+                    let gauss_complexity = block.sql_text.as_ref().and_then(|sql| {
+                        ogsql_complexity::gauss_analyze(
+                            sql,
+                            &ogsql_complexity::ComplexityConfig::default(),
+                        )
+                        .ok()
+                    });
+                    let complexity_input = complexity
+                        .as_ref()
+                        .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
+                    let diag = ogexplain_core::analyze(&plan);
+                    let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
+                    output_block_with_diag(
+                        &plan,
+                        &diag,
+                        output,
+                        threshold,
+                        quiet,
+                        complexity.as_ref(),
+                        gauss_complexity.as_ref(),
+                        1,
+                        1,
+                        Some(&row),
+                    )?;
+                    summary_rows.push(row);
+                } else {
+                    for (i, block) in blocks.iter().enumerate() {
+                        let num = i + 1;
+                        let total = blocks.len();
+                        if let Ok(plan) = ogexplain_core::parse(&block.explain_text) {
+                            let complexity = block
+                                .sql_text
+                                .as_ref()
+                                .and_then(|sql| ogsql_complexity::analyze(sql).ok());
+                            let gauss_complexity = block.sql_text.as_ref().and_then(|sql| {
+                                ogsql_complexity::gauss_analyze(
+                                    sql,
+                                    &ogsql_complexity::ComplexityConfig::default(),
+                                )
+                                .ok()
+                            });
+                            let complexity_input = complexity
+                                .as_ref()
+                                .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
+                            let diag = ogexplain_core::analyze(&plan);
+                            let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
+                            output_block_with_diag(
+                                &plan,
+                                &diag,
+                                output,
+                                threshold,
+                                quiet,
+                                complexity.as_ref(),
+                                gauss_complexity.as_ref(),
+                                num,
+                                total,
+                                Some(&row),
+                            )?;
+                            summary_rows.push(row);
+                        } else if let Some(sql) = &block.sql_text {
+                            output_sql_only(sql, output, num, total)?;
+                        }
+                    }
+                }
+
+                if let Some(ref csv_path) = csv {
+                    export_csv(&summary_rows, csv_path)?;
+                }
+
+                if output != "json" && !summary_rows.is_empty() {
+                    print_summary_table(&summary_rows);
                 }
             }
         }
+    }
 
-        if let Some(ref csv_path) = csv {
-            export_csv(&summary_rows, csv_path)?;
-        }
+    Ok(())
+}
 
-        if output != "json" && !summary_rows.is_empty() {
-            print_summary_table(&summary_rows);
+#[cfg(feature = "db")]
+#[allow(clippy::too_many_arguments)]
+fn run_explain(
+    dsn: &str,
+    sql: Option<&str>,
+    sql_file: Option<&str>,
+    analyze: bool,
+    output: &str,
+    threshold: &str,
+    quiet: bool,
+    csv: Option<&str>,
+) -> Result<()> {
+    use crate::db;
+
+    let sql_text = match (sql, sql_file) {
+        (Some(s), None) => s.to_string(),
+        (None, Some(path)) => std::fs::read_to_string(path)
+            .context(t!("cli.explain.error.read_file", path = path).to_string())?,
+        (Some(_), Some(_)) => {
+            anyhow::bail!("Cannot use both -s and -f. Choose one.");
         }
+        (None, None) => {
+            anyhow::bail!("{}", t!("cli.explain.error.no_sql"));
+        }
+    };
+
+    if analyze {
+        eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
+    }
+
+    let explain_text = db::fetch_explain(dsn, &sql_text, analyze)?;
+    let plan =
+        ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
+    let complexity = try_complexity(&sql_text);
+    let gauss_complexity = try_gauss_complexity(&sql_text);
+    let complexity_input = complexity
+        .as_ref()
+        .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
+    let diag = ogexplain_core::analyze(&plan);
+    let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
+
+    output_block_with_diag(
+        &plan,
+        &diag,
+        output,
+        threshold,
+        quiet,
+        complexity.as_ref(),
+        gauss_complexity.as_ref(),
+        1,
+        1,
+        Some(&row),
+    )?;
+
+    if let Some(csv_path) = csv {
+        export_csv(
+            &[SummaryRow::compute(&plan, &diag, complexity_input.as_ref())],
+            csv_path,
+        )?;
+    }
+
+    if output != "json" {
+        print_summary_table(&[SummaryRow::compute(&plan, &diag, complexity_input.as_ref())]);
     }
 
     Ok(())
@@ -600,7 +922,11 @@ fn try_complexity(input: &str) -> Option<ogsql_complexity::ComplexityReport> {
 fn try_gauss_complexity(input: &str) -> Option<ogsql_complexity::GaussDbComplexityReport> {
     let extracted = ogexplain_core::sql::ExtractedContent::from_text(input);
     if extracted.has_sql {
-        ogsql_complexity::gauss_analyze(&extracted.sql_text, &ogsql_complexity::ComplexityConfig::default()).ok()
+        ogsql_complexity::gauss_analyze(
+            &extracted.sql_text,
+            &ogsql_complexity::ComplexityConfig::default(),
+        )
+        .ok()
     } else {
         None
     }
@@ -645,15 +971,20 @@ fn output_sql_only(sql: &str, output: &str, num: usize, total: usize) -> Result<
         Ok(r) => r,
         Err(_) => return Ok(()),
     };
-    let gauss_report = ogsql_complexity::gauss_analyze(sql, &ogsql_complexity::ComplexityConfig::default()).ok();
+    let gauss_report =
+        ogsql_complexity::gauss_analyze(sql, &ogsql_complexity::ComplexityConfig::default()).ok();
 
     if total > 1 {
         println!();
         println!(
             "{}",
-            t!("cli.report.block_header_sql_only", current = num, total = total)
-                .bright_cyan()
-                .bold()
+            t!(
+                "cli.report.block_header_sql_only",
+                current = num,
+                total = total
+            )
+            .bright_cyan()
+            .bold()
         );
     }
 
@@ -886,7 +1217,10 @@ fn print_plan_tree(
     if let Some(s) = summary {
         if let Some(rt) = s.total_runtime_ms {
             println!();
-            println!("{}", t!("cli.tree.total_runtime", time = format!("{:.3}", rt)));
+            println!(
+                "{}",
+                t!("cli.tree.total_runtime", time = format!("{:.3}", rt))
+            );
         }
         if let Some(mem) = s.peak_memory_kb {
             println!("{}", t!("cli.tree.peak_memory", mem = mem));
@@ -954,9 +1288,12 @@ fn print_node(node: &ogexplain_core::model::PlanNode, depth: usize) {
     }
 }
 
-fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: Option<&ogsql_complexity::GaussDbComplexityReport>) {
-    use ogsql_complexity::ComplexityLevel;
+fn print_complexity_section(
+    report: &ogsql_complexity::ComplexityReport,
+    gauss: Option<&ogsql_complexity::GaussDbComplexityReport>,
+) {
     use ogsql_complexity::model::gauss_weights;
+    use ogsql_complexity::ComplexityLevel;
 
     println!("{}", "SQL Complexity".bright_magenta().bold());
 
@@ -988,21 +1325,33 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
         let gauss_score_str = format!("{}", g.overall_score);
         let gauss_level_str = g.level.label();
         let gauss_level_colored = match g.level {
-            ComplexityLevel::Trivial | ComplexityLevel::Simple => gauss_level_str.green().to_string(),
+            ComplexityLevel::Trivial | ComplexityLevel::Simple => {
+                gauss_level_str.green().to_string()
+            }
             ComplexityLevel::Moderate => gauss_level_str.yellow().to_string(),
-            ComplexityLevel::Complex | ComplexityLevel::VeryComplex => gauss_level_str.red().to_string(),
+            ComplexityLevel::Complex | ComplexityLevel::VeryComplex => {
+                gauss_level_str.red().to_string()
+            }
         };
         print!("{}", t!("cli.complexity.gauss_score"));
         print!("{}", gauss_score_str.bright_white().bold());
         print!(" ");
         println!("{}", gauss_level_colored);
 
-        println!("{}", t!("cli.complexity.type", subtype = g.sql_sub_type, category = g.sql_category.label()));
+        println!(
+            "{}",
+            t!(
+                "cli.complexity.type",
+                subtype = g.sql_sub_type,
+                category = g.sql_category.label()
+            )
+        );
 
         let d = &g.dimensions;
         let mut dim_parts: Vec<String> = Vec::new();
         if d.sql_structure > 0 {
-            dim_parts.push(t!("cli.complexity.dim_sql_structure", val = d.sql_structure).to_string());
+            dim_parts
+                .push(t!("cli.complexity.dim_sql_structure", val = d.sql_structure).to_string());
         }
         if d.pl_logic > 0 {
             dim_parts.push(t!("cli.complexity.dim_pl_logic", val = d.pl_logic).to_string());
@@ -1014,12 +1363,18 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
             dim_parts.push(t!("cli.complexity.dim_extension", val = d.extension).to_string());
         }
         if !dim_parts.is_empty() {
-            println!("{}", t!("cli.complexity.dimensions", dims = dim_parts.join(" ")));
+            println!(
+                "{}",
+                t!("cli.complexity.dimensions", dims = dim_parts.join(" "))
+            );
         }
 
         if !g.tags.is_empty() {
             let tag_labels: Vec<String> = g.tags.iter().map(|t| t.label().to_string()).collect();
-            println!("{}", t!("cli.complexity.tags", tags = tag_labels.join(", ")));
+            println!(
+                "{}",
+                t!("cli.complexity.tags", tags = tag_labels.join(", "))
+            );
         }
 
         let m = &g.pl_metrics;
@@ -1027,43 +1382,101 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
 
         let mut sql_parts: Vec<String> = Vec::new();
         if m.table_count > 0 {
-            sql_parts.push(t!("cli.complexity.tables", count = m.table_count, score = m.table_count as i64 * gauss_weights::TABLE).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.tables",
+                    count = m.table_count,
+                    score = m.table_count as i64 * gauss_weights::TABLE
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.join_count > 0 {
-            sql_parts.push(t!("cli.complexity.joins", count = m.join_count, score = m.join_count as i64 * gauss_weights::JOIN).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.joins",
+                    count = m.join_count,
+                    score = m.join_count as i64 * gauss_weights::JOIN
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.where_condition_count > 0 {
-            sql_parts.push(t!("cli.complexity.where", count = m.where_condition_count, score = m.where_condition_count as i64 * gauss_weights::WHERE_CONDITION).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.where",
+                    count = m.where_condition_count,
+                    score = m.where_condition_count as i64 * gauss_weights::WHERE_CONDITION
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.subquery_count > 0 {
-            sql_parts.push(t!("cli.complexity.subqueries", count = m.subquery_count, score = m.subquery_count as i64 * gauss_weights::SUBQUERY).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.subqueries",
+                    count = m.subquery_count,
+                    score = m.subquery_count as i64 * gauss_weights::SUBQUERY
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.aggregate_function_count > 0 {
-            sql_parts.push(t!("cli.complexity.aggregates", count = m.aggregate_function_count, score = m.aggregate_function_count as i64 * gauss_weights::AGGREGATE_FUNCTION).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.aggregates",
+                    count = m.aggregate_function_count,
+                    score = m.aggregate_function_count as i64 * gauss_weights::AGGREGATE_FUNCTION
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.case_expression_count > 0 {
-            sql_parts.push(t!("cli.complexity.cases", count = m.case_expression_count, score = m.case_expression_count as i64 * gauss_weights::CASE_EXPRESSION).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.cases",
+                    count = m.case_expression_count,
+                    score = m.case_expression_count as i64 * gauss_weights::CASE_EXPRESSION
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.has_group_by {
-            sql_parts.push(t!("cli.complexity.group_by", score = gauss_weights::GROUP_BY).to_string());
+            sql_parts
+                .push(t!("cli.complexity.group_by", score = gauss_weights::GROUP_BY).to_string());
             has_pl_metrics = true;
         }
         if m.has_order_by {
-            sql_parts.push(t!("cli.complexity.order_by", score = gauss_weights::ORDER_BY).to_string());
+            sql_parts
+                .push(t!("cli.complexity.order_by", score = gauss_weights::ORDER_BY).to_string());
             has_pl_metrics = true;
         }
         if m.hint_count > 0 {
-            sql_parts.push(t!("cli.complexity.hints", count = m.hint_count, score = m.hint_count as i64 * gauss_weights::HINT).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.hints",
+                    count = m.hint_count,
+                    score = m.hint_count as i64 * gauss_weights::HINT
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.set_operation_count > 0 {
-            sql_parts.push(t!("cli.complexity.set_ops", count = m.set_operation_count, score = m.set_operation_count as i64 * gauss_weights::SET_OPERATION).to_string());
+            sql_parts.push(
+                t!(
+                    "cli.complexity.set_ops",
+                    count = m.set_operation_count,
+                    score = m.set_operation_count as i64 * gauss_weights::SET_OPERATION
+                )
+                .to_string(),
+            );
             has_pl_metrics = true;
         }
         if m.cte_count > 0 {
@@ -1071,7 +1484,8 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
             has_pl_metrics = true;
         }
         if m.window_function_count > 0 {
-            sql_parts.push(t!("cli.complexity.windows", count = m.window_function_count).to_string());
+            sql_parts
+                .push(t!("cli.complexity.windows", count = m.window_function_count).to_string());
             has_pl_metrics = true;
         }
         if m.has_distinct {
@@ -1079,11 +1493,17 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
             has_pl_metrics = true;
         }
         if m.subquery_depth > 0 {
-            sql_parts.push(t!("cli.complexity.nesting_depth", depth = m.subquery_depth).to_string());
+            sql_parts
+                .push(t!("cli.complexity.nesting_depth", depth = m.subquery_depth).to_string());
             has_pl_metrics = true;
         }
 
-        if has_pl_metrics || m.loop_count > 0 || m.cursor_count > 0 || m.dynamic_sql_count > 0 || m.transaction_control_count > 0 {
+        if has_pl_metrics
+            || m.loop_count > 0
+            || m.cursor_count > 0
+            || m.dynamic_sql_count > 0
+            || m.transaction_control_count > 0
+        {
             println!("  {}", t!("cli.complexity.gauss_metrics").bright_magenta());
             if !sql_parts.is_empty() {
                 println!("    {}", sql_parts.join("  "));
@@ -1091,18 +1511,52 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
 
             if m.loop_count > 0 {
                 let loop_score = g.score_breakdown.loop_complexity;
-                println!("{}", t!("cli.complexity.loops", count = m.loop_count, depth = m.max_loop_nesting_level, score = loop_score));
+                println!(
+                    "{}",
+                    t!(
+                        "cli.complexity.loops",
+                        count = m.loop_count,
+                        depth = m.max_loop_nesting_level,
+                        score = loop_score
+                    )
+                );
             }
             if m.cursor_count > 0 {
                 let cursor_score = g.score_breakdown.cursor_complexity;
-                println!("{}", t!("cli.complexity.cursors", count = m.cursor_count, ops = m.cursor_operation_count, score = cursor_score));
+                println!(
+                    "{}",
+                    t!(
+                        "cli.complexity.cursors",
+                        count = m.cursor_count,
+                        ops = m.cursor_operation_count,
+                        score = cursor_score
+                    )
+                );
             }
             if m.dynamic_sql_count > 0 {
-                println!("{}", t!("cli.complexity.dynamic_sql", count = m.dynamic_sql_count, params = m.param_binding_count));
+                println!(
+                    "{}",
+                    t!(
+                        "cli.complexity.dynamic_sql",
+                        count = m.dynamic_sql_count,
+                        params = m.param_binding_count
+                    )
+                );
             }
             if m.transaction_control_count > 0 {
-                let autonomous_label = if m.uses_autonomous_transactions { t!("cli.complexity.yes") } else { t!("cli.complexity.no") };
-                println!("{}", t!("cli.complexity.tx_control", count = m.transaction_control_count, auto = autonomous_label));
+                let autonomous_label = if m.uses_autonomous_transactions {
+                    t!("cli.complexity.yes")
+                } else {
+                    t!("cli.complexity.no")
+                };
+                println!(
+                    "{}",
+                    t!(
+                        "cli.complexity.tx_control",
+                        count = m.transaction_control_count,
+                        auto = autonomous_label
+                    )
+                );
             }
         }
     }
@@ -1112,7 +1566,11 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
             println!(
                 "  {} {}",
                 format!("[{}]", i + 1).bright_yellow(),
-                t!("cli.complexity.score", score = format!("{:.1}", stmt.adjusted_score)).dimmed()
+                t!(
+                    "cli.complexity.score",
+                    score = format!("{:.1}", stmt.adjusted_score)
+                )
+                .dimmed()
             );
         }
 
@@ -1121,40 +1579,115 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
         let mut parts: Vec<String> = Vec::new();
 
         if m.table_count > 0 {
-            parts.push(t!("cli.complexity_stmt.tables", count = m.table_count, score = format!("{:.1}", b.tables)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.tables",
+                    count = m.table_count,
+                    score = format!("{:.1}", b.tables)
+                )
+                .to_string(),
+            );
         }
         if m.join_count > 0 {
-            parts.push(t!("cli.complexity_stmt.joins", count = m.join_count, score = format!("{:.1}", b.joins)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.joins",
+                    count = m.join_count,
+                    score = format!("{:.1}", b.joins)
+                )
+                .to_string(),
+            );
         }
         if m.where_condition_count > 0 {
-            parts.push(t!("cli.complexity_stmt.conditions", count = m.where_condition_count, score = format!("{:.1}", b.where_conditions)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.conditions",
+                    count = m.where_condition_count,
+                    score = format!("{:.1}", b.where_conditions)
+                )
+                .to_string(),
+            );
         }
         if m.subquery_count > 0 {
-            parts.push(t!("cli.complexity_stmt.subqueries", count = m.subquery_count, score = format!("{:.1}", b.subqueries)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.subqueries",
+                    count = m.subquery_count,
+                    score = format!("{:.1}", b.subqueries)
+                )
+                .to_string(),
+            );
         }
         if m.aggregate_function_count > 0 {
-            parts.push(t!("cli.complexity_stmt.aggregates", count = m.aggregate_function_count, score = format!("{:.1}", b.aggregate_functions)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.aggregates",
+                    count = m.aggregate_function_count,
+                    score = format!("{:.1}", b.aggregate_functions)
+                )
+                .to_string(),
+            );
         }
         if m.case_expression_count > 0 {
-            parts.push(t!("cli.complexity_stmt.cases", count = m.case_expression_count, score = format!("{:.1}", b.case_expressions)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.cases",
+                    count = m.case_expression_count,
+                    score = format!("{:.1}", b.case_expressions)
+                )
+                .to_string(),
+            );
         }
         if m.set_operation_count > 0 {
-            parts.push(t!("cli.complexity_stmt.set_ops", count = m.set_operation_count, score = format!("{:.1}", b.set_operations)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.set_ops",
+                    count = m.set_operation_count,
+                    score = format!("{:.1}", b.set_operations)
+                )
+                .to_string(),
+            );
         }
         if m.has_group_by {
-            parts.push(t!("cli.complexity_stmt.group_by", score = format!("{:.1}", b.group_by)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.group_by",
+                    score = format!("{:.1}", b.group_by)
+                )
+                .to_string(),
+            );
         }
         if m.has_order_by {
-            parts.push(t!("cli.complexity_stmt.order_by", score = format!("{:.1}", b.order_by)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.order_by",
+                    score = format!("{:.1}", b.order_by)
+                )
+                .to_string(),
+            );
         }
         if m.has_distinct {
             parts.push(t!("cli.complexity.distinct").to_string());
         }
         if m.window_function_count > 0 {
-            parts.push(t!("cli.complexity_stmt.windows", count = m.window_function_count, score = format!("{:.1}", b.window_functions)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.windows",
+                    count = m.window_function_count,
+                    score = format!("{:.1}", b.window_functions)
+                )
+                .to_string(),
+            );
         }
         if m.cte_count > 0 {
-            parts.push(t!("cli.complexity_stmt.ctes", count = m.cte_count, score = format!("{:.1}", b.ctes)).to_string());
+            parts.push(
+                t!(
+                    "cli.complexity_stmt.ctes",
+                    count = m.cte_count,
+                    score = format!("{:.1}", b.ctes)
+                )
+                .to_string(),
+            );
         }
 
         if !parts.is_empty() {
@@ -1162,7 +1695,13 @@ fn print_complexity_section(report: &ogsql_complexity::ComplexityReport, gauss: 
         }
 
         if m.subquery_depth > 0 {
-            println!("{}", t!("cli.complexity_stmt.nesting_depth", depth = m.subquery_depth));
+            println!(
+                "{}",
+                t!(
+                    "cli.complexity_stmt.nesting_depth",
+                    depth = m.subquery_depth
+                )
+            );
         }
 
         let sql_preview: String = stmt
