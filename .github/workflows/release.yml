@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-C target-feature=+crt-static -C strip=symbols"
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            ext: ''
+            archive: tar.gz
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            ext: ''
+            archive: tar.gz
+          # Rust 1.78+ std requires Windows 10+. Pin toolchain to 1.77 + gnu target for Win7.
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            ext: '.exe'
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install cross
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build (cross - arm64)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          cross build --release -p ogexplain-cli --no-default-features --target aarch64-unknown-linux-musl
+          cross build --release -p ogexplain-tui --target aarch64-unknown-linux-musl
+
+      - name: Build (native)
+        if: matrix.target != 'aarch64-unknown-linux-musl'
+        run: |
+          cargo build --release -p ogexplain-cli --no-default-features --target ${{ matrix.target }}
+          cargo build --release -p ogexplain-tui --target ${{ matrix.target }}
+
+      - name: Package (Linux tar.gz)
+        if: runner.os == 'Linux'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../ogexplain-${{ matrix.target }}.tar.gz ogexplain ogexplain-tui
+
+      - name: Package (Windows zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path target/${{ matrix.target }}/release/ogexplain.exe, target/${{ matrix.target }}/release/ogexplain-tui.exe `
+            -DestinationPath ogexplain-${{ matrix.target }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ogexplain-${{ matrix.target }}
+          path: ogexplain-${{ matrix.target }}.${{ matrix.archive }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          sha256sum * > checksums-sha256.txt
+          cat checksums-sha256.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
