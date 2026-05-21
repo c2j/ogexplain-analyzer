@@ -773,7 +773,10 @@ pub fn run() -> Result<()> {
                     let complexity_input = complexity
                         .as_ref()
                         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                    let diag = ogexplain_core::analyze(&plan);
+                    let diag = ogexplain_core::analyze_with_rewrite(
+                        &plan,
+                        block.sql_text.as_deref(),
+                    );
                     let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                     output_block_with_diag(
                         &plan,
@@ -807,7 +810,10 @@ pub fn run() -> Result<()> {
                             let complexity_input = complexity
                                 .as_ref()
                                 .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                            let diag = ogexplain_core::analyze(&plan);
+                            let diag = ogexplain_core::analyze_with_rewrite(
+                                &plan,
+                                block.sql_text.as_deref(),
+                            );
                             let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                             output_block_with_diag(
                                 &plan,
@@ -880,7 +886,7 @@ fn run_explain(
     let complexity_input = complexity
         .as_ref()
         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-    let diag = ogexplain_core::analyze(&plan);
+    let diag = ogexplain_core::analyze_with_rewrite(&plan, Some(&sql_text));
     let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
 
     output_block_with_diag(
@@ -1204,6 +1210,11 @@ fn print_finding(f: &ogexplain_core::analyzer::report::Finding) {
     println!("    {}", f.detail);
     if let Some(suggestion) = &f.suggestion {
         println!("    {}", format!("Suggestion: {}", suggestion).dimmed());
+    }
+    if let Some(rewrite) = &f.sql_rewrite {
+        println!("    {}", "SQL Rewrite:".bright_green());
+        println!("    {}", rewrite.rewritten_sql.bright_green());
+        println!("    {}", rewrite.explanation.dimmed());
     }
 }
 
