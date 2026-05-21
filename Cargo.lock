@@ -2090,10 +2090,11 @@ dependencies = [
 
 [[package]]
 name = "ogsql-parser"
-version = "0.1.0"
-source = "git+https://github.com/c2j/ogsql-parser#f5816be1611214da5d826f41a9f4f030677399ab"
+version = "0.4.7"
+source = "git+https://github.com/c2j/ogsql-parser#394ff0c1b95df33a22214de1bd5b7b6208b42289"
 dependencies = [
  "encoding_rs",
+ "phf 0.11.3",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

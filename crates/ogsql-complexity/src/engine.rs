@@ -548,6 +548,7 @@ fn collect_sql_metrics_from_stmts(
             PlStatement::SqlStatement {
                 sql_text,
                 statement,
+                ..
             } => {
                 let sub = visitor::analyze_statement_gauss(statement, sql_text);
                 merge_metrics(metrics, &sub);
@@ -562,6 +563,7 @@ fn collect_sql_metrics_from_stmts(
             PlStatement::Perform {
                 query,
                 parsed_query: Some(parsed),
+                ..
             } => {
                 let sub = visitor::analyze_statement_gauss(parsed, query);
                 merge_metrics(metrics, &sub);
@@ -642,6 +644,7 @@ fn collect_sql_scores_from_stmts(
             PlStatement::SqlStatement {
                 sql_text,
                 statement,
+                ..
             } => {
                 let score = score_single_statement(statement, sql_text);
                 scores.push(score);
@@ -660,6 +663,7 @@ fn collect_sql_scores_from_stmts(
             PlStatement::Perform {
                 query,
                 parsed_query: Some(parsed),
+                ..
             } => {
                 let score = score_single_statement(parsed, query);
                 scores.push(score);
@@ -764,6 +768,7 @@ fn score_package(
             ogsql_parser::ast::PackageItem::Raw(_) => {
                 pkg.package_level_variables += 1;
             }
+            ogsql_parser::ast::PackageItem::Variable(_) | ogsql_parser::ast::PackageItem::Type(_) => {}
         }
     }
 
