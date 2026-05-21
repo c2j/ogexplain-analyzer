@@ -75,6 +75,19 @@ impl SuggestionEngine {
             });
         }
 
+        let subq_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.rule_id == "SUBQ-006")
+            .collect();
+        if !subq_findings.is_empty() {
+            suggestions.push(Suggestion {
+                related_rules: subq_findings.iter().map(|f| f.rule_id.clone()).collect(),
+                category: SuggestionCategory::QueryRewrite,
+                message: "检测到关联子查询自引用UPDATE，建议改写为 UPDATE ... FROM 或 CTE 形式以避免逐行执行".to_string(),
+                confidence: 0.9,
+            });
+        }
+
         suggestions
     }
 }

@@ -6,6 +6,7 @@ mod network_rules;
 mod pushdown_rules;
 mod scan_rules;
 mod sort_rules;
+mod subquery_rules;
 mod type_coercion_rules;
 mod vectorization_rules;
 
@@ -47,6 +48,9 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
         Box::new(type_coercion_rules::LikeWithLeadingWildcard),
         Box::new(vectorization_rules::MixedVectorRowEngines),
         Box::new(general_rules::PlanTooDeep::new(config.clone())),
+        Box::new(subquery_rules::SubqueryNotPulledUp),
+        Box::new(subquery_rules::LargeInListNotConverted),
+        Box::new(subquery_rules::CorrelatedSubquerySelfUpdate),
     ]
 }
 
