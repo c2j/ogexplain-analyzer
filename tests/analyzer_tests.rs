@@ -657,6 +657,66 @@ fn config_estimation_skew_factor_affects_est_001_trigger() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// SUBQ-006 — Correlated subquery self-referencing UPDATE
+// ---------------------------------------------------------------------------
+
+#[test]
+fn subq_006_triggers_on_correlated_subquery_update() {
+    let report = analyze_fixture("23_correlated_subquery_update.txt");
+    let finding = get_finding(&report, "SUBQ-006")
+        .expect("Expected SUBQ-006 for correlated subquery self-referencing UPDATE");
+    assert_eq!(finding.severity, Severity::Warning);
+    assert_eq!(finding.category, DiagnosticCategory::SubqueryStructure);
+    assert!(finding.detail.contains("employees"), "detail should mention table name");
+}
+
+#[test]
+fn subq_006_does_not_trigger_on_normal_update() {
+    let report = analyze_fixture("25_normal_update.txt");
+    assert!(
+        !has_finding(&report, "SUBQ-006"),
+        "SUBQ-006 should not fire for normal UPDATE without correlated subquery"
+    );
+}
+
+#[test]
+fn subq_006_finding_contains_template_suggestion() {
+    let report = analyze_fixture("23_correlated_subquery_update.txt");
+    let finding = get_finding(&report, "SUBQ-006").expect("SUBQ-006 should be present");
+    let suggestion = finding.suggestion.as_ref().expect("SUBQ-006 should have a suggestion");
+    assert!(
+        suggestion.contains("UPDATE") && suggestion.contains("FROM"),
+        "suggestion should include UPDATE FROM rewrite template, got: {}",
+        suggestion
+    );
+    assert!(
+        suggestion.contains("employees"),
+        "suggestion should include actual table name"
+    );
+}
+
+#[test]
+fn subq_006_triggers_with_streaming_in_distributed() {
+    let report = analyze_fixture("24_correlated_subquery_update_distributed.txt");
+    let finding = get_finding(&report, "SUBQ-006")
+        .expect("Expected SUBQ-006 for distributed correlated subquery UPDATE");
+    assert!(
+        finding.detail.contains("Streaming") || finding.detail.contains("分布式") || finding.detail.contains("distributed"),
+        "detail should mention distributed scenario, got: {}",
+        finding.detail
+    );
+}
+
+#[test]
+fn suggestion_engine_produces_query_rewrite_for_subq006() {
+    let report = analyze_fixture("23_correlated_subquery_update.txt");
+    let suggestions = SuggestionEngine::suggest(&report.findings);
+    let qr = suggestions.iter().find(|s| matches!(s.category, SuggestionCategory::QueryRewrite));
+    assert!(qr.is_some(), "SUBQ-006 should produce a QueryRewrite suggestion");
+    assert!(qr.unwrap().confidence >= 0.85);
+}
+
 #[test]
 fn suggestion_engine_returns_empty_for_no_findings() {
     let suggestions = SuggestionEngine::suggest(&[]);

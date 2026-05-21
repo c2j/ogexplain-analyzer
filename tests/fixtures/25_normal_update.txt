@@ -1,0 +1,5 @@
+QUERY PLAN
+----------------------------------------------------
+Update on employees  (cost=0.00..25.00 rows=1000 width=50)
+  ->  Seq Scan on employees  (cost=0.00..15.00 rows=1000 width=50)
+Total runtime: 1.234 ms

@@ -1,0 +1,8 @@
+QUERY PLAN
+----------------------------------------------------
+Update on employees  (cost=0.00..35000.00 rows=1000 width=100)
+  ->  Seq Scan on employees  (cost=0.00..15.00 rows=1000 width=50) (actual time=0.010..5.230 rows=1000 loops=1)
+        SubPlan 1
+          ->  Index Scan using emp_pkey on employees e  (cost=0.00..35.00 rows=1 width=20) (actual time=0.003..0.005 rows=1 loops=1000)
+                Index Cond: (emp_id = employees.emp_id)
+Total runtime: 5023.456 ms
