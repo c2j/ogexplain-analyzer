@@ -39,6 +39,7 @@ impl DiagnosticRule for MixedVectorRowEngines {
             node_line: None,
             node_type: None,
             suggestion: Some("统一使用同一引擎以消除适配器开销; 分析场景: SET try_vector_engine_strategy=force 尝试全向量化; 行存点查场景: SET enable_vector_engine=off 使用纯行引擎; 列存表应确保使用向量化扫描".to_string()),
+            sql_rewrite: None,
         }]
     }
 }

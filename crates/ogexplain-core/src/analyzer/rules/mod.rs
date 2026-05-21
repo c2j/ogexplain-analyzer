@@ -69,5 +69,6 @@ fn make_finding(
         node_line: Some(node.line_number),
         node_type: Some(node.node_type.to_string()),
         suggestion,
+        sql_rewrite: None,
     }
 }

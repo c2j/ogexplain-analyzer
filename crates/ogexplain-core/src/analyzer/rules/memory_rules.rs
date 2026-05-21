@@ -93,6 +93,7 @@ impl DiagnosticRule for HighPeakMemory {
             suggestion: Some(
                 "Consider reducing work_mem or optimizing the query to use less memory".to_string(),
             ),
+            sql_rewrite: None,
         }]
     }
 }

@@ -62,6 +62,7 @@ pub struct Finding {
     pub node_line: Option<usize>,
     pub node_type: Option<String>,
     pub suggestion: Option<String>,
+    pub sql_rewrite: Option<crate::rewriter::types::RewriteResult>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
