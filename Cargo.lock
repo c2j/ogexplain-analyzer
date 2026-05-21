@@ -2053,6 +2053,7 @@ name = "ogexplain-core"
 version = "0.1.0"
 dependencies = [
  "insta",
+ "ogsql-parser",
  "regex",
  "rust-i18n",
  "serde",
