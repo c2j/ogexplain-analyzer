@@ -88,6 +88,34 @@ impl SuggestionEngine {
             });
         }
 
+        let type_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.rule_id.starts_with("TYPE-"))
+            .collect();
+        if type_findings.len() >= 2 {
+            suggestions.push(Suggestion {
+                related_rules: type_findings.iter().map(|f| f.rule_id.clone()).collect(),
+                category: SuggestionCategory::QueryRewrite,
+                message: "多处类型不一致问题, 建议全面审查 WHERE/JOIN 条件中的数据类型匹配"
+                    .to_string(),
+                confidence: 0.85,
+            });
+        }
+
+        let vec_findings: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.rule_id.starts_with("VEC-"))
+            .collect();
+        if !vec_findings.is_empty() {
+            suggestions.push(Suggestion {
+                related_rules: vec_findings.iter().map(|f| f.rule_id.clone()).collect(),
+                category: SuggestionCategory::ConfigurationTuning,
+                message: "检测到引擎切换, 建议统一使用行引擎或向量化引擎以消除 Adapter 开销"
+                    .to_string(),
+                confidence: 0.8,
+            });
+        }
+
         suggestions
     }
 }

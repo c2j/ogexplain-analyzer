@@ -1,5 +1,5 @@
-use ogexplain_core::{parse, parse_multi};
 use ogexplain_core::model::{NodeType, StreamingType};
+use ogexplain_core::{parse, parse_multi};
 
 #[test]
 fn basic_seq_scan_parses() {
@@ -30,7 +30,12 @@ fn index_scan_with_using_clause() {
     assert_eq!(actual.loops, 1.0);
     assert!(actual.executed);
 
-    let labels: Vec<&str> = plan.root.properties.iter().map(|p| p.label.as_str()).collect();
+    let labels: Vec<&str> = plan
+        .root
+        .properties
+        .iter()
+        .map(|p| p.label.as_str())
+        .collect();
     assert!(labels.contains(&"Index Cond"));
     assert!(labels.contains(&"Filter"));
     assert!(labels.contains(&"Rows Removed by Filter"));
@@ -80,7 +85,10 @@ fn pretty_mode_with_numeric_prefix() {
 fn unknown_node_type_is_tolerant() {
     let input = "QUERY PLAN\n----------------------------------------------------\nFrobnicate Scan on foo  (cost=0.00..1.00 rows=1 width=4)";
     let plan = parse(input).unwrap();
-    assert_eq!(plan.root.node_type, NodeType::Unknown("Frobnicate Scan".to_string()));
+    assert_eq!(
+        plan.root.node_type,
+        NodeType::Unknown("Frobnicate Scan".to_string())
+    );
     assert_eq!(plan.root.relation, Some("foo".to_string()));
     assert!(plan.root.estimated.is_some());
 }
@@ -210,7 +218,10 @@ fn hash_cond_and_buckets() {
 fn streaming_gather_node() {
     let input = "QUERY PLAN\n----------------------------------------------------\nStreaming(type: GATHER)  (cost=12.34..45.67 rows=500 width=28) (actual time=1.234..2.567 rows=500 loops=1)\n  Node/s: All datanodes\n  ->  Seq Scan on products  (cost=0.00..15.20 rows=500 width=28) (actual time=0.045..0.234 rows=500 loops=1)";
     let plan = parse(input).unwrap();
-    assert_eq!(plan.root.node_type, NodeType::Streaming(StreamingType::Gather));
+    assert_eq!(
+        plan.root.node_type,
+        NodeType::Streaming(StreamingType::Gather)
+    );
     assert_eq!(plan.root.children.len(), 1);
     assert_eq!(plan.root.children[0].node_type, NodeType::SeqScan);
     assert_eq!(plan.root.children[0].relation, Some("products".to_string()));
@@ -242,7 +253,10 @@ fn vector_hash_join_node() {
     let plan = parse(input).unwrap();
     assert_eq!(plan.root.node_type, NodeType::VectorHashJoin);
     assert_eq!(plan.root.children.len(), 2);
-    assert_eq!(plan.root.children[1].node_type, NodeType::VectorHashAggregate);
+    assert_eq!(
+        plan.root.children[1].node_type,
+        NodeType::VectorHashAggregate
+    );
 }
 
 #[test]
@@ -267,7 +281,12 @@ fn cstore_scan_node() {
     assert_eq!(plan.root.relation, Some("analytics_events".to_string()));
     assert_eq!(plan.root.children.len(), 0);
 
-    let labels: Vec<&str> = plan.root.properties.iter().map(|p| p.label.as_str()).collect();
+    let labels: Vec<&str> = plan
+        .root
+        .properties
+        .iter()
+        .map(|p| p.label.as_str())
+        .collect();
     assert!(labels.contains(&"Filter"));
     assert!(labels.contains(&"Rows Removed by Filter"));
     assert!(labels.contains(&"CStore MinMax Skip"));
@@ -278,11 +297,7 @@ fn pipe_delimited_format_tolerated() {
     let input = "QUERY PLAN|\n----------------------------------------------------|\nSeq Scan on t1  (cost=0.00..12.00 rows=100 width=4)|\n  Filter: (status = 'active')|";
     let plan = parse(input).unwrap();
     assert_eq!(plan.root.node_type, NodeType::SeqScan);
-    let filter = plan
-        .root
-        .properties
-        .iter()
-        .find(|p| p.label == "Filter");
+    let filter = plan.root.properties.iter().find(|p| p.label == "Filter");
     assert!(filter.is_some());
 }
 
@@ -298,7 +313,12 @@ fn explain_analyze_total_runtime_summary() {
 fn multiple_properties_on_same_node() {
     let input = "QUERY PLAN\n----------------------------------------------------\nSeq Scan on line_items  (cost=0.00..98.50 rows=50000 width=24) (actual time=0.015..12.345 rows=500000 loops=1)\n  Filter: (created_at > '2024-01-01'::timestamp without time zone)\n  Rows Removed by Filter: 1000000\n  Peak Memory: 1024 kB";
     let plan = parse(input).unwrap();
-    let labels: Vec<&str> = plan.root.properties.iter().map(|p| p.label.as_str()).collect();
+    let labels: Vec<&str> = plan
+        .root
+        .properties
+        .iter()
+        .map(|p| p.label.as_str())
+        .collect();
     assert!(labels.contains(&"Filter"));
     assert!(labels.contains(&"Rows Removed by Filter"));
 
@@ -354,7 +374,11 @@ fn whitespace_only_errors() {
     let result = parse("   \n\t\n   ");
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
-    assert!(err.contains("Empty input"), "expected 'Empty input', got: {}", err);
+    assert!(
+        err.contains("Empty input"),
+        "expected 'Empty input', got: {}",
+        err
+    );
 }
 
 #[test]

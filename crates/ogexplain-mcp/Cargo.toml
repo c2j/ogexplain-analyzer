@@ -1,0 +1,15 @@
+[package]
+name = "ogexplain-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MCP server for OpenGauss EXPLAIN plan analysis"
+
+[dependencies]
+ogexplain-core = { path = "../ogexplain-core" }
+ogsql-complexity = { path = "../ogsql-complexity" }
+rmcp = { version = "1.7", features = ["server", "client", "transport-io"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1"

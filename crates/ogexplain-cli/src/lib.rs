@@ -662,6 +662,10 @@ pub fn run() -> Result<()> {
                         .default_value("auto")
                         .help(t!("cli.explain.help_lang").to_string()),
                 ),
+        )
+        .subcommand(
+            clap::Command::new("mcp")
+                .about("Start MCP server (Model Context Protocol, stdio transport)"),
         );
 
     let matches = cmd.get_matches();
@@ -700,6 +704,17 @@ pub fn run() -> Result<()> {
             {
                 let _ = args;
                 anyhow::bail!("Database support not compiled. Rebuild with --features db");
+            }
+        }
+        Some(("mcp", _)) => {
+            #[cfg(feature = "mcp")]
+            {
+                ogexplain_mcp::server::run();
+                return Ok(());
+            }
+            #[cfg(not(feature = "mcp"))]
+            {
+                anyhow::bail!("MCP support not compiled. Rebuild with --features mcp");
             }
         }
         _ => {
@@ -773,10 +788,8 @@ pub fn run() -> Result<()> {
                     let complexity_input = complexity
                         .as_ref()
                         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                    let diag = ogexplain_core::analyze_with_rewrite(
-                        &plan,
-                        block.sql_text.as_deref(),
-                    );
+                    let diag =
+                        ogexplain_core::analyze_with_rewrite(&plan, block.sql_text.as_deref());
                     let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                     output_block_with_diag(
                         &plan,

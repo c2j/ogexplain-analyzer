@@ -98,7 +98,10 @@ fn only_sql_no_explain() {
     assert!(blocks[0].sql_text.is_some());
     assert!(blocks[0].explain_text.is_empty());
     assert_eq!(blocks[0].sql_text.as_deref(), Some("SELECT * FROM t1;"));
-    assert_eq!(blocks[1].sql_text.as_deref(), Some("INSERT INTO t1 VALUES (1);"));
+    assert_eq!(
+        blocks[1].sql_text.as_deref(),
+        Some("INSERT INTO t1 VALUES (1);")
+    );
 }
 
 #[test]
@@ -126,7 +129,9 @@ fn fixture_22_segmentation() {
         Some("insert into t1 values(1);")
     );
     assert!(blocks[2].explain_text.contains("Vector Sort"));
-    assert!(blocks[2].explain_text.contains("Vector Sonic Hash Aggregate"));
+    assert!(blocks[2]
+        .explain_text
+        .contains("Vector Sonic Hash Aggregate"));
 
     assert_eq!(
         blocks[3].sql_text.as_deref(),

@@ -3,11 +3,8 @@
 //! These are regression guard tests covering pure functions and model types
 //! that are NOT tested by the existing complexity_tests.rs integration tests.
 
-use ogsql_complexity::model::{
-    ComplexityLevel, ComplexityMetrics, SqlCategory,
-    WeightProfile,
-};
 use ogsql_complexity::model::gauss_weights::*;
+use ogsql_complexity::model::{ComplexityLevel, ComplexityMetrics, SqlCategory, WeightProfile};
 use ogsql_complexity::{analyze, gauss_analyze, ComplexityConfig};
 
 // ============================================================================
@@ -39,7 +36,10 @@ fn test_from_score_simple_boundaries() {
 #[test]
 fn test_from_score_moderate_boundaries() {
     assert_eq!(ComplexityLevel::from_score(15.0), ComplexityLevel::Moderate);
-    assert_eq!(ComplexityLevel::from_score(29.99), ComplexityLevel::Moderate);
+    assert_eq!(
+        ComplexityLevel::from_score(29.99),
+        ComplexityLevel::Moderate
+    );
     assert_eq!(
         ComplexityLevel::from_score(30.0),
         ComplexityLevel::Complex,
@@ -60,7 +60,10 @@ fn test_from_score_complex_boundaries() {
 
 #[test]
 fn test_from_score_very_complex() {
-    assert_eq!(ComplexityLevel::from_score(50.0), ComplexityLevel::VeryComplex);
+    assert_eq!(
+        ComplexityLevel::from_score(50.0),
+        ComplexityLevel::VeryComplex
+    );
     assert_eq!(
         ComplexityLevel::from_score(100.0),
         ComplexityLevel::VeryComplex
@@ -416,7 +419,10 @@ $$ LANGUAGE plpgsql
         report.pl_metrics.param_binding_count as i64 * PARAMETER_BINDING
     );
     assert!(bd.cursor_complexity > 0, "Should have cursor complexity");
-    assert!(bd.transaction_complexity > 0, "Should have transaction complexity");
+    assert!(
+        bd.transaction_complexity > 0,
+        "Should have transaction complexity"
+    );
 }
 
 // ============================================================================

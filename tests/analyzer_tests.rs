@@ -51,8 +51,14 @@ fn scan_001_triggers_on_large_seq_scan() {
         .expect("Expected SCAN-001 for large Seq Scan on line_items");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::ScanEfficiency);
-    assert!(finding.detail.contains("line_items"), "detail should mention table name");
-    assert!(finding.detail.contains("500000"), "detail should mention row count");
+    assert!(
+        finding.detail.contains("line_items"),
+        "detail should mention table name"
+    );
+    assert!(
+        finding.detail.contains("500000"),
+        "detail should mention row count"
+    );
 }
 
 #[test]
@@ -75,8 +81,14 @@ fn scan_004_triggers_on_filter_without_index() {
         .expect("Expected SCAN-004 for filter without index on orders");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::ScanEfficiency);
-    assert!(finding.detail.contains("orders"), "detail should mention table name");
-    assert!(finding.detail.contains("Filter"), "detail should mention Filter");
+    assert!(
+        finding.detail.contains("orders"),
+        "detail should mention table name"
+    );
+    assert!(
+        finding.detail.contains("Filter"),
+        "detail should mention Filter"
+    );
 }
 
 #[test]
@@ -95,8 +107,8 @@ fn scan_004_does_not_trigger_when_estimation_ratio_low() {
 #[test]
 fn join_001_triggers_on_nested_loop_large() {
     let report = analyze_fixture("11_nested_loop_large.txt");
-    let finding = get_finding(&report, "JOIN-001")
-        .expect("Expected JOIN-001 for large nested loop");
+    let finding =
+        get_finding(&report, "JOIN-001").expect("Expected JOIN-001 for large nested loop");
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::JoinStrategy);
     assert!(
@@ -138,8 +150,8 @@ fn join_002_triggers_on_hash_spill() {
 #[test]
 fn mem_001_triggers_on_sort_spill() {
     let report = analyze_fixture("05_sort_external_merge.txt");
-    let finding = get_finding(&report, "MEM-001")
-        .expect("Expected MEM-001 for external merge sort");
+    let finding =
+        get_finding(&report, "MEM-001").expect("Expected MEM-001 for external merge sort");
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::MemoryUsage);
     assert!(
@@ -164,8 +176,8 @@ fn mem_001_triggers_on_complex_plan_sort_spill() {
 #[test]
 fn mem_004_triggers_on_high_peak_memory() {
     let report = analyze_fixture("12_hash_spill.txt");
-    let finding = get_finding(&report, "MEM-004")
-        .expect("Expected MEM-004 for peak memory 512000 KB");
+    let finding =
+        get_finding(&report, "MEM-004").expect("Expected MEM-004 for peak memory 512000 KB");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::MemoryUsage);
     assert!(
@@ -181,8 +193,8 @@ fn mem_004_triggers_on_high_peak_memory() {
 #[test]
 fn sort_003_triggers_on_duplicate_sort() {
     let report = analyze_fixture("13_duplicate_sort.txt");
-    let finding = get_finding(&report, "SORT-003")
-        .expect("Expected SORT-003 for duplicate sort nodes");
+    let finding =
+        get_finding(&report, "SORT-003").expect("Expected SORT-003 for duplicate sort nodes");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::SortEfficiency);
     assert!(
@@ -198,8 +210,8 @@ fn sort_003_triggers_on_duplicate_sort() {
 #[test]
 fn net_001_triggers_on_broadcast_large() {
     let report = analyze_fixture("14_broadcast_large.txt");
-    let finding = get_finding(&report, "NET-001")
-        .expect("Expected NET-001 for broadcast with 50000 rows");
+    let finding =
+        get_finding(&report, "NET-001").expect("Expected NET-001 for broadcast with 50000 rows");
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::NetworkOverhead);
     assert!(
@@ -237,8 +249,8 @@ fn est_001_triggers_on_severe_underestimate_with_custom_config() {
 #[test]
 fn push_001_triggers_on_streaming_redistribute() {
     let report = analyze_fixture("16_multi_streaming.txt");
-    let finding = get_finding(&report, "PUSH-001")
-        .expect("Expected PUSH-001 for Streaming(Redistribute)");
+    let finding =
+        get_finding(&report, "PUSH-001").expect("Expected PUSH-001 for Streaming(Redistribute)");
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::PushdownFailure);
     assert!(
@@ -263,8 +275,8 @@ fn push_001_does_not_trigger_on_gather_only() {
 #[test]
 fn push_002_triggers_on_multi_layer_streaming() {
     let report = analyze_fixture("16_multi_streaming.txt");
-    let finding = get_finding(&report, "PUSH-002")
-        .expect("Expected PUSH-002 for multi-layer streaming");
+    let finding =
+        get_finding(&report, "PUSH-002").expect("Expected PUSH-002 for multi-layer streaming");
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::PushdownFailure);
     assert!(
@@ -297,8 +309,8 @@ fn type_001_triggers_on_implicit_cast() {
 #[test]
 fn type_004_triggers_on_like_wildcard() {
     let report = analyze_fixture("18_like_wildcard.txt");
-    let finding = get_finding(&report, "TYPE-004")
-        .expect("Expected TYPE-004 for LIKE with leading wildcard");
+    let finding =
+        get_finding(&report, "TYPE-004").expect("Expected TYPE-004 for LIKE with leading wildcard");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::TypeMismatch);
     assert!(
@@ -314,8 +326,8 @@ fn type_004_triggers_on_like_wildcard() {
 #[test]
 fn vec_001_triggers_on_mixed_engines() {
     let report = analyze_fixture("19_mixed_engines.txt");
-    let finding = get_finding(&report, "VEC-001")
-        .expect("Expected VEC-001 for mixed row/vector engines");
+    let finding =
+        get_finding(&report, "VEC-001").expect("Expected VEC-001 for mixed row/vector engines");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::Vectorization);
     assert!(
@@ -404,7 +416,10 @@ fn config_memory_threshold_blocks_mem_004() {
         !has_finding(&report, "MEM-004"),
         "MEM-004 should not fire when memory threshold exceeds peak memory"
     );
-    assert!(has_finding(&report, "JOIN-002"), "JOIN-002 should still fire");
+    assert!(
+        has_finding(&report, "JOIN-002"),
+        "JOIN-002 should still fire"
+    );
 }
 
 #[test]
@@ -435,7 +450,11 @@ fn suggestion_multiple_est_findings_trigger_analyze() {
     let report = analyze_with_config(&plan, &config);
 
     // Ensure we have at least 2 EST- findings to trigger the synthesis
-    let est_count = report.findings.iter().filter(|f| f.rule_id.starts_with("EST-")).count();
+    let est_count = report
+        .findings
+        .iter()
+        .filter(|f| f.rule_id.starts_with("EST-"))
+        .count();
     assert!(
         est_count >= 2,
         "Need at least 2 EST- findings for synthesis, got {}",
@@ -456,11 +475,17 @@ fn suggestion_multiple_spill_findings_trigger_work_mem() {
     // Combine findings from a hash-spill report and a sort-spill report
     let hash_plan = parse_fixture("12_hash_spill.txt");
     let hash_report = analyze(&hash_plan);
-    assert!(has_finding(&hash_report, "JOIN-002"), "Need JOIN-002 from hash spill");
+    assert!(
+        has_finding(&hash_report, "JOIN-002"),
+        "Need JOIN-002 from hash spill"
+    );
 
     let sort_plan = parse_fixture("05_sort_external_merge.txt");
     let sort_report = analyze(&sort_plan);
-    assert!(has_finding(&sort_report, "MEM-001"), "Need MEM-001 from sort spill");
+    assert!(
+        has_finding(&sort_report, "MEM-001"),
+        "Need MEM-001 from sort spill"
+    );
 
     let mut combined_findings = hash_report.findings.clone();
     combined_findings.extend(sort_report.findings);
@@ -481,11 +506,17 @@ fn suggestion_scan_and_join_findings_trigger_composite_index() {
 
     // Ensure both SCAN- and JOIN- findings are present
     assert!(
-        report.findings.iter().any(|f| f.rule_id.starts_with("SCAN-")),
+        report
+            .findings
+            .iter()
+            .any(|f| f.rule_id.starts_with("SCAN-")),
         "Need a SCAN- finding"
     );
     assert!(
-        report.findings.iter().any(|f| f.rule_id.starts_with("JOIN-")),
+        report
+            .findings
+            .iter()
+            .any(|f| f.rule_id.starts_with("JOIN-")),
         "Need a JOIN- finding"
     );
 
@@ -494,7 +525,9 @@ fn suggestion_scan_and_join_findings_trigger_composite_index() {
         .iter()
         .find(|s| matches!(s.category, SuggestionCategory::IndexOptimization))
         .expect("Expected an IndexOptimization suggestion for scan + join findings");
-    assert!(index_suggestion.message.contains("复合索引") || index_suggestion.message.contains("索引"));
+    assert!(
+        index_suggestion.message.contains("复合索引") || index_suggestion.message.contains("索引")
+    );
     assert!(index_suggestion.confidence > 0.0);
 }
 
@@ -505,7 +538,10 @@ fn suggestion_push_findings_trigger_distribution_optimization() {
 
     // Ensure PUSH- findings are present
     assert!(
-        report.findings.iter().any(|f| f.rule_id.starts_with("PUSH-")),
+        report
+            .findings
+            .iter()
+            .any(|f| f.rule_id.starts_with("PUSH-")),
         "Need a PUSH- finding"
     );
 
@@ -529,7 +565,10 @@ fn finding_contains_node_type_and_line() {
     assert!(finding.node_type.is_some(), "Finding should have node_type");
     assert!(finding.node_line.is_some(), "Finding should have node_line");
     assert!(!finding.title.is_empty(), "Finding should have a title");
-    assert!(!finding.suggestion.as_ref().unwrap().is_empty(), "Finding should have a suggestion");
+    assert!(
+        !finding.suggestion.as_ref().unwrap().is_empty(),
+        "Finding should have a suggestion"
+    );
 }
 
 #[test]
@@ -550,7 +589,10 @@ fn duplicate_sort_finding_targets_outer_sort_node() {
 fn broadcast_finding_contains_actual_row_count() {
     let report = analyze_fixture("14_broadcast_large.txt");
     let finding = get_finding(&report, "NET-001").expect("NET-001 should be present");
-    assert!(finding.detail.contains("50000"), "NET-001 detail should contain actual row count");
+    assert!(
+        finding.detail.contains("50000"),
+        "NET-001 detail should contain actual row count"
+    );
 }
 
 #[test]
@@ -581,8 +623,14 @@ fn severe_underestimate_has_correct_severity_and_category() {
 fn implicit_cast_finding_contains_filter_and_rows_removed() {
     let report = analyze_fixture("17_implicit_cast.txt");
     let finding = get_finding(&report, "TYPE-001").expect("TYPE-001 should be present");
-    assert!(finding.detail.contains("status = 42"), "detail should show filter condition");
-    assert!(finding.detail.contains("500000"), "detail should show rows removed");
+    assert!(
+        finding.detail.contains("status = 42"),
+        "detail should show filter condition"
+    );
+    assert!(
+        finding.detail.contains("500000"),
+        "detail should show rows removed"
+    );
 }
 
 #[test]
@@ -668,7 +716,10 @@ fn subq_006_triggers_on_correlated_subquery_update() {
         .expect("Expected SUBQ-006 for correlated subquery self-referencing UPDATE");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::SubqueryStructure);
-    assert!(finding.detail.contains("employees"), "detail should mention table name");
+    assert!(
+        finding.detail.contains("employees"),
+        "detail should mention table name"
+    );
 }
 
 #[test]
@@ -684,7 +735,10 @@ fn subq_006_does_not_trigger_on_normal_update() {
 fn subq_006_finding_contains_template_suggestion() {
     let report = analyze_fixture("23_correlated_subquery_update.txt");
     let finding = get_finding(&report, "SUBQ-006").expect("SUBQ-006 should be present");
-    let suggestion = finding.suggestion.as_ref().expect("SUBQ-006 should have a suggestion");
+    let suggestion = finding
+        .suggestion
+        .as_ref()
+        .expect("SUBQ-006 should have a suggestion");
     assert!(
         suggestion.contains("UPDATE") && suggestion.contains("FROM"),
         "suggestion should include UPDATE FROM rewrite template, got: {}",
@@ -702,7 +756,9 @@ fn subq_006_triggers_with_streaming_in_distributed() {
     let finding = get_finding(&report, "SUBQ-006")
         .expect("Expected SUBQ-006 for distributed correlated subquery UPDATE");
     assert!(
-        finding.detail.contains("Streaming") || finding.detail.contains("分布式") || finding.detail.contains("distributed"),
+        finding.detail.contains("Streaming")
+            || finding.detail.contains("分布式")
+            || finding.detail.contains("distributed"),
         "detail should mention distributed scenario, got: {}",
         finding.detail
     );
@@ -712,15 +768,23 @@ fn subq_006_triggers_with_streaming_in_distributed() {
 fn suggestion_engine_produces_query_rewrite_for_subq006() {
     let report = analyze_fixture("23_correlated_subquery_update.txt");
     let suggestions = SuggestionEngine::suggest(&report.findings);
-    let qr = suggestions.iter().find(|s| matches!(s.category, SuggestionCategory::QueryRewrite));
-    assert!(qr.is_some(), "SUBQ-006 should produce a QueryRewrite suggestion");
+    let qr = suggestions
+        .iter()
+        .find(|s| matches!(s.category, SuggestionCategory::QueryRewrite));
+    assert!(
+        qr.is_some(),
+        "SUBQ-006 should produce a QueryRewrite suggestion"
+    );
     assert!(qr.unwrap().confidence >= 0.85);
 }
 
 #[test]
 fn suggestion_engine_returns_empty_for_no_findings() {
     let suggestions = SuggestionEngine::suggest(&[]);
-    assert!(suggestions.is_empty(), "No findings should produce no suggestions");
+    assert!(
+        suggestions.is_empty(),
+        "No findings should produce no suggestions"
+    );
 }
 
 #[test]

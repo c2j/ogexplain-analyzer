@@ -3,9 +3,7 @@
 //! Covers stored procedures, functions, DO blocks, anonymous blocks,
 //! packages, exception handlers, nested routines, and config options.
 
-use ogsql_complexity::{
-    gauss_analyze, ComplexityConfig, ComplexityTag, InputKind, SqlCategory,
-};
+use ogsql_complexity::{gauss_analyze, ComplexityConfig, ComplexityTag, InputKind, SqlCategory};
 
 #[test]
 fn test_gauss_procedure_with_exception_handler() {
@@ -26,7 +24,10 @@ $$ LANGUAGE plpgsql
     let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
     assert_eq!(report.input_kind, InputKind::StoredProcedure);
     let m = &report.pl_metrics;
-    assert!(m.subtransaction_count >= 1, "Exception block creates subtransaction");
+    assert!(
+        m.subtransaction_count >= 1,
+        "Exception block creates subtransaction"
+    );
     assert!(m.transaction_control_count >= 1, "Should detect COMMIT");
 }
 
@@ -320,8 +321,14 @@ $$ LANGUAGE plpgsql
 "#;
     let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
     let m = &report.pl_metrics;
-    assert!(m.transaction_control_count >= 3, "SAVEPOINT + ROLLBACK + COMMIT = 3");
-    assert!(m.subtransaction_count >= 1, "SAVEPOINT creates subtransaction");
+    assert!(
+        m.transaction_control_count >= 3,
+        "SAVEPOINT + ROLLBACK + COMMIT = 3"
+    );
+    assert!(
+        m.subtransaction_count >= 1,
+        "SAVEPOINT creates subtransaction"
+    );
 }
 
 #[test]
@@ -502,8 +509,10 @@ $$ LANGUAGE plpgsql
 "#;
     let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
     let dim = &report.dimensions;
-    assert!(dim.sql_structure > 0 || dim.pl_logic > 0 || dim.advanced_feature > 0,
-        "At least one dimension should be > 0");
+    assert!(
+        dim.sql_structure > 0 || dim.pl_logic > 0 || dim.advanced_feature > 0,
+        "At least one dimension should be > 0"
+    );
 }
 
 #[test]
@@ -513,7 +522,10 @@ fn test_gauss_create_table_with_defaults_and_checks() {
     assert_eq!(report.input_kind, InputKind::SqlStatement);
     let m = &report.pl_metrics;
     assert_eq!(m.column_count, 3);
-    assert_eq!(m.computed_column_count, 2, "DEFAULT counts as computed column");
+    assert_eq!(
+        m.computed_column_count, 2,
+        "DEFAULT counts as computed column"
+    );
     assert_eq!(m.check_constraint_count, 2);
 }
 
@@ -521,7 +533,8 @@ fn test_gauss_create_table_with_defaults_and_checks() {
 fn test_gauss_update_non_select_formula() {
     let sql = "UPDATE orders SET status = 'shipped' WHERE id > 100";
     let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
-    let expected = report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
+    let expected =
+        report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
     assert_eq!(report.overall_score, expected);
 }
 
@@ -529,6 +542,7 @@ fn test_gauss_update_non_select_formula() {
 fn test_gauss_delete_non_select_formula() {
     let sql = "DELETE FROM logs WHERE created_at < '2024-01-01'";
     let report = gauss_analyze(sql, &ComplexityConfig::default()).unwrap();
-    let expected = report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
+    let expected =
+        report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
     assert_eq!(report.overall_score, expected);
 }

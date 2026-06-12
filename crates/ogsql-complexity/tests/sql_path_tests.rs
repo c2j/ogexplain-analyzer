@@ -18,7 +18,8 @@ fn test_merge_statement() {
 
 #[test]
 fn test_exists_subquery() {
-    let sql = "SELECT * FROM orders WHERE EXISTS (SELECT 1 FROM items WHERE items.order_id = orders.id)";
+    let sql =
+        "SELECT * FROM orders WHERE EXISTS (SELECT 1 FROM items WHERE items.order_id = orders.id)";
     let report = analyze(sql).unwrap();
     let s = &report.statements[0];
     assert!(s.metrics.subquery_count >= 1);
@@ -166,7 +167,8 @@ fn test_explain_wrapping() {
 
 #[test]
 fn test_self_join() {
-    let sql = "SELECT e.name, m.name AS manager FROM employees e JOIN employees m ON e.manager_id = m.id";
+    let sql =
+        "SELECT e.name, m.name AS manager FROM employees e JOIN employees m ON e.manager_id = m.id";
     let report = analyze(sql).unwrap();
     let s = &report.statements[0];
     assert!(s.metrics.table_count >= 2, "Self-join counts 2 table refs");
@@ -180,7 +182,8 @@ fn test_gauss_merge_statement() {
     assert_eq!(report.input_kind, InputKind::SqlStatement);
     assert!(report.pl_metrics.table_count >= 2);
     assert!(report.pl_metrics.join_count >= 1);
-    let expected = report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
+    let expected =
+        report.pl_metrics.table_count as i64 * 10 + report.pl_metrics.hint_count as i64 * 3;
     assert_eq!(report.overall_score, expected);
 }
 
@@ -201,10 +204,7 @@ fn test_gauss_multiple_sql_statements() {
         report.sql_statement_scores.len() >= 2,
         "Should have 2 statement scores"
     );
-    assert!(
-        report.overall_score > 0,
-        "Overall score should be positive"
-    );
+    assert!(report.overall_score > 0, "Overall score should be positive");
 }
 
 #[test]

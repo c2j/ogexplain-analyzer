@@ -2,13 +2,13 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` 输出解析与性能诊断工具。解析 TEXT 格式执行计划，运行 15+ 条诊断规则（包含下推、向量化、流式计算、隐式类型转换等 OpenGauss 专项检查），输出诊断发现与优化建议。
+OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` 输出解析与性能诊断工具。解析 TEXT 格式执行计划，运行 25 条诊断规则（包含下推、向量化、流式计算、隐式类型转换等 OpenGauss 专项检查），输出诊断发现与参数化优化建议。
 
 ## 功能特性
 
 - **完整的 EXPLAIN TEXT 解析** — 支持 `EXPLAIN` 和 `EXPLAIN ANALYZE` 输出，包括 pretty 模式（`N --` 前缀）、向量化节点、CStore 扫描、Streaming 算子以及 OG 专属属性。
-- **15+ 条诊断规则** — 覆盖扫描、连接、内存、排序、网络、估算偏差、下推、类型转换、向量化和执行计划通用健康检查。
-- **优化建议** — 跨规则综合分析，将诊断发现映射为可操作建议（如多次溢出 → 增大 `work_mem`，多次估算偏差 → 执行 `ANALYZE`）。
+- **25 条诊断规则** — 覆盖扫描、连接、内存、排序、网络、估算偏差、下推、类型转换、向量化、子查询、聚合、分布、统计信息、分区和执行计划通用健康检查。
+- **参数化建议** — 规则从计划属性中提取表名、列名和具体数值，生成可操作建议（如 `CREATE INDEX ON orders(status)`）。跨规则综合分析将多个发现映射为高层建议。
 - **SQL 复杂度评分** — 集成 `ogsql-complexity` crate，按 0–100 分制评估 SQL 语句复杂度，支持 GaussDB 四维模型（SQL 结构、PL 逻辑、高级特性、扩展功能）。
 - **国际化支持** — 通过 `--lang` 参数或系统语言自动检测，支持英文和中文（`zh-CN`）输出。
 - **多种接口** — CLI 用于脚本集成，TUI 用于交互式探索，库 crate 用于嵌入式调用。
@@ -140,7 +140,7 @@ Rust Cargo 工作空间，包含四个 crate：
 ogexplain-core
 ├── parser/          两阶段：行分类器（正则） → 树构建器（缩进栈）
 ├── model/           ExplainPlan → PlanNode 树，NodeType（80+ 变体），成本/统计/缓冲区类型
-├── analyzer/        规则引擎，DiagnosticRule trait + DFS 遍历 + 可配置阈值
+├── analyzer/        规则引擎，DiagnosticRule trait + DFS 遍历 + 可配置阈值 + 共享工具层
 ├── suggester/       诊断发现 → 优化建议映射，支持跨规则综合分析
 ├── summary/         SummaryRow 批量报告（SQL 复杂度 + 计划指标 + 诊断统计）
 ├── sql/             SQL/EXPLAIN 块分割（从混合输入中提取）
@@ -149,25 +149,35 @@ ogexplain-core
 
 ## 诊断规则
 
-已实现 15 条规则，分布在 10 个规则文件中：
+已实现 25 条规则，分布在 17 个规则文件中，含共享工具层（`rules/utils.rs`）：
 
 | ID | 规则 | 类别 | 说明 |
 |----|------|------|------|
-| SCAN-001 | 大表全表扫描 | scan | 检测超过行数阈值的 Seq Scan |
-| SCAN-004 | 无索引过滤 | scan | 过滤大量行但缺少索引支持 |
-| JOIN-001 | 大表嵌套循环 | join | 两侧行数均较高的 Nested Loop Join |
-| JOIN-002 | Hash 连接磁盘溢出 | join | Hash join 超出 work_mem，溢出到磁盘 |
-| MEM-001 | 排序磁盘溢出 | memory | work_mem 不足导致外部归并排序 |
-| MEM-004 | 高峰值内存 | memory | 计划节点超出内存阈值 |
-| SORT-003 | 重复排序 | sort | 多次可消除的排序操作 |
-| NET-001 | 广播大量数据 | network | 跨数据节点广播过多行 |
-| EST-001 | 严重行数低估 | estimation | 实际行数远超优化器估算 |
-| PUSH-001 | 查询未下推 | pushdown | FQS 失败 — 查询以流式方式执行 |
-| PUSH-002 | 多层 Streaming | pushdown | 多层 Streaming 表明下推效果差 |
-| TYPE-001 | 隐式类型转换 | type_coercion | 隐式类型转换降低索引使用率 |
-| TYPE-004 | LIKE 前置通配符 | type_coercion | `LIKE '%...'` 模式无法使用索引 |
-| VEC-001 | 行/向量引擎混用 | vectorization | Row↔Vector 适配器开销 |
-| GEN-001 | 执行计划过深 | general | 计划深度过大，存在优化空间 |
+| SCAN-001 | 大表全表扫描 | scan | 检测 Seq Scan/PartitionedSeqScan/CStore Scan 超过行数阈值；建议 `CREATE INDEX ON table(col)` |
+| SCAN-004 | 无索引过滤 | scan | 过滤大量行但缺少索引支持；提取过滤列名用于建议 |
+| JOIN-001 | 大表嵌套循环 | join | 两侧行数均较高的 Nested Loop；检测内侧索引，提取连接列 |
+| JOIN-002 | Hash 连接磁盘溢出 | join | Hash join 超出 work_mem；根据磁盘+内存大小计算推荐 work_mem |
+| MEM-001 | 排序磁盘溢出 | memory | 外部归并排序（含 VectorSort）；报告 Sort Key |
+| MEM-004 | 高峰值内存 | memory | 定位子树中最高内存节点，报告节点类型和关联表 |
+| SORT-003 | 重复排序 | sort | 递归子树 Sort Key 收集；区分重复键与不同键 |
+| NET-001 | 广播大量数据 | network | 跨数据节点广播过多行；支持 SplitBroadcast/PartRedistributePartBroadcast |
+| EST-001 | 严重行数估算偏差 | estimation | 实际行数远超/低于优化器估算；报告偏差方向（低估/高估） |
+| EST-004 | 低估导致嵌套循环 | estimation | 因行数低估导致的 Nested Loop；报告内侧处理量 |
+| PUSH-001 | 查询未下推 | pushdown | FQS 失败，信号累积 — 识别具体阻断因素（SubqueryScan、SubPlan、易变函数） |
+| PUSH-002 | 多层 Streaming | pushdown | 收集 Streaming 层链（`→` 标记）；按层数给出建议 |
+| TYPE-001 | 隐式类型转换 | type_coercion | 基于 `TypeMismatch` 结构的检测，提供具体修复建议 |
+| TYPE-004 | LIKE 前置通配符 | type_coercion | 区分单/双通配符；建议 `pg_trgm` + GIN 索引 |
+| VEC-001 | 行/向量引擎混用 | vectorization | 跟踪 Row↔Vector 适配器边界，记录父→子类型 |
+| GEN-001 | 执行计划过深 | general | 报告深度及原因（子查询/嵌套） |
+| SUBQ-001 | 子查询未上拉 | subquery | 检测 SubqueryScan 节点；提取子表名生成参数化建议 |
+| REW-001 | 大 IN 列表未改写 | subquery | 检测大量值的 IN 列表；提取列名建议改写为 `EXISTS` |
+| SUBQ-006 | 关联子查询自更新 | subquery | 检测 UPDATE/DELETE 中的自引用关联子查询 |
+| AGG-001 | 聚合应使用 Hash | aggregate | 对无排序需求的大 GROUP BY 建议 Hash Aggregate |
+| AGG-002 | Hash 聚合磁盘溢出 | aggregate | Hash Aggregate 超出 work_mem 溢出到磁盘 |
+| SKEW-001 | 数据倾斜 | distribution | 数据节点间行分布不均 |
+| DIST-001 | 分布列不匹配 | distribution | 连接列与分布列不匹配导致重分布 |
+| STATS-001 | 统计信息未收集 | stats | 表缺少或统计信息过期 |
+| PART-001 | 分区裁剪失败 | partition | 全分区扫描，应通过裁剪减少分区 |
 
 ## OpenGauss 专属支持
 
@@ -201,7 +211,7 @@ cargo insta review                       # 交互式快照审查
 cargo fmt --all && cargo clippy --workspace  # 代码检查（零警告）
 ```
 
-测试 fixture 位于 `tests/fixtures/` — 每个文件是原始 EXPLAIN TEXT 输出，覆盖特定场景（简单扫描、连接、溢出、流式计算、向量化等）。
+测试 fixture 位于 `tests/fixtures/`（31 个文件） — 每个文件是原始 EXPLAIN TEXT 输出，覆盖特定场景（简单扫描、连接、溢出、流式计算、向量化、子查询、聚合、分布等）。
 
 ## 许可证
 

@@ -2,13 +2,13 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance diagnostics tool. Parses TEXT-format execution plans, runs 15+ diagnostic rules (OpenGauss-specific checks for pushdown, vectorization, streaming, implicit type coercion, and more), and outputs actionable findings with optimization suggestions.
+OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance diagnostics tool. Parses TEXT-format execution plans, runs 25 diagnostic rules (OpenGauss-specific checks for pushdown, vectorization, streaming, implicit type coercion, and more), and outputs actionable findings with parameterized optimization suggestions.
 
 ## Features
 
 - **Full EXPLAIN TEXT parsing** — Handles `EXPLAIN` and `EXPLAIN ANALYZE` output including pretty mode (`N --` prefix), vector nodes, CStore scans, streaming operators, and OG-specific properties.
-- **15+ diagnostic rules** — Covers scan, join, memory, sort, network, estimation, pushdown, type coercion, vectorization, and general plan health.
-- **Optimization suggestions** — Cross-rule synthesis maps diagnostic findings to actionable suggestions (e.g., multi-spill → increase `work_mem`, multi-estimation → run `ANALYZE`).
+- **25 diagnostic rules** — Covers scan, join, memory, sort, network, estimation, pushdown, type coercion, vectorization, subquery, aggregate, distribution, stats, partition, and general plan health.
+- **Parameterized suggestions** — Rules extract table names, column names, and concrete values from plan properties to generate actionable suggestions (e.g., `CREATE INDEX ON orders(status)`). Cross-rule synthesis maps multiple findings to higher-level recommendations.
 - **SQL complexity scoring** — Integrated `ogsql-complexity` crate scores SQL statements on a 0–100 scale with GaussDB-specific dimensions (SQL structure, PL logic, advanced features, extensions).
 - **i18n support** — English and Chinese (`zh-CN`) output via `--lang` flag or auto-detection from system locale.
 - **Multiple interfaces** — CLI for scripting, TUI for interactive exploration, library crate for embedding.
@@ -140,7 +140,7 @@ Rust Cargo workspace with four crates:
 ogexplain-core
 ├── parser/          Two-phase: line classifier (regex) → tree builder (indent-based stack)
 ├── model/           ExplainPlan → PlanNode tree, NodeType (80+ variants), cost/stats/buffer types
-├── analyzer/        Rule engine with DiagnosticRule trait + DFS traversal + configurable thresholds
+├── analyzer/        Rule engine with DiagnosticRule trait + DFS traversal + configurable thresholds + shared utility layer
 ├── suggester/       Maps findings → suggestions with cross-rule synthesis
 ├── summary/         SummaryRow for batch reporting (SQL complexity + plan metrics + diagnostics)
 ├── sql/             SQL/EXPLAIN block segmentation from mixed input
@@ -149,25 +149,35 @@ ogexplain-core
 
 ## Diagnostic Rules
 
-15 rules implemented across 10 rule files:
+25 rules implemented across 17 rule files, with shared utility layer (`rules/utils.rs`) for common operations:
 
 | ID | Rule | Category | Description |
 |----|------|----------|-------------|
-| SCAN-001 | Large table full scan | scan | Detects Seq Scan on tables exceeding row threshold |
-| SCAN-004 | Filter without index | scan | Filter removing many rows without index support |
-| JOIN-001 | Nested loop on large tables | join | Nested loop join with high row counts on both sides |
-| JOIN-002 | Hash join spill to disk | join | Hash join exceeding work_mem, spilling to disk |
-| MEM-001 | Sort spill to disk | memory | External merge sort due to insufficient work_mem |
-| MEM-004 | High peak memory | memory | Plan node exceeding memory threshold |
-| SORT-003 | Duplicate sort | sort | Multiple sort operations that could be eliminated |
-| NET-001 | Broadcast large data | network | Broadcasting excessive rows across datanodes |
-| EST-001 | Severe row underestimation | estimation | Actual rows far exceed optimizer estimate |
-| PUSH-001 | Query not pushed down | pushdown | FQS failure — query executed with streaming overhead |
-| PUSH-002 | Multi-layer streaming | pushdown | Multiple Streaming layers indicating poor pushdown |
-| TYPE-001 | Implicit type coercion | type_coercion | Implicit cast degrading index usage |
-| TYPE-004 | LIKE with leading wildcard | type_coercion | `LIKE '%...'` pattern preventing index usage |
-| VEC-001 | Mixed row/vector engines | vectorization | Row↔Vector adapter overhead |
-| GEN-001 | Plan too deep | general | Excessive plan depth suggesting optimization opportunity |
+| SCAN-001 | Large table full scan | scan | Detects Seq Scan/PartitionedSeqScan/CStore Scan on tables exceeding row threshold; suggests `CREATE INDEX ON table(col)` |
+| SCAN-004 | Filter without index | scan | Filter removing many rows without index support; extracts filter columns for suggestion |
+| JOIN-001 | Nested loop on large tables | join | Nested loop join with high row counts; detects inner index presence, extracts join columns |
+| JOIN-002 | Hash join spill to disk | join | Hash join exceeding work_mem; calculates recommended work_mem from disk+memory sizes |
+| MEM-001 | Sort spill to disk | memory | External merge sort (incl. VectorSort); reports Sort Key in detail |
+| MEM-004 | High peak memory | memory | Locates highest-memory node in subtree with node type and relation |
+| SORT-003 | Duplicate sort | sort | Recursive subtree Sort Key collection; distinguishes duplicate vs different keys |
+| NET-001 | Broadcast large data | network | Broadcasting excessive rows; supports SplitBroadcast/PartRedistributePartBroadcast |
+| EST-001 | Severe row estimation error | estimation | Actual rows far exceed/fall below optimizer estimate; reports direction (under/over) |
+| EST-004 | Nested loop from underestimation | estimation | Nested Loop caused by row underestimation; reports inner work quantity |
+| PUSH-001 | Query not pushed down | pushdown | FQS failure with signal accumulation — identifies specific blockers (SubqueryScan, SubPlan, volatile functions) |
+| PUSH-002 | Multi-layer streaming | pushdown | Collects streaming layer chain with `→` notation; layer-count-aware suggestions |
+| TYPE-001 | Implicit type coercion | type_coercion | Struct-based `TypeMismatch` detection with specific fix suggestions |
+| TYPE-004 | LIKE with leading wildcard | type_coercion | Distinguishes single/double wildcards; suggests `pg_trgm` + GIN index |
+| VEC-001 | Mixed row/vector engines | vectorization | Tracks Row↔Vector adapter boundaries with parent→child type tracking |
+| GEN-001 | Plan too deep | general | Reports depth with reason (subquery/nesting) |
+| SUBQ-001 | Subquery not pulled up | subquery | Detects SubqueryScan nodes; extracts child table name for parameterized suggestions |
+| REW-001 | Large IN list not rewritten | subquery | Detects IN lists with many values; extracts column name for `EXISTS` rewrite suggestion |
+| SUBQ-006 | Correlated subquery self-update | subquery | Detects self-referencing correlated subqueries in UPDATE/DELETE |
+| AGG-001 | Group aggregate should be hash | aggregate | Suggests Hash Aggregate for large GROUP BY without sort requirement |
+| AGG-002 | Hash aggregate spill to disk | aggregate | Hash Aggregate exceeding work_mem, spilling to disk |
+| SKEW-001 | Data skew detected | distribution | Uneven row distribution across datanodes |
+| DIST-001 | Distribution column mismatch | distribution | Join columns don't match distribution columns causing redistribution |
+| STATS-001 | Stats not collected | stats | Tables with missing or stale statistics |
+| PART-001 | Partition pruning failure | partition | Full partition scan when pruning should reduce partitions |
 
 ## OpenGauss-Specific Support
 
@@ -201,7 +211,7 @@ cargo insta review                       # Interactive snapshot review
 cargo fmt --all && cargo clippy --workspace  # Lint (zero warnings)
 ```
 
-Test fixtures are in `tests/fixtures/` — each is a raw EXPLAIN TEXT output file covering specific scenarios (simple scans, joins, spills, streaming, vectorization, etc.).
+Test fixtures are in `tests/fixtures/` (31 files) — each is a raw EXPLAIN TEXT output file covering specific scenarios (simple scans, joins, spills, streaming, vectorization, subqueries, aggregates, distribution, etc.).
 
 ## License
 

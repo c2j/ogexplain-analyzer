@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+Nested Loop  (cost=0.58..35.68 rows=500 width=48) (actual time=0.033..12.112 rows=500 loops=1)
+  ->  Seq Scan on small_table  (cost=0.00..10.80 rows=100 width=20) (actual time=0.008..0.050 rows=100 loops=1)
+  ->  Index Scan using idx_orders_id on orders  (cost=0.29..0.34 rows=5 width=36) (actual time=0.020..0.100 rows=5 loops=100)
+        Index Cond: (orders.id = small_table.order_id)
+Total runtime: 12.500 ms

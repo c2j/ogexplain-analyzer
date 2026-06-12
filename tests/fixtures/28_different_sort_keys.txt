@@ -1,0 +1,10 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=100.00..110.00 rows=5000 width=44) (actual time=10.000..10.500 rows=5000 loops=1)
+  Sort Key: order_date
+  Sort Method: quicksort  Memory: 25kB
+  ->  Sort  (cost=50.00..60.00 rows=5000 width=44) (actual time=5.000..5.300 rows=5000 loops=1)
+        Sort Key: customer_id
+        Sort Method: quicksort  Memory: 20kB
+        ->  Seq Scan on orders  (cost=0.00..20.00 rows=5000 width=44) (actual time=0.010..2.000 rows=5000 loops=1)
+Total runtime: 11.000 ms

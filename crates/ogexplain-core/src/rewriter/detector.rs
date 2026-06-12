@@ -10,8 +10,9 @@ pub fn detect_correlated_subquery_update(
         _ => return Ok(None),
     };
 
-    let target_table = extract_table_name(&update.tables)
-        .ok_or(RewriteError::UnsupportedSyntax("cannot extract target table".into()))?;
+    let target_table = extract_table_name(&update.tables).ok_or(
+        RewriteError::UnsupportedSyntax("cannot extract target table".into()),
+    )?;
 
     for assignment in &update.assignments {
         if let Some(subquery) = extract_subquery_from_value(&assignment.value) {
@@ -106,12 +107,9 @@ fn collect_equality_columns(
 ) {
     match expr {
         Expr::BinaryOp { left, op, right } if op == "=" => {
-            if let (
-                Expr::ColumnRef(lhs),
-                Expr::ColumnRef(rhs),
-            ) = (left.as_ref(), right.as_ref())
-            {
-                if let Some(col) = identify_correlation_column(lhs, rhs, target_table, subquery_alias)
+            if let (Expr::ColumnRef(lhs), Expr::ColumnRef(rhs)) = (left.as_ref(), right.as_ref()) {
+                if let Some(col) =
+                    identify_correlation_column(lhs, rhs, target_table, subquery_alias)
                 {
                     if !columns.contains(&col) {
                         columns.push(col);

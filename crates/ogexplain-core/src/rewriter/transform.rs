@@ -9,8 +9,8 @@ use super::types::{AntiPatternInfo, RewriteError, RewriteResult, RewriteStrategy
 const SUBQUERY_ALIAS: &str = "sub";
 
 pub fn rewrite_update_from(stmt: &Statement) -> Result<RewriteResult, RewriteError> {
-    let info = detector::detect_correlated_subquery_update(stmt)?
-        .ok_or(RewriteError::PatternNotFound)?;
+    let info =
+        detector::detect_correlated_subquery_update(stmt)?.ok_or(RewriteError::PatternNotFound)?;
 
     let mut rewritten = stmt.clone();
     let update = match &mut rewritten {
@@ -44,8 +44,8 @@ fn rewrite_assignments(
         .find(|a| detector_has_subquery(&a.value))
         .ok_or(RewriteError::PatternNotFound)?;
 
-    let subquery = extract_subquery_owned(&mut assignment.value)
-        .ok_or(RewriteError::PatternNotFound)?;
+    let subquery =
+        extract_subquery_owned(&mut assignment.value).ok_or(RewriteError::PatternNotFound)?;
 
     let mut enriched_subquery = subquery.clone();
     ensure_correlation_in_select(&mut enriched_subquery, &info.correlation_columns);
@@ -60,7 +60,10 @@ fn rewrite_assignments(
                 value: Expr::ColumnRef(vec![SUBQUERY_ALIAS.to_string(), col.clone()]),
             });
         }
-        let idx = update.assignments.iter().position(|a| detector_has_subquery(&a.value));
+        let idx = update
+            .assignments
+            .iter()
+            .position(|a| detector_has_subquery(&a.value));
         if let Some(i) = idx {
             update.assignments.splice(i..=i, new_assignments);
         }
@@ -78,9 +81,15 @@ fn rewrite_assignments(
         let mut conditions: Vec<Expr> = Vec::new();
         for col in &info.correlation_columns {
             conditions.push(Expr::BinaryOp {
-                left: Box::new(Expr::ColumnRef(vec![info.target_table.clone(), col.clone()])),
+                left: Box::new(Expr::ColumnRef(vec![
+                    info.target_table.clone(),
+                    col.clone(),
+                ])),
                 op: "=".to_string(),
-                right: Box::new(Expr::ColumnRef(vec![SUBQUERY_ALIAS.to_string(), col.clone()])),
+                right: Box::new(Expr::ColumnRef(vec![
+                    SUBQUERY_ALIAS.to_string(),
+                    col.clone(),
+                ])),
             });
         }
 
@@ -151,10 +160,9 @@ fn ensure_correlation_in_select(subquery: &mut SelectStatement, columns: &[Strin
 
     for col in columns {
         if !existing_cols.contains(col) {
-            subquery.targets.push(SelectTarget::Expr(
-                Expr::ColumnRef(vec![col.clone()]),
-                None,
-            ));
+            subquery
+                .targets
+                .push(SelectTarget::Expr(Expr::ColumnRef(vec![col.clone()]), None));
         }
     }
 }
@@ -188,7 +196,11 @@ mod tests {
         let stmt = parse_stmt(sql);
         let result = rewrite_update_from(&stmt).unwrap();
         assert_eq!(result.strategy, RewriteStrategy::UpdateFrom);
-        assert!(result.rewritten_sql.contains("FROM"), "should contain FROM: {}", result.rewritten_sql);
+        assert!(
+            result.rewritten_sql.contains("FROM"),
+            "should contain FROM: {}",
+            result.rewritten_sql
+        );
         assert!(result.rewritten_sql.contains("employees"));
     }
 
@@ -198,7 +210,12 @@ mod tests {
         let stmt = parse_stmt(sql);
         let result = rewrite_update_from(&stmt).unwrap();
         let (stmts, errors) = Parser::parse_sql(&result.rewritten_sql);
-        assert!(errors.is_empty(), "Parse errors in rewritten SQL: {:?}\nSQL: {}", errors, result.rewritten_sql);
+        assert!(
+            errors.is_empty(),
+            "Parse errors in rewritten SQL: {:?}\nSQL: {}",
+            errors,
+            result.rewritten_sql
+        );
         assert_eq!(stmts.len(), 1);
     }
 

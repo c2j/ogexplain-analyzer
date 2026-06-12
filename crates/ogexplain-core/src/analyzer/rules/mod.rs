@@ -8,6 +8,7 @@ mod scan_rules;
 mod sort_rules;
 mod subquery_rules;
 mod type_coercion_rules;
+pub mod utils;
 mod vectorization_rules;
 
 use super::config::DiagnosticConfig;
@@ -49,7 +50,7 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
         Box::new(vectorization_rules::MixedVectorRowEngines),
         Box::new(general_rules::PlanTooDeep::new(config.clone())),
         Box::new(subquery_rules::SubqueryNotPulledUp),
-        Box::new(subquery_rules::LargeInListNotConverted),
+        Box::new(subquery_rules::LargeInListNotConverted::new()),
         Box::new(subquery_rules::CorrelatedSubquerySelfUpdate),
     ]
 }

@@ -37,18 +37,19 @@ impl DiagnosticRule for PlanTooDeep {
         if stats.max_depth <= self.max_depth {
             return Vec::new();
         }
+
         vec![Finding {
             rule_id: self.id().to_string(),
             severity: self.severity(),
             category: self.category(),
             title: self.name().to_string(),
             detail: format!(
-                "执行计划深度为 {}（阈值: {}）",
+                "执行计划深度为 {}（阈值: {}）; 深度过高通常表示子查询未提升或多层嵌套",
                 stats.max_depth, self.max_depth
             ),
             node_line: None,
             node_type: None,
-            suggestion: Some(format!("计划树过深(>{}, 阈值:{}), 考虑简化查询: /*+ EXPAND_SUBQUERY */ 提升子查询减少深度; /*+ EXPAND_SUBLINK */ 提升子链接; /*+ LAZY_AGG */ 消除冗余聚合; /*+ REDUCE_ORDER_BY */ 消除冗余排序", stats.max_depth, self.max_depth)),
+            suggestion: Some("简化查询: /*+ EXPAND_SUBQUERY */; /*+ EXPAND_SUBLINK */; /*+ LAZY_AGG */; /*+ REDUCE_ORDER_BY */; 考虑拆分为多个简单查询".to_string()),
             sql_rewrite: None,
         }]
     }
