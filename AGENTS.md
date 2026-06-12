@@ -4,7 +4,7 @@
 
 OpenGauss `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance diagnostics tool. Parses TEXT-format explain plans, runs diagnostic rules (OG-specific checks for pushdown, vectorization, streaming, implicit type coercion), and outputs findings + optimization suggestions.
 
-**Status: Phases 1–3 complete, Phase 4 (polish) in progress.** Core parser, diagnostic engine, CLI, and TUI are all functional. 30 tests pass, zero clippy warnings.
+**Status: Phases 1–3 complete, Phase 4 (polish) in progress.** Core parser, diagnostic engine, CLI, and TUI are all functional. 317 tests pass, zero clippy warnings. 25 diagnostic rules with parameterized suggestions and shared utility layer.
 
 ## Project Structure
 
@@ -20,10 +20,11 @@ crates/
   ogexplain-core/                            # Core library (model + parser + analyzer + suggester)
   ogexplain-cli/                             # CLI frontend
   ogexplain-tui/                             # Interactive TUI frontend
+  ogexplain-mcp/                             # MCP server for AI assistants
 tests/
-  fixtures/                                  # 20 EXPLAIN TEXT fixture files (01–20 + complex)
-  integration_tests.rs                       # 10 parser insta snapshot tests
-  analyzer_tests.rs                          # 20 analyzer tests
+  fixtures/                                  # 31 EXPLAIN TEXT fixture files (01–31 + complex)
+  integration_tests.rs                       # Parser insta snapshot tests
+  analyzer_tests.rs                          # Analyzer diagnostic tests
 ```
 
 - `lib/openGauss-server` is a git submodule pointing to `https://gitee.com/opengauss/openGauss-server`. It is **gitignored** — it exists only as local reference for source code analysis, not as a build dependency.
@@ -31,20 +32,25 @@ tests/
 
 ## Architecture
 
-Rust Cargo workspace with three crates sharing a core library:
+Rust Cargo workspace with five crates:
 
 | Crate | Binary | Purpose |
 |-------|--------|---------|
 | `ogexplain-core` | library | Parser + Model + Analyzer + Suggester (no UI deps) |
-| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON output |
+| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON/CSV output |
 | `ogexplain-tui` | `ogexplain-tui` | Interactive TUI — collapsible plan tree, node detail, paste input |
+| `ogsql-complexity` | library | SQL complexity scoring (standalone, reusable) |
+| `ogexplain-mcp` | `ogexplain-mcp` | MCP server — exposes analysis as MCP tools for AI assistants |
 
 ### Core layers:
 
 1. **Parser** (`parser/`): Two-phase — line classifier (regex per line) → tree builder (indent-based stack). Handles pretty mode (`N --` prefix), `using <index>` clause, unknown nodes, missing actual stats, `(Actual time: never executed)`.
 2. **Model** (`model/`): `ExplainPlan` → `PlanNode` tree with `NodeType` enum (80+ variants including `Vector*`, `CStore*`, `Streaming`, `Partitioned*`), `EstimatedCost`, `ActualStats`, `BufferStats`, `NodeProperty`. All types `#[derive(Serialize)]`.
-3. **Analyzer** (`analyzer/`): Rule engine via `DiagnosticRule` trait + `DiagnosticEngine` with DFS traversal. 15 rules implemented across 10 rule files. `DiagnosticConfig` with configurable thresholds and disabled rules support.
-4. **Suggester** (`suggester/`): Maps diagnostic findings to actionable suggestions with cross-rule synthesis patterns (multi-spill → work_mem, multi-estimation → stale stats, scan+join → composite index).
+3. **Analyzer** (`analyzer/`): Rule engine via `DiagnosticRule` trait + `DiagnosticEngine` with DFS traversal. 25 rules implemented across 17 rule files with shared utility layer (`rules/utils.rs`). `DiagnosticConfig` with configurable thresholds and disabled rules support.
+4. **Suggester** (`suggester/`): Maps diagnostic findings to actionable suggestions with cross-rule synthesis patterns (multi-spill → work_mem, multi-estimation → stale stats, scan+join → composite index, type consistency, engine unification).
+5. **SQL block parser** (`sql/`): Segments mixed SQL + EXPLAIN text into blocks for batch processing.
+6. **Summary** (`summary/`): SummaryRow for batch reporting with SQL complexity + plan metrics + diagnostic stats.
+7. **i18n** (`i18n/`): rust-i18n based localization (en, zh-CN).
 
 ### TUI (ratatui + Elm Architecture):
 
@@ -62,14 +68,15 @@ Rust Cargo workspace with three crates sharing a core library:
 | `crates/ogexplain-core/src/lib.rs` | Public API: `parse()`, `analyze()`, `analyze_with_config()` |
 | `crates/ogexplain-core/src/model/` | Data model — `plan.rs`, `node_type.rs`, `join_type.rs`, `streaming.rs`, `cost.rs`, `buffer.rs` |
 | `crates/ogexplain-core/src/parser/` | `mod.rs`, `line_classifier.rs`, `tree_builder.rs` |
-| `crates/ogexplain-core/src/analyzer/` | `mod.rs`, `config.rs`, `context.rs`, `report.rs`, `rules/*.rs` (10 files) |
+| `crates/ogexplain-core/src/analyzer/` | `mod.rs`, `config.rs`, `context.rs`, `report.rs`, `rules/*.rs` (17 files incl. `utils.rs`) |
 | `crates/ogexplain-core/src/suggester/` | `mod.rs`, `suggestion.rs`, `mapper.rs` |
 | `crates/ogexplain-cli/src/main.rs` | clap CLI with `analyze` subcommand |
 | `crates/ogexplain-tui/src/` | `main.rs`, `app.rs` (TEA model), `action.rs`, `event.rs`, `components/` |
+| `crates/ogexplain-mcp/src/` | `main.rs`, `server.rs` — MCP server with 5 tools (`analyze_explain`, `parse_explain`, `list_diagnostic_rules`, `get_suggestions`, `score_sql_complexity`) |
 | `.sisyphus/plans/ogexplain-analyzer-spec.md` | Design spec (1823 lines) |
 | `.sisyphus/plans/ogexplain-analyzer-impl.md` | Implementation plan |
 
-### Implemented Diagnostic Rules (15 of 45+ planned)
+### Implemented Diagnostic Rules (25 of 45+ planned)
 
 | ID | Rule | Category |
 |----|------|----------|
@@ -81,13 +88,23 @@ Rust Cargo workspace with three crates sharing a core library:
 | MEM-004 | High peak memory | memory |
 | SORT-003 | Duplicate sort | sort |
 | NET-001 | Broadcast large data | network |
-| EST-001 | Severe row underestimation | estimation |
+| EST-001 | Severe row estimation error | estimation |
+| EST-004 | Nested loop from underestimation | estimation |
 | PUSH-001 | Query not pushed down | pushdown |
 | PUSH-002 | Multi-layer streaming | pushdown |
 | TYPE-001 | Implicit type coercion | type_coercion |
 | TYPE-004 | LIKE with leading wildcard | type_coercion |
 | VEC-001 | Mixed row/vector engines | vectorization |
 | GEN-001 | Plan too deep | general |
+| SUBQ-001 | Subquery not pulled up | subquery |
+| REW-001 | Large IN list not rewritten | subquery |
+| SUBQ-006 | Correlated subquery self-update | subquery |
+| AGG-001 | Group aggregate should be hash | aggregate |
+| AGG-002 | Hash aggregate spill to disk | aggregate |
+| SKEW-001 | Data skew detected | distribution |
+| DIST-001 | Distribution column mismatch | distribution |
+| STATS-001 | Stats not collected | stats |
+| PART-001 | Partition pruning failure | partition |
 
 ## Key Domain Knowledge
 
@@ -107,19 +124,21 @@ This tool targets **OpenGauss** (PostgreSQL-fork), not vanilla PostgreSQL. OG-sp
 - **core**: `regex`, `serde` + `serde_json`, `thiserror`, `toml`; dev: `insta` (YAML snapshots)
 - **cli**: `ogexplain-core`, `clap` v4, `colored`, `anyhow`
 - **tui**: `ogexplain-core`, `ratatui` 0.30, `crossterm` 0.29, `ratatui-textarea` 0.8, `tokio`, `color-eyre`, `clap` v4
+- **mcp**: `ogexplain-core`, `ogsql-complexity`, `rmcp` 1.7 (official MCP SDK), `tokio`, `serde`, `schemars`
 
 ## Build & Test
 
 ```bash
 cargo build                              # full workspace
 cargo build -p ogexplain-core            # core library only
-cargo test --workspace                   # all 30 tests (10 parser + 20 analyzer)
+cargo test --workspace                   # all 317 tests
 cargo test --test integration_tests      # parser insta snapshot tests only
 cargo test --test analyzer_tests         # analyzer diagnostic tests only
 cargo insta review                       # interactive snapshot review
 cargo run -p ogexplain-cli -- analyze file.txt -o json   # CLI (text or json output)
 cargo run -p ogexplain-tui -- file.txt   # TUI with file
 cargo run -p ogexplain-tui               # TUI paste mode
+cargo run -p ogexplain-mcp               # MCP server (stdio transport)
 cargo fmt --all && cargo clippy --workspace  # lint (zero warnings)
 ```
 
@@ -144,9 +163,36 @@ The spec references specific source files in `lib/openGauss-server/` for parsing
 
 These paths are relative to `lib/openGauss-server/`.
 
+## MCP Server
+
+The `ogexplain-mcp` binary exposes 5 tools via the Model Context Protocol (stdio transport):
+
+| Tool | Description |
+|------|-------------|
+| `analyze_explain` | Parse + analyze EXPLAIN plan → diagnostic findings (JSON + text) |
+| `parse_explain` | Parse EXPLAIN text → structured plan tree (JSON) |
+| `list_diagnostic_rules` | List all 25 diagnostic rules with IDs and descriptions |
+| `get_suggestions` | Cross-rule synthesis suggestions (work_mem, composite index, etc.) |
+| `score_sql_complexity` | SQL complexity scoring (standard 0–100 + GaussDB 4-dimension) |
+
+Configure in Claude Desktop / Cursor / VS Code:
+
+```json
+{
+  "mcpServers": {
+    "ogexplain": {
+      "command": "ogexplain-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+Works with `gaussdb-mcp` for end-to-end SQL performance diagnostics: gaussdb-mcp runs `EXPLAIN` → ogexplain-mcp analyzes the result.
+
 ## Remaining Work (Optional / Incremental)
 
-- Remaining 30+ diagnostic rules (from 15 to 45+) — see spec for full list
+- Remaining 20+ diagnostic rules (from 25 to 45+) — see spec for full list
 - Markdown output for CLI (`-o markdown`)
 - TOML config file loading (`--config file.toml`)
 - `suggester/synthesizer.rs` full implementation

@@ -140,10 +140,10 @@ impl<'a> PlComplexityVisitor<'a> {
                     self.metrics.nested_dynamic_sql_count += 1;
                 }
             }
-            PlStatement::Commit => {
+            PlStatement::Commit { .. } => {
                 self.metrics.transaction_control_count += 1;
             }
-            PlStatement::Rollback { to_savepoint } => {
+            PlStatement::Rollback { to_savepoint, .. } => {
                 self.metrics.transaction_control_count += 1;
                 if to_savepoint.is_some() {
                     self.metrics.subtransaction_count += 1;

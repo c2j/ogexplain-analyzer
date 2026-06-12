@@ -6,7 +6,9 @@ mod network_rules;
 mod pushdown_rules;
 mod scan_rules;
 mod sort_rules;
+mod subquery_rules;
 mod type_coercion_rules;
+pub mod utils;
 mod vectorization_rules;
 
 use super::config::DiagnosticConfig;
@@ -47,6 +49,9 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
         Box::new(type_coercion_rules::LikeWithLeadingWildcard),
         Box::new(vectorization_rules::MixedVectorRowEngines),
         Box::new(general_rules::PlanTooDeep::new(config.clone())),
+        Box::new(subquery_rules::SubqueryNotPulledUp),
+        Box::new(subquery_rules::LargeInListNotConverted::new()),
+        Box::new(subquery_rules::CorrelatedSubquerySelfUpdate),
     ]
 }
 
@@ -65,5 +70,6 @@ fn make_finding(
         node_line: Some(node.line_number),
         node_type: Some(node.node_type.to_string()),
         suggestion,
+        sql_rewrite: None,
     }
 }

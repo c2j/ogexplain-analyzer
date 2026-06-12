@@ -309,6 +309,7 @@ impl ComplexityVisitor {
             TableRef::Unpivot { source, .. } => {
                 self.count_table_ref(source);
             }
+            TableRef::Values { .. } => {}
         }
     }
 
@@ -499,6 +500,8 @@ impl ComplexityVisitor {
             | Expr::QualifiedStar(_)
             | Expr::Parameter(_)
             | Expr::Default => {}
+            // Newer variants from updated ogsql-parser — no special handling needed
+            _ => {}
         }
     }
 }

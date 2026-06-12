@@ -1,8 +1,9 @@
-use crate::model::{NodeType, PlanNode};
+use crate::model::PlanNode;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::{GlobalStats, PlanContext};
 use super::super::report::{DiagnosticCategory, Finding, Severity};
+use super::utils::{get_property_value, is_sort_node};
 use super::{make_finding, DiagnosticRule};
 
 pub struct SortSpillToDisk;
@@ -21,7 +22,7 @@ impl DiagnosticRule for SortSpillToDisk {
         DiagnosticCategory::MemoryUsage
     }
     fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
-        if node.node_type != NodeType::Sort {
+        if !is_sort_node(&node.node_type) {
             return None;
         }
         let sort_method_prop = node.properties.iter().find(|p| p.label == "Sort Method")?;
@@ -30,15 +31,19 @@ impl DiagnosticRule for SortSpillToDisk {
             return None;
         }
         let disk_used = extract_disk_size(value).unwrap_or_else(|| "unknown".to_string());
-        Some(make_finding(
-            self,
-            format!("Sort Method: {}", value),
-            node,
-            Some(format!(
-                "Increase work_mem to avoid disk spill ({} on disk)",
-                disk_used
-            )),
-        ))
+        let sort_key = get_property_value(node, "Sort Key").map(|s| s.to_string());
+
+        let mut detail = format!("Sort Method: {}", value);
+        if let Some(ref key) = sort_key {
+            detail.push_str(&format!(", Sort Key: {}", key));
+        }
+
+        let suggestion = format!(
+            "SET work_mem = '更高值'; 排序溢出到磁盘({}), 考虑在排序列创建索引以消除排序",
+            disk_used
+        );
+
+        Some(make_finding(self, detail, node, Some(suggestion)))
     }
 }
 
@@ -82,26 +87,70 @@ impl DiagnosticRule for HighPeakMemory {
         if peak <= self.threshold {
             return Vec::new();
         }
+
+        let top_node = find_highest_memory_node(&plan.root);
+        let mut detail = format!("Peak memory: {}kB (threshold: {}kB)", peak, self.threshold);
+        if let Some((node_type, mem_kb, relation)) = top_node {
+            detail.push_str(&format!(
+                ", 最高内存节点: {} on {} ({}kB)",
+                node_type,
+                relation.as_deref().unwrap_or("unknown"),
+                mem_kb
+            ));
+        }
+
+        let suggestion =
+            "分析高内存节点; Sort/Hash → 增加 work_mem; Materialize → 优化查询减少中间结果集"
+                .to_string();
+
         vec![Finding {
             rule_id: self.id().to_string(),
             severity: self.severity(),
             category: self.category(),
             title: self.name().to_string(),
-            detail: format!("Peak memory: {}kB (threshold: {}kB)", peak, self.threshold),
+            detail,
             node_line: None,
             node_type: None,
-            suggestion: Some(
-                "Consider reducing work_mem or optimizing the query to use less memory".to_string(),
-            ),
+            suggestion: Some(suggestion),
+            sql_rewrite: None,
         }]
     }
+}
+
+fn find_highest_memory_node(node: &PlanNode) -> Option<(String, i64, Option<String>)> {
+    let mut result: Option<(String, i64, Option<String>)> = None;
+    find_highest_recursive(node, &mut result);
+    result
+}
+
+fn find_highest_recursive(node: &PlanNode, best: &mut Option<(String, i64, Option<String>)>) {
+    if let Some(mem_str) = get_property_value(node, "Memory Usage") {
+        if let Some(mem_kb) = parse_memory_value(mem_str) {
+            if best.as_ref().is_none_or(|b| mem_kb > b.1) {
+                *best = Some((node.node_type.to_string(), mem_kb, node.relation.clone()));
+            }
+        }
+    }
+    for child in &node.children {
+        find_highest_recursive(child, best);
+    }
+}
+
+fn parse_memory_value(s: &str) -> Option<i64> {
+    let s = s.trim();
+    if let Some(kb) = s.strip_suffix("kB") {
+        return kb.trim().parse::<i64>().ok();
+    }
+    if let Some(mb) = s.strip_suffix("MB") {
+        return mb.trim().parse::<f64>().ok().map(|v| (v * 1024.0) as i64);
+    }
+    s.parse::<i64>().ok()
 }
 
 fn extract_disk_size(value: &str) -> Option<String> {
     for (i, part) in value.split_whitespace().enumerate() {
         if part == "Disk:" {
-            let size = value.split_whitespace().nth(i + 1)?;
-            return Some(size.to_string());
+            return value.split_whitespace().nth(i + 1).map(|s| s.to_string());
         }
     }
     for part in value.split_whitespace() {

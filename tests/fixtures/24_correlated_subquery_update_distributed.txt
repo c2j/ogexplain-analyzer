@@ -1,0 +1,9 @@
+QUERY PLAN
+----------------------------------------------------
+Update on orders  (cost=0.00..150000.00 rows=50000 width=120)
+  ->  Streaming(type: REDISTRIBUTE)  (cost=0.00..50000.00 rows=50000 width=80)
+        ->  Seq Scan on orders  (cost=0.00..10000.00 rows=50000 width=80) (actual time=0.010..20.500 rows=50000 loops=1)
+              SubPlan 1
+                ->  Index Scan using orders_pkey on orders o  (cost=0.00..3.00 rows=1 width=40) (actual time=0.002..0.004 rows=1 loops=50000)
+                      Index Cond: (order_id = orders.order_id)
+Total runtime: 85420.123 ms

@@ -118,7 +118,8 @@ mod tests {
     #[test]
     #[cfg(feature = "db")]
     fn test_build_explain_sql_complex_query() {
-        let input = "SELECT a.x, b.y FROM a JOIN b ON a.id = b.id GROUP BY a.x ORDER BY b.y LIMIT 10";
+        let input =
+            "SELECT a.x, b.y FROM a JOIN b ON a.id = b.id GROUP BY a.x ORDER BY b.y LIMIT 10";
         let sql = build_explain_sql(input, false);
         assert!(sql.starts_with("EXPLAIN "));
         assert!(sql.contains("GROUP BY"));

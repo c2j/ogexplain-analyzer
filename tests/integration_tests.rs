@@ -97,7 +97,9 @@ fn fixture_05_sort_external_merge_has_mem_001() {
 #[test]
 fn fixture_06_streaming_gather_parses_and_analyzes() {
     let plan = parse_fixture("06_streaming_gather.txt");
-    assert!(matches!(&plan.root.node_type, NodeType::Streaming(st) if *st == ogexplain_core::model::StreamingType::Gather));
+    assert!(
+        matches!(&plan.root.node_type, NodeType::Streaming(st) if *st == ogexplain_core::model::StreamingType::Gather)
+    );
 
     let report = analyze(&plan);
     // GATHER alone is not a pushdown failure — only REDISTRIBUTE/BROADCAST trigger PUSH-001.
@@ -475,12 +477,7 @@ fn all_fixtures_parse_without_error() {
     let mut entries: Vec<_> = std::fs::read_dir(&fixture_dir)
         .expect("Failed to read fixtures directory")
         .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .and_then(|ext| ext.to_str())
-                == Some("txt")
-        })
+        .filter(|e| e.path().extension().and_then(|ext| ext.to_str()) == Some("txt"))
         .collect();
 
     entries.sort_by_key(|e| e.file_name());

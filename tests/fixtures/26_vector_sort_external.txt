@@ -1,0 +1,9 @@
+QUERY PLAN
+----------------------------------------------------
+Vector Sort  (cost=100.00..110.00 rows=50000 width=44) (actual time=50.432..55.876 rows=50000 loops=1)
+  Sort Key: order_date
+  Sort Method: external merge  Disk: 2400kB
+  ->  Vector Seq Scan on orders  (cost=0.00..45.00 rows=50000 width=44) (actual time=0.012..10.234 rows=50000 loops=1)
+        Filter: (status = 'pending'::text)
+        Rows Removed by Filter: 5000
+Total runtime: 56.234 ms

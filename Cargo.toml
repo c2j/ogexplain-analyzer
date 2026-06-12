@@ -7,9 +7,10 @@ description = "OpenGauss EXPLAIN plan analyzer with SQL complexity scoring"
 
 [features]
 default = []
-full = ["cli", "tui"]
+full = ["cli", "tui", "mcp"]
 cli = ["dep:ogexplain-cli", "dep:anyhow"]
 tui = ["dep:ogexplain-tui", "dep:color-eyre"]
+mcp = ["dep:ogexplain-mcp", "ogexplain-cli?/mcp"]
 
 [lib]
 path = "src/lib.rs"
@@ -24,15 +25,21 @@ name = "ogexplain-tui"
 path = "src/bin/ogexplain-tui.rs"
 required-features = ["tui"]
 
+[[bin]]
+name = "ogexplain-mcp"
+path = "src/bin/ogexplain-mcp.rs"
+required-features = ["mcp"]
+
 [dependencies]
 ogexplain-core = { path = "crates/ogexplain-core" }
 ogexplain-cli = { path = "crates/ogexplain-cli", optional = true }
 ogexplain-tui = { path = "crates/ogexplain-tui", optional = true }
+ogexplain-mcp = { path = "crates/ogexplain-mcp", optional = true }
 anyhow = { version = "1", optional = true }
 color-eyre = { version = "0.6", optional = true }
 
 [dev-dependencies]
-ogexplain-cli = { path = "crates/ogexplain-cli", features = ["db"] }
+ogexplain-cli = { path = "crates/ogexplain-cli", features = ["db", "mcp"] }
 testcontainers = "0.27"
 tokio = { version = "1", features = ["rt", "macros", "time"] }
 
@@ -42,6 +49,7 @@ members = [
     "crates/ogexplain-cli",
     "crates/ogexplain-tui",
     "crates/ogsql-complexity",
+    "crates/ogexplain-mcp",
 ]
 resolver = "2"
 

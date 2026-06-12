@@ -21,16 +21,14 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             ext: ''
-            archive: tar.gz
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             ext: ''
-            archive: tar.gz
-          # Rust 1.78+ std requires Windows 10+. Pin toolchain to 1.77 + gnu target for Win7.
+          # Rust 1.78+ std requires Windows 10+. Pinned to 1.77.2 for Win7 CLI support.
+          # TUI (crossterm) needs Win10+ at runtime regardless of toolchain.
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
-            archive: zip
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +37,12 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
-      - name: Install Rust toolchain
+      - name: Install Rust toolchain (Windows — 1.77.2 for Win7 compat)
+        if: runner.os == 'Windows'
+        run: rustup default 1.77.2-x86_64-pc-windows-msvc
+
+      - name: Install Rust toolchain (Linux)
+        if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -66,24 +69,24 @@ jobs:
           cargo build --release -p ogexplain-cli --no-default-features --target ${{ matrix.target }}
           cargo build --release -p ogexplain-tui --target ${{ matrix.target }}
 
-      - name: Package (Linux tar.gz)
+      - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../ogexplain-${{ matrix.target }}.tar.gz ogexplain ogexplain-tui
+          zip ../../ogexplain-${{ github.ref_name }}-${{ matrix.target }}.zip ogexplain ogexplain-tui
 
-      - name: Package (Windows zip)
+      - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Compress-Archive `
             -Path target/${{ matrix.target }}/release/ogexplain.exe, target/${{ matrix.target }}/release/ogexplain-tui.exe `
-            -DestinationPath ogexplain-${{ matrix.target }}.zip
+            -DestinationPath ogexplain-${{ github.ref_name }}-${{ matrix.target }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ogexplain-${{ matrix.target }}
-          path: ogexplain-${{ matrix.target }}.${{ matrix.archive }}
+          name: ogexplain-${{ github.ref_name }}-${{ matrix.target }}
+          path: ogexplain-${{ github.ref_name }}-${{ matrix.target }}.zip
           retention-days: 1
 
   release:

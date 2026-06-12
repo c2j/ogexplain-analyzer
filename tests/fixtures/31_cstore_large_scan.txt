@@ -1,0 +1,4 @@
+QUERY PLAN
+----------------------------------------------------
+CStore Scan on analytics_events  (cost=0.00..450.20 rows=50000 width=64) (actual time=0.100..100.000 rows=50000 loops=1)
+Total runtime: 102.890 ms
