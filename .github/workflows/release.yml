@@ -41,6 +41,11 @@ jobs:
         if: runner.os == 'Windows'
         run: rustup default 1.77.2-x86_64-pc-windows-msvc
 
+      - name: Downgrade Cargo.lock to v3 (Win7 toolchain compat)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: sed -i 's/^version = 4$/version = 3/' Cargo.lock
+
       - name: Install Rust toolchain (Linux)
         if: runner.os != 'Windows'
         uses: dtolnay/rust-toolchain@stable
@@ -73,7 +78,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd target/${{ matrix.target }}/release
-          zip ../../ogexplain-${{ github.ref_name }}-${{ matrix.target }}.zip ogexplain ogexplain-tui
+          zip ../../../ogexplain-${{ github.ref_name }}-${{ matrix.target }}.zip ogexplain ogexplain-tui
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
