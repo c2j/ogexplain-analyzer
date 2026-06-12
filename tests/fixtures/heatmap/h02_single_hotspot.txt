@@ -1,0 +1,8 @@
+QUERY PLAN
+----------------------------------------------------
+Nested Loop  (cost=0.00..431.20 rows=100 width=16) (actual time=0.100..15.200 rows=100 loops=1)
+  Join Filter: (o.customer_id = c.id)
+  ->  Seq Scan on customers c  (cost=0.00..15.20 rows=520 width=8) (actual time=0.005..0.020 rows=520 loops=1)
+  ->  Index Scan using idx_orders_customer on orders o  (cost=0.00..0.40 rows=1 width=12) (actual time=0.080..0.120 rows=50 loops=520)
+        Index Cond: (customer_id = c.id)
+Total runtime: 15.500 ms

@@ -1,0 +1,18 @@
+                          Query Plan
+ ----------------------------------------------------------
+  Materialize
+    cost=0.00..100000.00 rows=10000 width=100
+    Actual time=0.010..50.000 rows=5000 loops=1
+    Materialize
+      cost=0.00..50000.00 rows=5000 width=80
+      Actual time=0.005..25.000 rows=5000 loops=10
+      Nested Loop
+        cost=0.00..50000.00 rows=5000 width=80
+        Actual time=0.005..25.000 rows=5000 loops=10
+        ->  Seq Scan on outer_table
+              cost=0.00..100.00 rows=100 width=40
+              Actual time=0.001..0.500 rows=100 loops=10
+        ->  Index Scan using idx_inner on inner_table
+              Index Cond: (id = outer_table.id)
+              cost=0.00..50.00 rows=50 width=40
+              Actual time=0.001..0.200 rows=50 loops=1000

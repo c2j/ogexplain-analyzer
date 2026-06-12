@@ -3,10 +3,12 @@ rust_i18n::i18n!("../ogexplain-core/i18n", fallback = "en");
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use colored::*;
+use ogexplain_core::analyzer::heatmap::{DeviationDirection, DeviationSeverity, HeatmapEntry};
 use ogexplain_core::i18n;
 use ogexplain_core::suggester::SuggestionEngine;
 use ogexplain_core::summary::{ComplexityInput, SummaryRow};
 use rust_i18n::t;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
 
 #[cfg(feature = "db")]
@@ -531,6 +533,25 @@ critical_count,warning_count,info_count";
     Ok(())
 }
 
+const LOGO: &str = concat!(
+    "██████╗  ██████╗ ███████╗██╗  ██╗ ██████╗ ██╗      █████╗ ██╗ ██╗  ██╗\n",
+    "██╔═══██╗██╔════╝ ██╔════╝╚██╗██╔╝██╔══██╗██║     ██╔══██╗██║ ██║  ██║\n",
+    "██║   ██║██║  ███╗███████╗ ╚███╔╝ ██████╔╝██║     ███████║██║ ███████║\n",
+    "██║   ██║██║   ██║██╔═══╝  ██╔██╗ ██╔═══╝ ██║     ██╔══██║██║ ██╔══██║\n",
+    "╚██████╔╝╚██████╔╝███████╗██╔╝ ██╗██║     ███████╗██║  ██║██║ ██║  ██║\n",
+    " ╚═════╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═╝  ╚═╝\n",
+    " █████╗ ██╗  ██╗ █████╗ ██╗     ██╗   ██╗███████╗███████╗ ██████╗ \n",
+    "██╔══██╗██║  ██║██╔══██╗██║     ╚██╗ ██╔╝╚══██╔═╝██╔════╝ ██╔══██╗\n",
+    "███████║███████║███████║██║      ╚████╔╝   ██╔╝  ███████╗ ██████╔╝\n",
+    "██╔══██║██╔══██║██╔══██║██║       ╚██╔╝   ██╔╝   ██╔═══╝  ██╔══██╗\n",
+    "██║  ██║██║  ██║██║  ██║███████╗   ██║   ███████╗███████╗ ██║  ██║\n",
+    "╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚══════╝ ╚═╝  ╚═╝",
+);
+
+fn logo_text() -> String {
+    format!("{}\n  v{}", LOGO, env!("CARGO_PKG_VERSION"))
+}
+
 pub fn run() -> Result<()> {
     // Pre-scan --lang from raw args before clap builds help text
     let args_vec: Vec<String> = std::env::args().collect();
@@ -546,8 +567,15 @@ pub fn run() -> Result<()> {
     };
     i18n::init(Some(&locale));
 
+    // Show logo when no arguments (except program name) are given
+    let show_logo = args_vec.len() <= 1;
+    if show_logo {
+        eprintln!("{}", logo_text());
+    }
+
     let cmd = clap::Command::new("ogexplain")
         .version(env!("CARGO_PKG_VERSION"))
+        .before_help(logo_text())
         .about(t!("cli.about").to_string())
         .subcommand_required(false)
         .subcommand(
@@ -1061,6 +1089,8 @@ fn analyze_and_output(
             gauss_complexity,
             summary_row,
         )?,
+        "heatmap" => output_heatmap(plan, &filtered_findings)?,
+        "waterfall" => output_waterfall(plan)?,
         _ => output_text(
             plan,
             &filtered_findings,
@@ -1745,6 +1775,311 @@ fn print_complexity_section(
     }
 }
 
+fn output_heatmap(
+    plan: &ogexplain_core::model::ExplainPlan,
+    _findings: &[&ogexplain_core::analyzer::report::Finding],
+) -> Result<()> {
+    let heatmap = match ogexplain_core::heatmap(plan) {
+        Some(h) => h,
+        None => {
+            println!(
+                "{}",
+                "No EXPLAIN ANALYZE data found. Heatmap requires EXPLAIN ANALYZE output.".yellow()
+            );
+            return Ok(());
+        }
+    };
+
+    // Summary header
+    println!("{}", "═".repeat(60).bright_blue());
+    println!("{}", "  Cost-Actual Deviation Heatmap".bold());
+    println!("{}", "═".repeat(60).bright_blue());
+    println!();
+
+    let max_entry = heatmap
+        .entries
+        .iter()
+        .find(|e| e.deviation.line_number == heatmap.summary.max_qerror_line);
+    let max_icon = max_entry.map(|e| e.deviation.severity.icon()).unwrap_or("⚪");
+    let max_node_type = max_entry
+        .map(|e| e.deviation.node_type.as_str())
+        .unwrap_or("?");
+    println!(
+        "  {} Max Q-Error: {:.1}x at {} (line {})",
+        max_icon,
+        heatmap.summary.max_qerror,
+        max_node_type,
+        heatmap.summary.max_qerror_line,
+    );
+    println!(
+        "  \u{1f4cd} Critical Path: {} nodes",
+        heatmap.summary.critical_path_length
+    );
+    println!(
+        "  \u{26a0} Severe deviations: {}/{} nodes",
+        heatmap.summary.severe_count, heatmap.summary.total_nodes,
+    );
+    println!();
+
+    // Build line_number -> HeatmapEntry index
+    let entry_map: HashMap<usize, &HeatmapEntry> = heatmap
+        .entries
+        .iter()
+        .map(|e| (e.deviation.line_number, e))
+        .collect();
+    let critical_set: HashSet<usize> = heatmap.critical_path.iter().copied().collect();
+
+    // Recursive tree print
+    print_heatmap_node(&plan.root, &entry_map, &critical_set, 0, true, "");
+
+    Ok(())
+}
+
+fn print_heatmap_node(
+    node: &ogexplain_core::model::PlanNode,
+    entry_map: &HashMap<usize, &HeatmapEntry>,
+    critical_set: &HashSet<usize>,
+    _depth: usize,
+    is_last: bool,
+    prefix: &str,
+) {
+    let branch = if is_last {
+        "\u{2514}\u{2500}\u{2500} "
+    } else {
+        "\u{251c}\u{2500}\u{2500} "
+    };
+
+    if let Some(entry) = entry_map.get(&node.line_number) {
+        let d = &entry.deviation;
+        let icon = d.severity.icon();
+
+        let dir_str = match d.direction {
+            DeviationDirection::Underestimate => "\u{2193}\u{4f4e}\u{4f30}",
+            DeviationDirection::Overestimate => "\u{2191}\u{9ad8}\u{4f30}",
+            DeviationDirection::Accurate => "",
+            _ => "",
+        };
+
+        let node_str = format!(
+            "{}{}[{}] {} (est={:.0} actual={:.0} Q={:.1}x{})",
+            prefix,
+            branch,
+            icon,
+            d.node_type,
+            d.estimated_rows,
+            d.actual_rows,
+            d.row_qerror,
+            dir_str,
+        );
+
+        let colored = match d.severity {
+            DeviationSeverity::Extreme => node_str.red().bold(),
+            DeviationSeverity::Severe => node_str.red(),
+            DeviationSeverity::Moderate => node_str.yellow(),
+            DeviationSeverity::Mild => node_str.green(),
+            DeviationSeverity::Negligible => node_str.white(),
+            _ => node_str.normal(),
+        };
+        println!("{}", colored);
+
+        // Critical path detail
+        if critical_set.contains(&node.line_number) && d.row_qerror >= 2.0_f64 {
+            let detail_prefix = format!("{}{}    ", prefix, if is_last { " " } else { "\u{2502}" });
+            let detail = format!(
+                "{}{} Path-Q: {:.1}x | Subtree-Q: {:.1}x",
+                detail_prefix, "\u{1f4ca}", entry.path_cumulative_qerror, entry.subtree_geo_qerror,
+            );
+            println!("{}", detail.dimmed());
+        }
+    } else {
+        // No statistics (pure EXPLAIN without ANALYZE)
+        let node_str = format!("{}{}{} {}", prefix, branch, "\u{26aa}", node.node_type,);
+        println!("{}", node_str);
+    }
+
+    let child_prefix = format!("{}{}", prefix, if is_last { "    " } else { "\u{2502}   " });
+    for (i, child) in node.children.iter().enumerate() {
+        let last = i == node.children.len() - 1;
+        print_heatmap_node(
+            child,
+            entry_map,
+            critical_set,
+            _depth + 1,
+            last,
+            &child_prefix,
+        );
+    }
+}
+
+fn output_waterfall(plan: &ogexplain_core::model::ExplainPlan) -> Result<()> {
+    use colored::*;
+
+    let waterfall = match ogexplain_core::waterfall(plan) {
+        Some(w) => w,
+        None => {
+            println!(
+                "{}",
+                "No EXPLAIN ANALYZE data found. Waterfall requires EXPLAIN ANALYZE output."
+                    .yellow()
+            );
+            return Ok(());
+        }
+    };
+
+    let bar_width = 40_usize;
+
+    // Summary header
+    println!("{}", "═".repeat(60).bright_blue());
+    println!("{}", "  Resource Waterfall".bold());
+    println!("{}", "═".repeat(60).bright_blue());
+    println!();
+
+    let bn = &waterfall.bottlenecks;
+    println!("  \u{23f1}  Total CPU Time: {:.2} ms", bn.total_cpu_time_ms);
+    println!(
+        "  \u{1f9e0} Max Peak Memory: {:.0} KB",
+        bn.max_peak_memory_kb
+    );
+    println!("  \u{1f4be} Spill Nodes: {}", bn.spill_node_count);
+    println!(
+        "  \u{1f4ca} Nodes: {} total, {} with stats",
+        waterfall.total_nodes, waterfall.nodes_with_stats
+    );
+    println!();
+
+    let entry_map: std::collections::HashMap<
+        usize,
+        &ogexplain_core::analyzer::waterfall::WaterfallEntry,
+    > = waterfall
+        .entries
+        .iter()
+        .map(|e| (e.metrics.line_number, e))
+        .collect();
+
+    // CPU bottlenecks Top-5
+    if !bn.cpu_bottlenecks.is_empty() {
+        println!("{}", "  Top CPU Consumers:".bold());
+
+        for line in &bn.cpu_bottlenecks {
+            if let Some(entry) = entry_map.get(line) {
+                let cpu = entry.metrics.cpu_time_ms.unwrap_or(0.0_f64);
+                let pct = entry.cpu_percent;
+                let bar_len = ((pct / 100.0_f64) * bar_width as f64).round() as usize;
+                let bar_len = bar_len.max(1).min(bar_width);
+
+                let bar = "\u{2588}".repeat(bar_len);
+                let label = format!(
+                    "  {} {:<30} {:>8.2}ms ({:>5.1}%)",
+                    if entry.is_bottleneck {
+                        "\u{1f534}"
+                    } else {
+                        "  "
+                    },
+                    format!("{}:{}", entry.metrics.node_type, line),
+                    cpu,
+                    pct,
+                );
+                println!("{} {}", label, bar.bright_red());
+            }
+        }
+        println!();
+    }
+
+    // Memory bottlenecks Top-5
+    if !bn.memory_bottlenecks.is_empty() {
+        println!("{}", "  Top Memory Consumers:".bold());
+
+        for line in &bn.memory_bottlenecks {
+            if let Some(entry) = entry_map.get(line) {
+                let mem = entry.metrics.peak_memory_kb.unwrap_or(0.0_f64);
+                let pct = entry.memory_percent;
+                let bar_len = ((pct / 100.0_f64) * bar_width as f64).round() as usize;
+                let bar_len = bar_len.max(1).min(bar_width);
+
+                let spill_marker = if entry.metrics.has_memory_spill {
+                    " \u{26a0}\u{fe0f}SPILL"
+                } else {
+                    ""
+                };
+                let bar = "\u{2588}".repeat(bar_len);
+
+                let label = format!(
+                    "  {} {:<30} {:>8.0}KB ({:>5.1}%){}",
+                    if entry.is_bottleneck {
+                        "\u{1f534}"
+                    } else {
+                        "  "
+                    },
+                    format!("{}:{}", entry.metrics.node_type, line),
+                    mem,
+                    pct,
+                    spill_marker,
+                );
+                println!("{} {}", label, bar.bright_yellow());
+            }
+        }
+        println!();
+    }
+
+    // Full waterfall (DFS post-order)
+    println!("{}", "  Full Waterfall (bottom-up order):".bold());
+    println!(
+        "{}",
+        "  \u{250c}".to_string() + "\u{2500}".repeat(48).as_str() + "\u{2510}"
+    );
+
+    for entry in &waterfall.entries {
+        let indent = "  ".repeat(entry.depth.min(10_usize));
+        let cpu_bar_len = if waterfall.bottlenecks.total_cpu_time_ms > 0.0_f64 {
+            let pct = entry.cpu_percent / 100.0_f64;
+            (pct * 20.0_f64).round() as usize
+        } else {
+            0_usize
+        };
+        let mem_bar_len = if waterfall.bottlenecks.max_peak_memory_kb > 0.0_f64 {
+            let pct = entry.memory_percent / 100.0_f64;
+            (pct * 20.0_f64).round() as usize
+        } else {
+            0_usize
+        };
+
+        let cpu_bar = "\u{2593}".repeat(cpu_bar_len.clamp(1, 20));
+        let mem_bar = "\u{2593}".repeat(mem_bar_len.clamp(1, 20));
+
+        let bottleneck_marker = if entry.is_bottleneck {
+            "\u{1f534}"
+        } else {
+            "  "
+        };
+        let spill_marker = if entry.metrics.has_memory_spill {
+            " \u{1f4be}"
+        } else {
+            ""
+        };
+
+        let node_label = format!(
+            "{:<20}",
+            format!("{}:{}", entry.metrics.node_type, entry.metrics.line_number)
+        );
+        println!(
+            "  {}{} {} CPU:[{:<20}] MEM:[{:<20}]{}",
+            bottleneck_marker,
+            indent,
+            node_label,
+            cpu_bar.bright_red(),
+            mem_bar.bright_yellow(),
+            spill_marker,
+        );
+    }
+
+    println!(
+        "  {}",
+        "\u{2514}".to_string() + "\u{2500}".repeat(48).as_str() + "\u{2518}"
+    );
+
+    Ok(())
+}
+
 fn output_json(
     plan: &ogexplain_core::model::ExplainPlan,
     findings: &[&ogexplain_core::analyzer::report::Finding],
@@ -1754,6 +2089,8 @@ fn output_json(
     gauss_complexity: Option<&ogsql_complexity::GaussDbComplexityReport>,
     summary_row: Option<&SummaryRow>,
 ) -> Result<()> {
+    let heatmap_data = ogexplain_core::heatmap(plan);
+
     #[derive(serde::Serialize)]
     struct JsonOutput<'a> {
         plan: &'a ogexplain_core::model::ExplainPlan,
@@ -1763,7 +2100,10 @@ fn output_json(
         suggestions: &'a [ogexplain_core::suggester::Suggestion],
         stats: &'a ogexplain_core::analyzer::context::GlobalStats,
         summary: Option<&'a SummaryRow>,
+        heatmap: Option<ogexplain_core::analyzer::heatmap::PlanHeatmap>,
+        waterfall: Option<ogexplain_core::analyzer::waterfall::PlanWaterfall>,
     }
+    let waterfall_data = ogexplain_core::waterfall(plan);
     let output = JsonOutput {
         plan,
         complexity,
@@ -1772,6 +2112,8 @@ fn output_json(
         suggestions,
         stats,
         summary: summary_row,
+        heatmap: heatmap_data,
+        waterfall: waterfall_data,
     };
     let json = serde_json::to_string_pretty(&output)?;
     println!("{}", json);

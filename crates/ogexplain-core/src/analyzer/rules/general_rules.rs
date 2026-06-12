@@ -51,6 +51,7 @@ impl DiagnosticRule for PlanTooDeep {
             node_type: None,
             suggestion: Some("简化查询: /*+ EXPAND_SUBQUERY */; /*+ EXPAND_SUBLINK */; /*+ LAZY_AGG */; /*+ REDUCE_ORDER_BY */; 考虑拆分为多个简单查询".to_string()),
             sql_rewrite: None,
+            evidence: None,
         }]
     }
 }

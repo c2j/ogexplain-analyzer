@@ -1,0 +1,9 @@
+QUERY PLAN
+----------------------------------------------------
+Hash Join  (cost=25.00..60.00 rows=100 width=16) (actual time=0.080..0.190 rows=95 loops=1)
+  Hash Cond: (o.customer_id = c.id)
+  ->  Seq Scan on orders o  (cost=0.00..18.00 rows=800 width=12) (actual time=0.010..0.040 rows=780 loops=1)
+  ->  Hash  (cost=15.00..15.00 rows=500 width=8) (actual time=0.030..0.030 rows=490 loops=1)
+        Buckets: 1024  Batches: 1  Memory Usage: 28kB
+        ->  Seq Scan on customers c  (cost=0.00..15.00 rows=500 width=8) (actual time=0.005..0.020 rows=490 loops=1)
+Total runtime: 0.300 ms

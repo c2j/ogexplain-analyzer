@@ -1,0 +1,12 @@
+QUERY PLAN
+----------------------------------------------------
+Sort  (cost=100.00..120.00 rows=8000 width=44) (actual time=50.000..55.000 rows=8000 loops=1)
+  Sort Key: created_at
+  Sort Method: external merge  Disk: 5840kB
+  ->  Hash Join  (cost=20.00..80.00 rows=8000 width=44) (actual time=5.000..30.000 rows=8000 loops=1)
+        Hash Cond: (t1.id = t2.ref_id)
+        ->  Seq Scan on large_table t1  (cost=0.00..30.00 rows=5000 width=22) (actual time=0.100..2.000 rows=5000 loops=1)
+        ->  Hash  (cost=10.00..10.00 rows=3000 width=22) (actual time=0.500..0.500 rows=3000 loops=1)
+              Buckets: 2048  Batches: 4  Memory Usage: 48kB
+              ->  Seq Scan on lookup_table t2  (cost=0.00..10.00 rows=3000 width=22) (actual time=0.050..0.300 rows=3000 loops=1)
+Total runtime: 56.000 ms

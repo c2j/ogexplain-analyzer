@@ -113,6 +113,7 @@ impl DiagnosticRule for HighPeakMemory {
             node_type: None,
             suggestion: Some(suggestion),
             sql_rewrite: None,
+            evidence: None,
         }]
     }
 }

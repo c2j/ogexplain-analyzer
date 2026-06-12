@@ -1,0 +1,14 @@
+                          Query Plan
+ ----------------------------------------------------------
+  Nested Loop
+    cost=0.00..500000.00 rows=50000 width=100
+    Actual time=0.100..5000.000 rows=50000 loops=1
+    ->  Seq Scan on orders
+          cost=0.00..1000.00 rows=50000 width=40
+          Actual time=0.010..100.000 rows=50000 loops=1
+    ->  Index Scan using idx_order_items_order_id on order_items
+          Index Cond: (order_id = orders.id)
+          Filter: (status = 'pending'::text)
+          Rows Removed by Filter: 45000
+          cost=0.00..10.00 rows=1 width=60
+          Actual time=0.001..0.050 rows=1 loops=50000

@@ -1,0 +1,4 @@
+QUERY PLAN
+----------------------------------------------------
+Seq Scan on t1  (cost=0.00..12.00 rows=100 width=4)
+  Filter: (status = 'active')

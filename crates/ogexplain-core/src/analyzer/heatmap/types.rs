@@ -1,0 +1,151 @@
+//! Cost-Actual deviation heatmap types.
+//!
+//! All types are independent of `PlanNode` — computed from immutable plan references.
+//! Each type is `#[non_exhaustive]` to allow future field additions without breaking changes.
+
+use serde::Serialize;
+
+/// Deviation severity classification based on Q-Error thresholds.
+///
+/// Thresholds:
+/// - Negligible: Q-Error < 2x
+/// - Mild: 2x ≤ Q-Error < 5x
+/// - Moderate: 5x ≤ Q-Error < 10x
+/// - Severe: 10x ≤ Q-Error < 50x
+/// - Extreme: Q-Error ≥ 50x
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[non_exhaustive]
+pub enum DeviationSeverity {
+    /// Q-Error < 2x — estimation is practically accurate
+    Negligible,
+    /// 2x ≤ Q-Error < 5x — mild deviation, worth noting
+    Mild,
+    /// 5x ≤ Q-Error < 10x — moderate deviation, may need investigation
+    Moderate,
+    /// 10x ≤ Q-Error < 50x — severe deviation, likely performance issue
+    Severe,
+    /// Q-Error ≥ 50x — extreme deviation, critical performance problem
+    Extreme,
+}
+
+impl DeviationSeverity {
+    /// Classify a Q-Error value into a severity level.
+    pub fn from_qerror(q: f64) -> Self {
+        if q < 2.0_f64 {
+            Self::Negligible
+        } else if q < 5.0_f64 {
+            Self::Mild
+        } else if q < 10.0_f64 {
+            Self::Moderate
+        } else if q < 50.0_f64 {
+            Self::Severe
+        } else {
+            Self::Extreme
+        }
+    }
+
+    /// Return a single-character icon for CLI/TUI rendering.
+    pub fn icon(&self) -> &'static str {
+        match self {
+            Self::Extreme => "\u{1f534}",   // 🔴
+            Self::Severe => "\u{1f7e0}",    // 🟠
+            Self::Moderate => "\u{1f7e1}",  // 🟡
+            Self::Mild => "\u{1f7e2}",      // 🟢
+            Self::Negligible => "\u{26aa}", // ⚪
+        }
+    }
+}
+
+/// Direction of estimation deviation — whether the optimizer under- or over-estimated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
+pub enum DeviationDirection {
+    /// Actual rows significantly exceed estimate (optimizer underestimated).
+    /// This is more dangerous — may cause wrong join order or nested loop choices.
+    Underestimate,
+    /// Actual rows are significantly below estimate (optimizer overestimated).
+    Overestimate,
+    /// Estimate is reasonably accurate (ratio within tolerance).
+    Accurate,
+}
+
+/// Per-node deviation metrics for a single plan node with EXPLAIN ANALYZE statistics.
+#[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
+pub struct NodeDeviation {
+    /// EXPLAIN output line number (unique identifier within the plan).
+    pub line_number: usize,
+    /// Human-readable node type name (e.g., "Seq Scan", "Hash Join").
+    pub node_type: String,
+    /// Associated table or relation name (present on scan nodes).
+    pub relation: Option<String>,
+
+    // --- Raw data ---
+    /// Optimizer's estimated row count.
+    pub estimated_rows: f64,
+    /// Actual row count from execution.
+    pub actual_rows: f64,
+
+    // --- Computed metrics ---
+    /// Row-count Q-Error: `max(actual, estimated) / min(actual, estimated)`.
+    /// VLDB standard metric, symmetric, always >= 1.0.
+    pub row_qerror: f64,
+    /// Row ratio: `actual / estimated`.
+    /// Values > 1.0 indicate underestimation, < 1.0 indicate overestimation.
+    pub row_ratio: f64,
+    /// Direction of the deviation.
+    pub direction: DeviationDirection,
+    /// Severity classification of the deviation.
+    pub severity: DeviationSeverity,
+}
+
+/// A heatmap entry for a single plan node, enriched with subtree and path context.
+#[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
+pub struct HeatmapEntry {
+    /// The per-node deviation data.
+    pub deviation: NodeDeviation,
+    /// Geometric mean of Q-Error across the entire subtree rooted at this node.
+    /// Computed during post-order traversal.
+    pub subtree_geo_qerror: f64,
+    /// Cumulative Q-Error from the root to this node (product of ancestor Q-Errors).
+    /// Computed during pre-order traversal.
+    pub path_cumulative_qerror: f64,
+    /// Whether this node lies on the maximum-deviation critical path.
+    pub on_critical_path: bool,
+}
+
+/// Global summary of the entire plan heatmap.
+#[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
+pub struct HeatmapSummary {
+    /// Maximum Q-Error across all nodes in the plan.
+    pub max_qerror: f64,
+    /// Line number of the node with the maximum Q-Error.
+    pub max_qerror_line: usize,
+    /// Number of nodes with severity >= Severe (Q-Error >= 10x).
+    pub severe_count: usize,
+    /// Total number of nodes with EXPLAIN ANALYZE statistics.
+    pub total_nodes: usize,
+    /// Length of the critical path in nodes.
+    pub critical_path_length: usize,
+    /// Number of nodes with Q-Error >= 2.0 (non-negligible deviation).
+    pub deviated_count: usize,
+}
+
+/// Complete deviation heatmap for an execution plan.
+///
+/// Contains per-node entries, critical path, hot spots, and global summary.
+/// Generated by [`super::engine::HeatmapEngine`].
+#[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
+pub struct PlanHeatmap {
+    /// All plan nodes that have EXPLAIN ANALYZE statistics, with deviation metrics.
+    pub entries: Vec<HeatmapEntry>,
+    /// Line numbers tracing the maximum-deviation path from root to leaf.
+    pub critical_path: Vec<usize>,
+    /// Line numbers of hotspot nodes (severity >= Moderate), sorted by Q-Error descending.
+    pub hotspots: Vec<usize>,
+    /// Global summary statistics.
+    pub summary: HeatmapSummary,
+}
