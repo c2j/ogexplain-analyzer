@@ -63,6 +63,8 @@ pub struct Finding {
     pub node_type: Option<String>,
     pub suggestion: Option<String>,
     pub sql_rewrite: Option<crate::rewriter::types::RewriteResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<crate::analyzer::pattern::types::Evidence>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

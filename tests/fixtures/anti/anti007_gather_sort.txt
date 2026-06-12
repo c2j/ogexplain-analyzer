@@ -1,0 +1,13 @@
+                          Query Plan
+ ----------------------------------------------------------
+  Streaming(type: GATHER dop: 1/4)
+    cost=0.00..500000.00 rows=500000 width=100
+    Actual time=100.000..5000.000 rows=500000 loops=1
+    Sort
+      Sort Key: created_at DESC
+      cost=0.00..500000.00 rows=500000 width=100
+      Actual time=100.000..4800.000 rows=500000 loops=1
+      Sort Method: external merge  Disk: 50000kB
+      ->  Seq Scan on orders
+            cost=0.00..100000.00 rows=500000 width=100
+            Actual time=0.010..500.000 rows=500000 loops=1

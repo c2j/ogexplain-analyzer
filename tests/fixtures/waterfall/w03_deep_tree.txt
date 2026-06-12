@@ -1,0 +1,14 @@
+QUERY PLAN
+----------------------------------------------------
+Aggregate  (cost=500.00..600.00 rows=1 width=8) (actual time=100.000..100.200 rows=1 loops=1)
+  ->  Nested Loop  (cost=200.00..450.00 rows=1000 width=16) (actual time=10.000..90.000 rows=1000 loops=1)
+        Join Filter: (x.id = y.parent_id)
+        ->  Hash Join  (cost=100.00..200.00 rows=500 width=8) (actual time=5.000..40.000 rows=500 loops=1)
+              Hash Cond: (x.category_id = c.id)
+              ->  Seq Scan on items x  (cost=0.00..50.00 rows=2000 width=16) (actual time=0.100..10.000 rows=2000 loops=1)
+              ->  Hash  (cost=30.00..30.00 rows=100 width=8) (actual time=1.000..1.000 rows=100 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 28kB
+                    ->  Seq Scan on categories c  (cost=0.00..30.00 rows=100 width=8) (actual time=0.050..0.800 rows=100 loops=1)
+        ->  Index Scan on details y  (cost=0.00..0.50 rows=2 width=8) (actual time=0.010..0.050 rows=2 loops=500)
+              Index Cond: (y.id = x.id)
+Total runtime: 100.500 ms

@@ -59,6 +59,7 @@ impl DiagnosticRule for MixedVectorRowEngines {
             node_type: None,
             suggestion: Some(suggestion),
             sql_rewrite: None,
+            evidence: None,
         }]
     }
 }

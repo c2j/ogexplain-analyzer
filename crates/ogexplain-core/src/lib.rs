@@ -23,6 +23,17 @@ pub fn analyze_with_config(
     analyzer::DiagnosticEngine::new(config.clone()).analyze(plan)
 }
 
+pub fn heatmap(plan: &model::ExplainPlan) -> Option<analyzer::heatmap::PlanHeatmap> {
+    analyzer::heatmap::HeatmapEngine::generate(plan)
+}
+
+/// Generate a resource waterfall for the plan.
+///
+/// Returns None if the plan has no EXPLAIN ANALYZE data.
+pub fn waterfall(plan: &model::ExplainPlan) -> Option<analyzer::waterfall::PlanWaterfall> {
+    analyzer::waterfall::WaterfallEngine::generate(plan)
+}
+
 pub fn analyze_with_rewrite(
     plan: &model::ExplainPlan,
     sql_text: Option<&str>,

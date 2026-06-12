@@ -52,6 +52,7 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
         Box::new(subquery_rules::SubqueryNotPulledUp),
         Box::new(subquery_rules::LargeInListNotConverted::new()),
         Box::new(subquery_rules::CorrelatedSubquerySelfUpdate),
+        Box::new(super::pattern::AntiPatternRule::new()),
     ]
 }
 
@@ -71,5 +72,6 @@ fn make_finding(
         node_type: Some(node.node_type.to_string()),
         suggestion,
         sql_rewrite: None,
+        evidence: None,
     }
 }

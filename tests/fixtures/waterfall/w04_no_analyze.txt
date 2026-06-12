@@ -1,0 +1,7 @@
+QUERY PLAN
+----------------------------------------------------
+Hash Join  (cost=100.00..200.00 rows=1000 width=16)
+  Hash Cond: (a.id = b.id)
+  ->  Seq Scan on table_a  (cost=0.00..50.00 rows=500 width=8)
+  ->  Hash  (cost=30.00..30.00 rows=500 width=8)
+        ->  Seq Scan on table_b  (cost=0.00..30.00 rows=500 width=8)
