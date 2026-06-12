@@ -24,8 +24,6 @@ jobs:
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             ext: ''
-          # Rust 1.78+ std requires Windows 10+. Pinned to 1.77.2 for Win7 CLI support.
-          # TUI (crossterm) needs Win10+ at runtime regardless of toolchain.
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: '.exe'
@@ -37,17 +35,7 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
-      - name: Install Rust toolchain (Windows — 1.77.2 for Win7 compat)
-        if: runner.os == 'Windows'
-        run: rustup default 1.77.2-x86_64-pc-windows-msvc
-
-      - name: Downgrade Cargo.lock to v3 (Win7 toolchain compat)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: sed -i 's/^version = 4$/version = 3/' Cargo.lock
-
-      - name: Install Rust toolchain (Linux)
-        if: runner.os != 'Windows'
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
