@@ -9,16 +9,20 @@ OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance di
 - **Full EXPLAIN TEXT parsing** — Handles `EXPLAIN` and `EXPLAIN ANALYZE` output including pretty mode (`N --` prefix), vector nodes, CStore scans, streaming operators, and OG-specific properties.
 - **25 diagnostic rules** — Covers scan, join, memory, sort, network, estimation, pushdown, type coercion, vectorization, subquery, aggregate, distribution, stats, partition, and general plan health.
 - **Parameterized suggestions** — Rules extract table names, column names, and concrete values from plan properties to generate actionable suggestions (e.g., `CREATE INDEX ON orders(status)`). Cross-rule synthesis maps multiple findings to higher-level recommendations.
+- **Heatmap visualization** — Cost-actual deviation heatmap shows estimation accuracy per node with Q-error severity (Negligible → Extreme).
+- **Resource waterfall** — CPU & memory bottleneck analysis with waterfall charts identifying the slowest/hottest nodes.
 - **SQL complexity scoring** — Integrated `ogsql-complexity` crate scores SQL statements on a 0–100 scale with GaussDB-specific dimensions (SQL structure, PL logic, advanced features, extensions).
+- **SQL rewrite** — Automatically detects and rewrites correlated-subquery self-update patterns (SUBQ-006) to `UPDATE ... FROM` syntax when original SQL is provided.
 - **i18n support** — English and Chinese (`zh-CN`) output via `--lang` flag or auto-detection from system locale.
-- **Multiple interfaces** — CLI for scripting, TUI for interactive exploration, library crate for embedding.
+- **MCP server** — Model Context Protocol server for AI assistant integration (Claude Desktop, Cursor, VS Code) with 5 tools.
+- **Multiple interfaces** — CLI for scripting, TUI for interactive exploration, MCP for AI assistants, library crate for embedding.
 - **DB-connected EXPLAIN** — `explain` subcommand connects directly to OpenGauss/GaussDB, runs `EXPLAIN [ANALYZE]`, and analyzes the result in one step.
-- **Batch processing** — Parse multi-statement files with interleaved SQL and EXPLAIN blocks; export summary to CSV.
+- **Batch processing** — Parse multi-statement files with interleaved SQL and EXPLAIN blocks; export 43-column summary to CSV.
 
 ## Quick Start
 
 ```bash
-# Build
+# Build all workspace crates
 cargo build --workspace
 
 # Analyze an EXPLAIN output file (text report)
@@ -26,6 +30,12 @@ cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt
 
 # JSON output
 cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt -o json
+
+# Heatmap output (requires EXPLAIN ANALYZE)
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o heatmap
+
+# Waterfall output (requires EXPLAIN ANALYZE)
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o waterfall
 
 # Read from stdin
 cat tests/fixtures/01_simple_seq_scan.txt | cargo run -p ogexplain-cli -- analyze -
@@ -35,6 +45,9 @@ cargo run -p ogexplain-tui -- tests/fixtures/10_complex_plan.txt
 
 # Launch TUI in paste mode (Ctrl+P to parse)
 cargo run -p ogexplain-tui
+
+# Start MCP server (for AI assistants)
+cargo run -p ogexplain-mcp
 ```
 
 ## Installation
@@ -51,6 +64,9 @@ cargo build --release
 
 # TUI binary
 ./target/release/ogexplain-tui file.txt
+
+# MCP server binary
+./target/release/ogexplain-mcp
 ```
 
 ## Usage
@@ -58,34 +74,64 @@ cargo build --release
 ### CLI
 
 ```bash
+ogexplain <subcommand> [options]
+```
+
+#### Subcommand: `analyze` — Analyze EXPLAIN output file
+
+```bash
 ogexplain analyze <file> [options]
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-o, --output` | `text` | Output format: `text` or `json` |
+| `-o, --output` | `text` | Output format: `text`, `json`, `heatmap`, `waterfall` |
 | `--threshold` | `info` | Minimum severity: `critical`, `warning`, `info` |
 | `-q, --quiet` | — | Show findings only, no plan tree |
 | `-v, --verbose` | — | Verbose output |
-| `--multi` | — | Enable multi-block parsing |
+| `--multi` | — | Enable multi-block parsing (mixed SQL+EXPLAIN files) |
 | `--csv <path>` | — | Export summary table to CSV (use `-` for stdout) |
 | `--lang` | `auto` | Language: `en`, `zh-CN`, or `auto` (system locale) |
 
-#### DB-connected EXPLAIN (requires `db` feature)
+#### Subcommand: `explain` — DB-connected EXPLAIN (requires `db` feature)
 
 ```bash
-# Build with database support
-cargo build -p ogexplain-cli --features db
+# Build with database support (default feature)
+cargo build -p ogexplain-cli
 
 # Run EXPLAIN on a remote database
-ogexplain explain -d "host=... port=5432 dbname=mydb user=gaussdb password=... sslmode=disable" -s "SELECT * FROM orders WHERE status = 'pending'"
+ogexplain explain -d "host=... port=5432 dbname=mydb user=gaussdb password=... sslmode=disable" \
+    -s "SELECT * FROM orders WHERE status = 'pending'"
 
 # Run EXPLAIN ANALYZE (actually executes the query)
 ogexplain explain -d "host=..." -s "SELECT ..." --analyze
 
 # SQL from file
 ogexplain explain -d "host=..." -f query.sql
+
+# With all analysis options
+ogexplain explain -d "host=..." -s "SELECT ..." -o json --csv results.csv --threshold warning
 ```
+
+**Note:** `--analyze` will actually execute the query on the database. Use with caution on production systems.
+
+#### Subcommand: `mcp` — Start MCP server (requires `mcp` feature)
+
+```bash
+cargo build -p ogexplain-cli --features mcp
+ogexplain mcp
+```
+
+Starts the MCP server on stdio transport for AI assistant integration.
+
+#### Output Formats
+
+| Format | Description |
+|--------|-------------|
+| `text` | Human-readable report with plan tree, findings, suggestions, complexity section |
+| `json` | Structured JSON with plan tree, findings, suggestions, stats, complexity, heatmap, and waterfall data |
+| `heatmap` | Cost-actual deviation heatmap with Q-error severity levels per node (requires EXPLAIN ANALYZE) |
+| `waterfall` | Resource waterfall showing CPU/memory bottlenecks with percentage bars (requires EXPLAIN ANALYZE) |
 
 ### TUI
 
@@ -93,45 +139,163 @@ ogexplain explain -d "host=..." -f query.sql
 ogexplain-tui [file]
 ```
 
+**Two launch modes:**
+- `ogexplain-tui file.txt` — Loads file and auto-parses on startup
+- `ogexplain-tui` — Paste mode: paste EXPLAIN text, press `Ctrl+P` to parse
+
+**Command mode** (type in input area):
+- `:load <path>` — Load file from disk
+- `:quit` or `:q` — Quit
+
+**Global Shortcuts:**
+
 | Key | Action |
 |-----|--------|
-| `Ctrl+P` | Parse pasted EXPLAIN text |
-| `Tab` | Cycle focus between panels |
-| `↑` `↓` | Navigate plan tree |
+| `Ctrl+P` | Parse EXPLAIN text |
+| `Ctrl+L` | Clear input and reset |
+| `Ctrl+C` | Quit |
+| `?` / `F1` | Toggle help overlay |
+| `q` | Quit (when not in input mode) |
+
+**Panel Navigation:**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Cycle focus: Tree → Detail → Input → Tree |
+| `Shift+Tab` | Reverse cycle |
+
+**Tree Navigation** (Tree focus):
+
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Move up |
+| `↓` / `j` | Move down |
+| `g` | Jump to top |
+| `G` | Jump to bottom |
 | `Enter` | Expand / collapse node |
-| `q` | Quit |
+| `E` | Expand all nodes |
+| `W` | Collapse all nodes |
+
+**Detail Panel** (Detail focus):
+
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Scroll up |
+| `↓` / `j` | Scroll down |
+| `PgUp` | Page up |
+| `PgDn` | Page down |
+| `Home` | Jump to top |
+| `End` | Jump to bottom |
+
+**View Toggles:**
+
+| Key | Action |
+|-----|--------|
+| `r` | Toggle raw EXPLAIN view |
+| `c` | Toggle SQL complexity section |
+| `F` | Toggle node diagnostics / all findings view |
+
+**Multi-Plan Navigation** (when file contains multiple EXPLAIN blocks):
+
+| Key | Action |
+|-----|--------|
+| `N` / `n` | Next plan |
+| `P` / `p` | Previous plan |
+
+**Tree Display:**
+- Severity icons: `!!` (critical, red), `!` (warning, yellow), `*` (info, green)
+- Category colors: Blue (Scan), Magenta (Join), Cyan (Aggregate), Yellow (Sort), Green (DML), Red (Streaming)
+- Expand/collapse: `▾` expanded, `▸` collapsed, `·` leaf node
 
 ### Library
 
 ```rust
-use ogexplain_core::{parse, analyze, analyze_with_config};
+use ogexplain_core::{parse, analyze, analyze_with_config, heatmap, waterfall};
 use ogexplain_core::analyzer::config::DiagnosticConfig;
 
 // Parse EXPLAIN text
 let plan = parse(&explain_text)?;
 
-// Analyze with default config
+// Analyze with default config (25 rules)
 let report = analyze(&plan);
 
 // Analyze with custom config
-let config = DiagnosticConfig::default();
+let config = DiagnosticConfig {
+    large_table_rows: 100000.0,
+    disabled_rules: vec!["TYPE-001".to_string()],
+    ..Default::default()
+};
 let report = analyze_with_config(&plan, &config);
+
+// Analyze with SQL rewrite support
+let report = analyze_with_rewrite(&plan, Some(&sql_text));
 
 // Access findings
 for finding in &report.findings {
     println!("[{}] {} - {}", finding.rule_id, finding.title, finding.detail);
+    if let Some(suggestion) = &finding.suggestion {
+        println!("  → {}", suggestion);
+    }
 }
+
+// Generate cost deviation heatmap (requires EXPLAIN ANALYZE)
+if let Some(hm) = heatmap(&plan) {
+    println!("Max Q-Error: {:.1}", hm.summary.max_qerror);
+}
+
+// Generate resource waterfall (requires EXPLAIN ANALYZE)
+if let Some(wf) = waterfall(&plan) {
+    println!("CPU bottlenecks: {}", wf.bottlenecks.cpu_bottlenecks.len());
+}
+
+// Batch parse multi-block files
+let plans = parse_multi(&mixed_input)?;
+```
+
+## MCP Server
+
+The `ogexplain-mcp` binary exposes 5 tools via the Model Context Protocol (stdio transport) for AI assistants:
+
+| Tool | Description |
+|------|-------------|
+| `analyze_explain` | Parse + analyze EXPLAIN plan → diagnostic findings (JSON + text summary) |
+| `parse_explain` | Parse EXPLAIN text → structured plan tree (JSON) |
+| `list_diagnostic_rules` | List all 25 diagnostic rules with IDs, categories, descriptions |
+| `get_suggestions` | Cross-rule synthesis suggestions (work_mem, composite index, etc.) with confidence scores |
+| `score_sql_complexity` | SQL complexity scoring — standard (0–100) + GaussDB 4-dimension |
+
+**Configuration** (Claude Desktop / Cursor / VS Code):
+
+```json
+{
+  "mcpServers": {
+    "ogexplain": {
+      "command": "ogexplain-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+**Integration with `gaussdb-mcp`:** Use `gaussdb-mcp` to run `EXPLAIN` on the database, then pipe the output to `ogexplain-mcp` for analysis — end-to-end SQL performance diagnostics.
+
+**Build:**
+
+```bash
+cargo build -p ogexplain-mcp
+cargo build -p ogexplain-cli --features mcp   # via unified CLI: ogexplain mcp
 ```
 
 ## Architecture
 
-Rust Cargo workspace with four crates:
+Rust Cargo workspace with five crates:
 
 | Crate | Type | Purpose |
 |-------|------|---------|
-| [`ogexplain-core`](crates/ogexplain-core/) | Library | Parser + Model + Analyzer + Suggester (no UI deps) |
-| [`ogexplain-cli`](crates/ogexplain-cli/) | Binary (`ogexplain`) | CLI frontend — file/pipe input, text/JSON/CSV output |
-| [`ogexplain-tui`](crates/ogexplain-tui/) | Binary (`ogexplain-tui`) | Interactive TUI — collapsible plan tree, node detail, paste input |
+| [`ogexplain-core`](crates/ogexplain-core/) | Library | Parser + Model + Analyzer + Suggester + Rewriter (no UI deps) |
+| [`ogexplain-cli`](crates/ogexplain-cli/) | Binary (`ogexplain`) | CLI frontend — file/pipe input, text/JSON/heatmap/waterfall/CSV output |
+| [`ogexplain-tui`](crates/ogexplain-tui/) | Binary (`ogexplain-tui`) | Interactive TUI — collapsible plan tree, node detail, diagnostics, paste input |
+| [`ogexplain-mcp`](crates/ogexplain-mcp/) | Binary (`ogexplain-mcp`) | MCP server — 5 tools for AI assistant integration via stdio |
 | [`ogsql-complexity`](crates/ogsql-complexity/) | Library | SQL complexity scoring (standalone, reusable) |
 
 ### Core Layers
@@ -140,8 +304,12 @@ Rust Cargo workspace with four crates:
 ogexplain-core
 ├── parser/          Two-phase: line classifier (regex) → tree builder (indent-based stack)
 ├── model/           ExplainPlan → PlanNode tree, NodeType (80+ variants), cost/stats/buffer types
-├── analyzer/        Rule engine with DiagnosticRule trait + DFS traversal + configurable thresholds + shared utility layer
-├── suggester/       Maps findings → suggestions with cross-rule synthesis
+├── analyzer/        Rule engine with DiagnosticRule trait + DFS traversal + configurable thresholds
+│   ├── rules/       25 rules across 17 files with shared utility layer
+│   ├── heatmap/     Cost-actual deviation heatmap with Q-error severity analysis
+│   └── waterfall/   Resource waterfall — CPU/memory bottleneck identification
+├── suggester/       Maps findings → suggestions with cross-rule synthesis (5 categories)
+├── rewriter/        SQL rewrite for correlated-subquery self-update (SUBQ-006)
 ├── summary/         SummaryRow for batch reporting (SQL complexity + plan metrics + diagnostics)
 ├── sql/             SQL/EXPLAIN block segmentation from mixed input
 └── i18n/            rust-i18n based localization (en, zh-CN)
@@ -171,7 +339,7 @@ ogexplain-core
 | GEN-001 | Plan too deep | general | Reports depth with reason (subquery/nesting) |
 | SUBQ-001 | Subquery not pulled up | subquery | Detects SubqueryScan nodes; extracts child table name for parameterized suggestions |
 | REW-001 | Large IN list not rewritten | subquery | Detects IN lists with many values; extracts column name for `EXISTS` rewrite suggestion |
-| SUBQ-006 | Correlated subquery self-update | subquery | Detects self-referencing correlated subqueries in UPDATE/DELETE |
+| SUBQ-006 | Correlated subquery self-update | subquery | Detects self-referencing correlated subqueries in UPDATE/DELETE; supports auto-SQL-rewrite |
 | AGG-001 | Group aggregate should be hash | aggregate | Suggests Hash Aggregate for large GROUP BY without sort requirement |
 | AGG-002 | Hash aggregate spill to disk | aggregate | Hash Aggregate exceeding work_mem, spilling to disk |
 | SKEW-001 | Data skew detected | distribution | Uneven row distribution across datanodes |
@@ -191,6 +359,7 @@ This tool targets **OpenGauss/GaussDB** (PostgreSQL fork), not vanilla PostgreSQ
 - **Row/Vector adapters**: `Row Adapter` / `Vector Adapter` engine boundary markers.
 - **Pretty mode**: Node IDs with `--` prefix, detailed per-node runtime stats.
 - **OG-specific properties**: Bloom Filter, Min/Max skip, DFS pruning, LLVM optimization, Skew optimization, Dynamic SMP, AI prediction (`p-time`, `p-rows`).
+- **SQL rewrite**: Detects correlated-subquery self-update patterns and generates `UPDATE ... FROM` rewrites.
 
 ## SQL Complexity Scoring
 
@@ -206,6 +375,7 @@ The integrated `ogsql-complexity` crate provides:
 ```bash
 cargo test --workspace                   # All tests
 cargo test -p ogexplain-core            # Core library tests
+cargo test -p ogexplain-mcp             # MCP server integration tests
 cargo test --test db_explain --features ogexplain-cli/db  # DB integration tests (requires Docker)
 cargo insta review                       # Interactive snapshot review
 cargo fmt --all && cargo clippy --workspace  # Lint (zero warnings)
