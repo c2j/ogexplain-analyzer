@@ -53,13 +53,13 @@ jobs:
       - name: Build (cross - arm64)
         if: matrix.target == 'aarch64-unknown-linux-musl'
         run: |
-          cross build --release -p ogexplain-cli --no-default-features --target aarch64-unknown-linux-musl
+          cross build --release -p ogexplain-cli --no-default-features --features mcp --target aarch64-unknown-linux-musl
           cross build --release -p ogexplain-tui --target aarch64-unknown-linux-musl
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-musl'
         run: |
-          cargo build --release -p ogexplain-cli --no-default-features --target ${{ matrix.target }}
+          cargo build --release -p ogexplain-cli --no-default-features --features mcp --target ${{ matrix.target }}
           cargo build --release -p ogexplain-tui --target ${{ matrix.target }}
 
       - name: Package (Linux)
