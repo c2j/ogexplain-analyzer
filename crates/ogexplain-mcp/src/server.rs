@@ -332,9 +332,14 @@ pub fn run() {
     rt.block_on(async {
         let server = OgexplainServer;
         let transport = rmcp::transport::io::stdio();
-        if let Err(e) = rmcp::serve_server(server, transport).await {
-            eprintln!("MCP server error: {e}");
-            std::process::exit(1);
+        match rmcp::serve_server(server, transport).await {
+            Ok(service) => {
+                let _ = service.waiting().await;
+            }
+            Err(e) => {
+                eprintln!("MCP server error: {e}");
+                std::process::exit(1);
+            }
         }
     });
 }
