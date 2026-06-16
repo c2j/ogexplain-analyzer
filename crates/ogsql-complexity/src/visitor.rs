@@ -446,9 +446,14 @@ impl ComplexityVisitor {
                     self.walk_expr(e);
                 }
             }
-            Expr::Subscript { object, index } => {
+            Expr::Subscript { object, lower, upper, .. } => {
                 self.walk_expr(object);
-                self.walk_expr(index);
+                if let Some(lo) = lower {
+                    self.walk_expr(lo);
+                }
+                if let Some(hi) = upper {
+                    self.walk_expr(hi);
+                }
             }
             Expr::Prior(inner) => {
                 self.walk_expr(inner);
