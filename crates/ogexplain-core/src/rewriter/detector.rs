@@ -159,7 +159,7 @@ fn is_qualified_ref(name: &ObjectName, target_table: &str, alias: Option<&str>) 
             let qualifier = &name[0];
             if qualifier == target_table {
                 RefRole::Target
-            } else if alias.is_some_and(|a| a == qualifier) {
+            } else if alias.is_some_and(|a| a == qualifier.as_str()) {
                 RefRole::Alias
             } else {
                 RefRole::Unqualified
@@ -170,7 +170,9 @@ fn is_qualified_ref(name: &ObjectName, target_table: &str, alias: Option<&str>) 
 }
 
 fn get_column_name(name: &ObjectName) -> String {
-    name.last().cloned().unwrap_or_default()
+    name.last()
+        .map(|i| i.value.clone())
+        .unwrap_or_default()
 }
 
 fn extract_set_columns(columns: &[ObjectName]) -> Vec<String> {

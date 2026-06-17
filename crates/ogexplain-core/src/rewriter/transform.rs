@@ -1,5 +1,5 @@
 use ogsql_parser::ast::{
-    Expr, SelectStatement, SelectTarget, Statement, TableRef, UpdateStatement,
+    Expr, Ident, SelectStatement, SelectTarget, Statement, TableRef, UpdateStatement,
 };
 use ogsql_parser::formatter::SqlFormatter;
 
@@ -56,8 +56,8 @@ fn rewrite_assignments(
         let mut new_assignments = Vec::new();
         for col in &column_names {
             new_assignments.push(ogsql_parser::ast::UpdateAssignment {
-                columns: vec![vec![col.clone()]],
-                value: Expr::ColumnRef(vec![SUBQUERY_ALIAS.to_string(), col.clone()]),
+                columns: vec![vec![col.clone().into()]],
+                value: Expr::ColumnRef(vec![Ident::new(SUBQUERY_ALIAS), col.clone().into()]),
             });
         }
         let idx = update
@@ -69,12 +69,13 @@ fn rewrite_assignments(
         }
     } else {
         let col_name = info.set_columns.first().cloned().unwrap_or_default();
-        assignment.value = Expr::ColumnRef(vec![SUBQUERY_ALIAS.to_string(), col_name]);
+        assignment.value = Expr::ColumnRef(vec![Ident::new(SUBQUERY_ALIAS), col_name.into()]);
     }
 
     update.from.push(TableRef::Subquery {
         query: Box::new(enriched_subquery),
         alias: Some(SUBQUERY_ALIAS.to_string()),
+        lateral: false,
     });
 
     if !info.correlation_columns.is_empty() {
@@ -82,13 +83,13 @@ fn rewrite_assignments(
         for col in &info.correlation_columns {
             conditions.push(Expr::BinaryOp {
                 left: Box::new(Expr::ColumnRef(vec![
-                    info.target_table.clone(),
-                    col.clone(),
+                    info.target_table.clone().into(),
+                    col.clone().into(),
                 ])),
                 op: "=".to_string(),
                 right: Box::new(Expr::ColumnRef(vec![
-                    SUBQUERY_ALIAS.to_string(),
-                    col.clone(),
+                    Ident::new(SUBQUERY_ALIAS),
+                    col.clone().into(),
                 ])),
             });
         }
@@ -162,7 +163,10 @@ fn ensure_correlation_in_select(subquery: &mut SelectStatement, columns: &[Strin
         if !existing_cols.contains(col) {
             subquery
                 .targets
-                .push(SelectTarget::Expr(Expr::ColumnRef(vec![col.clone()]), None));
+                .push(SelectTarget::Expr(
+                    Expr::ColumnRef(vec![col.clone().into()]),
+                    None,
+                ));
         }
     }
 }
@@ -172,7 +176,7 @@ fn collect_selected_columns(targets: &[SelectTarget]) -> Vec<String> {
     for target in targets {
         if let SelectTarget::Expr(Expr::ColumnRef(name), _) = target {
             if let Some(col) = name.last() {
-                cols.push(col.clone());
+                cols.push(col.to_string());
             }
         }
     }
