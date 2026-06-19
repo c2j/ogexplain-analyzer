@@ -194,12 +194,15 @@ impl<'a> PlComplexityVisitor<'a> {
             }
             PlStatement::Perform { query, .. } => {
                 self.metrics.line_count += query.lines().count();
+                self.count_high_weight_tables(query);
             }
             PlStatement::Sql(text) => {
                 self.metrics.line_count += text.lines().count();
+                self.count_high_weight_tables(text);
             }
             PlStatement::SqlStatement { sql_text, .. } => {
                 self.metrics.line_count += sql_text.lines().count();
+                self.count_high_weight_tables(sql_text);
             }
             _ => {}
         }
@@ -227,6 +230,16 @@ impl<'a> PlComplexityVisitor<'a> {
         self.builtin_functions
             .iter()
             .any(|f| f.to_lowercase() == name)
+    }
+
+    fn count_high_weight_tables(&mut self, sql_text: &str) {
+        let sql_lower = sql_text.to_lowercase();
+        let count = self
+            .high_weight_tables
+            .iter()
+            .filter(|t| sql_lower.contains(&t.to_lowercase()))
+            .count();
+        self.metrics.high_weight_table_count += count;
     }
 }
 

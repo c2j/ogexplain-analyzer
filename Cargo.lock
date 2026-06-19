@@ -2022,7 +2022,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-analyzer"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "color-eyre",
@@ -2036,7 +2036,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-cli"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2052,7 +2052,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "insta",
  "ogsql-parser",
@@ -2067,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-mcp"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ogexplain-core",
  "ogsql-complexity",
@@ -2080,7 +2080,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-tui"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "clap",
  "color-eyre",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "ogsql-complexity"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "insta",
  "ogsql-parser",
@@ -2106,8 +2106,8 @@ dependencies = [
 
 [[package]]
 name = "ogsql-parser"
-version = "0.8.0"
-source = "git+https://github.com/c2j/ogsql-parser#376bed8bf7208dbdee3553af8fd52a1cccbedf7e"
+version = "0.8.3"
+source = "git+https://github.com/c2j/ogsql-parser#44f414ca2feb0336b2bdd63574b3c4a66a199b7c"
 dependencies = [
  "encoding_rs",
  "phf 0.11.3",
