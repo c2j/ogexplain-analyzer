@@ -446,7 +446,12 @@ impl ComplexityVisitor {
                     self.walk_expr(e);
                 }
             }
-            Expr::Subscript { object, lower, upper, .. } => {
+            Expr::Subscript {
+                object,
+                lower,
+                upper,
+                ..
+            } => {
                 self.walk_expr(object);
                 if let Some(lo) = lower {
                     self.walk_expr(lo);
@@ -481,10 +486,10 @@ impl ComplexityVisitor {
             Expr::XmlParse { expr: inner, .. } => {
                 self.walk_expr(inner);
             }
-            Expr::XmlPi { content, .. } => {
-                if let Some(c) = content {
-                    self.walk_expr(c);
-                }
+            Expr::XmlPi {
+                content: Some(c), ..
+            } => {
+                self.walk_expr(c);
             }
             Expr::XmlRoot {
                 expr: inner,
