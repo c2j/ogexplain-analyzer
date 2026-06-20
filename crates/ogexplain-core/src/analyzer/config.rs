@@ -1,8 +1,10 @@
 use super::report::{DiagnosticReport, Finding};
 use super::rules::DiagnosticRule;
 use crate::model::ExplainPlan;
+use serde::Deserialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct DiagnosticConfig {
     pub large_table_rows: f64,
     pub memory_threshold_kb: f64,
@@ -11,8 +13,6 @@ pub struct DiagnosticConfig {
     pub sort_time_ratio: f64,
     pub max_plan_depth: usize,
     pub disabled_rules: Vec<String>,
-    /// When true, multiple findings on the same node (by node_line) are
-    /// reduced to the highest-severity one. Default: false.
     pub dedup_per_node: bool,
 }
 
@@ -28,6 +28,18 @@ impl Default for DiagnosticConfig {
             disabled_rules: Vec::new(),
             dedup_per_node: false,
         }
+    }
+}
+
+impl DiagnosticConfig {
+    pub fn from_toml_str(toml_str: &str) -> Result<Self, toml::de::Error> {
+        toml::from_str(toml_str)
+    }
+
+    pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        Self::from_toml_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
 

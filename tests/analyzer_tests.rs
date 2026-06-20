@@ -976,3 +976,16 @@ fn dedup_per_node_disabled_by_default() {
     let config = DiagnosticConfig::default();
     assert!(!config.dedup_per_node);
 }
+
+#[test]
+fn config_from_toml_partial() {
+    let toml = r#"
+large_table_rows = 1000
+dedup_per_node = true
+"#;
+    let config = DiagnosticConfig::from_toml_str(toml).unwrap();
+    assert!((config.large_table_rows - 1000.0).abs() < 0.01);
+    assert!(config.dedup_per_node);
+    assert!((config.memory_threshold_kb - 102400.0).abs() < 0.01);
+    assert!((config.estimation_skew_factor - 100.0).abs() < 0.01);
+}
