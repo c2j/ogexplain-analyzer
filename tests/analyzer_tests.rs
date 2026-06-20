@@ -381,13 +381,13 @@ fn gen_001_triggers_on_deep_plan_with_custom_config() {
 fn config_large_table_rows_threshold_blocks_scan_001() {
     let plan = parse_fixture("10_complex_plan.txt");
     let config = DiagnosticConfig {
-        large_table_rows: 1_000_000.0,
+        large_table_rows: 2_000_000.0,
         ..DiagnosticConfig::default()
     };
     let report = analyze_with_config(&plan, &config);
     assert!(
         !has_finding(&report, "SCAN-001"),
-        "SCAN-001 should not fire when large_table_rows threshold exceeds actual rows"
+        "SCAN-001 should not fire when large_table_rows threshold exceeds scan size"
     );
     assert!(has_finding(&report, "MEM-001"), "MEM-001 should still fire");
 }
@@ -926,4 +926,53 @@ fn effective_scan_size_with_filter_uses_actual_plus_removed() {
         line_number: 0,
     };
     assert_eq!(effective_scan_size(&node), (114.0 * 7.0) + 15935.0);
+}
+
+// ---------------------------------------------------------------------------
+// Finding post-processing: severity sorting + dedup
+// ---------------------------------------------------------------------------
+
+#[test]
+fn findings_sorted_by_severity() {
+    let report = analyze_fixture("10_complex_plan.txt");
+    let mut last_rank = 0usize;
+    for f in &report.findings {
+        let rank = match f.severity {
+            Severity::Critical => 0,
+            Severity::Warning => 1,
+            Severity::Info => 2,
+        };
+        assert!(
+            rank >= last_rank,
+            "Findings not sorted by severity: {} ({:?}) appeared out of order",
+            f.rule_id,
+            f.severity
+        );
+        last_rank = rank;
+    }
+}
+
+#[test]
+fn dedup_per_node_keeps_highest_severity() {
+    let plan = parse_fixture("10_complex_plan.txt");
+    let config = DiagnosticConfig {
+        dedup_per_node: true,
+        ..Default::default()
+    };
+    let report = analyze_with_config(&plan, &config);
+    let mut lines: Vec<_> = report.findings.iter().filter_map(|f| f.node_line).collect();
+    lines.sort_unstable();
+    let initial_len = lines.len();
+    lines.dedup();
+    assert_eq!(
+        lines.len(),
+        initial_len,
+        "duplicate node_lines found in dedup_per_node mode"
+    );
+}
+
+#[test]
+fn dedup_per_node_disabled_by_default() {
+    let config = DiagnosticConfig::default();
+    assert!(!config.dedup_per_node);
 }

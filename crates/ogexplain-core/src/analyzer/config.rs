@@ -11,6 +11,9 @@ pub struct DiagnosticConfig {
     pub sort_time_ratio: f64,
     pub max_plan_depth: usize,
     pub disabled_rules: Vec<String>,
+    /// When true, multiple findings on the same node (by node_line) are
+    /// reduced to the highest-severity one. Default: false.
+    pub dedup_per_node: bool,
 }
 
 impl Default for DiagnosticConfig {
@@ -23,6 +26,7 @@ impl Default for DiagnosticConfig {
             sort_time_ratio: 0.3,
             max_plan_depth: 10,
             disabled_rules: Vec::new(),
+            dedup_per_node: false,
         }
     }
 }
@@ -53,6 +57,16 @@ impl DiagnosticEngine {
         }
 
         findings.retain(|f| !self.config.disabled_rules.contains(&f.rule_id));
+
+        findings.sort_by(|a, b| a.severity.cmp(&b.severity));
+
+        if self.config.dedup_per_node {
+            let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
+            findings.retain(|f| match f.node_line {
+                Some(line) => seen.insert(line),
+                None => true,
+            });
+        }
 
         DiagnosticReport { findings, stats }
     }

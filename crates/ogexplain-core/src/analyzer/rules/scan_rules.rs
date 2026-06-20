@@ -44,8 +44,10 @@ impl DiagnosticRule for LargeTableFullScan {
         if node.node_type != NodeType::SeqScan && node.node_type != NodeType::PartitionedSeqScan {
             return None;
         }
-        // Skip scans feeding a HashJoin / Hash build — these are legitimate full scans
-        if has_hash_join_ancestor(ancestors) {
+        // Skip unfiltered scans feeding a HashJoin build (legitimate full table dump for hash table).
+        // Filtered scans under HashJoin are NOT skipped — an index could still help the filter.
+        let has_filter = node.properties.iter().any(|p| p.label == "Filter");
+        if has_hash_join_ancestor(ancestors) && !has_filter {
             return None;
         }
 
