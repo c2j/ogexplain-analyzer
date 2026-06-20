@@ -1,0 +1,242 @@
+{
+  "SCAN-001": {
+    "tp": 3,
+    "fp": 16,
+    "fn": 5,
+    "precision": 0.15789473684210525,
+    "recall": 0.375,
+    "f1": 0.22222222222222218,
+    "cases": [
+      "OGEXP-GT-2026-0001",
+      "OGEXP-GT-2026-0004",
+      "OGEXP-GT-2026-0008"
+    ]
+  },
+  "SCAN-004": {
+    "tp": 1,
+    "fp": 10,
+    "fn": 5,
+    "precision": 0.09090909090909091,
+    "recall": 0.16666666666666666,
+    "f1": 0.11764705882352942,
+    "cases": [
+      "OGEXP-GT-2026-0011"
+    ]
+  },
+  "TYPE-004": {
+    "tp": 3,
+    "fp": 2,
+    "fn": 0,
+    "precision": 0.6,
+    "recall": 1.0,
+    "f1": 0.7499999999999999,
+    "cases": [
+      "OGEXP-GT-2026-0048",
+      "OGEXP-GT-2026-0049",
+      "OGEXP-GT-2026-0050"
+    ]
+  },
+  "JOIN-001": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 4,
+    "precision": 1.0,
+    "recall": 0.2,
+    "f1": 0.33333333333333337,
+    "cases": [
+      "OGEXP-GT-2026-0017"
+    ]
+  },
+  "EST-001": {
+    "tp": 0,
+    "fp": 2,
+    "fn": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "JOIN-002": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "MEM-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "MEM-004": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "SORT-003": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "TYPE-001": {
+    "tp": 0,
+    "fp": 1,
+    "fn": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "NET-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "EST-004": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "PUSH-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "PUSH-002": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "PART-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 4,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "SUBQ-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "SUBQ-006": {
+    "tp": 2,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "cases": [
+      "OGEXP-GT-2026-0064",
+      "OGEXP-GT-2026-0065"
+    ]
+  },
+  "REW-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "VEC-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "AGG-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "AGG-002": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "DIST-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "SKEW-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "STATS-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  },
+  "GEN-001": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  }
+}
