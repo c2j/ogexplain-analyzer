@@ -1,0 +1,79 @@
+{
+  "case_id": "OGEXP-GT-2026-0001",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.931740+00:00",
+  "updated_at": "2026-06-20T14:24:31.932842+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "rental 表(16044 行)无 WHERE 条件,触发 Seq Scan + 100% selectivity",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT * FROM rental LIMIT 10",
+    "explain_output": "-- @id: Q01\n-- @target: SCAN-001\n-- @severity: warning\n-- @scenario: rental 表(16044 行)无 WHERE 条件,触发 Seq Scan + 100% selectivity\nSELECT * FROM rental LIMIT 10;\n\nLimit  (cost=0.00..0.19 rows=10 width=40) (actual time=0.723..0.725 rows=10 loops=1)\n  ->  Seq Scan on rental  (cost=0.00..318.72 rows=16472 width=40) (actual time=0.716..0.716 rows=10 loops=1)\nTotal runtime: 3.544 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 3,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "SCAN-001",
+        "ogexplain_rule_category": "SCAN-",
+        "severity": "warning",
+        "description": "rental 表(16044 行)无 WHERE 条件,触发 Seq Scan + 100% selectivity",
+        "evidence": "-- @scenario: rental 表(16044 行)无 WHERE 条件,触发 Seq Scan + 100% selectivity",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 3ms; actually_triggered=True; signal=\"Seq Scan present\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "create_index",
+        "description": "Default fix template for SCAN-001",
+        "sql_or_action": "CREATE INDEX ON <table> (<column>);",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "SCAN-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "SCAN-001",
+    "actually_triggered": true,
+    "trigger_signal": "Seq Scan present",
+    "run_warnings": []
+  }
+}

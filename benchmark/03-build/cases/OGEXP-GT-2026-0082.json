@@ -1,0 +1,83 @@
+{
+  "case_id": "OGEXP-GT-2026-0082",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.053401+00:00",
+  "updated_at": "2026-06-20T14:24:32.053405+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "多层 CTE 嵌套",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "WITH t1 AS (SELECT customer_id FROM customer WHERE active = 1),\n     t2 AS (SELECT t1.customer_id, COUNT(*) AS cnt FROM t1 JOIN rental r ON t1.customer_id = r.customer_id GROUP BY t1.customer_id),\n     t3 AS (SELECT t2.customer_id, t2.cnt, COALESCE(p.total, 0) AS total FROM t2 LEFT JOIN (SELECT customer_id, SUM(amount) AS total FROM payment GROUP BY customer_id) p ON t2.customer_id = p.customer_id)\nSELECT * FROM t3 WHERE total > 20 LIMIT 10",
+    "explain_output": "-- @id: Q82\n-- @target: GEN-001\n-- @severity: info\n-- @scenario: 多层 CTE 嵌套\nWITH t1 AS (SELECT customer_id FROM customer WHERE active = 1),\n     t2 AS (SELECT t1.customer_id, COUNT(*) AS cnt FROM t1 JOIN rental r ON t1.customer_id = r.customer_id GROUP BY t1.customer_id),\n     t3 AS (SELECT t2.customer_id, t2.cnt, COALESCE(p.total, 0) AS total FROM t2 LEFT JOIN (SELECT customer_id, SUM(amount) AS total FROM payment GROUP BY customer_id) p ON t2.customer_id = p.customer_id)\nSELECT * FROM t3 WHERE total > 20 LIMIT 10;\n\nLimit  (cost=1407.39..1408.48 rows=10 width=44) (actual time=30.991..31.000 rows=10 loops=1)\n  CTE t1\n    ->  Seq Scan on customer  (cost=0.00..32.98 rows=1168 width=4) (actual time=0.072..0.362 rows=584 loops=1)\n          Filter: (active = 1)\n          Rows Removed by Filter: 15\n  CTE t2\n    ->  HashAggregate  (cost=1003.19..1005.19 rows=200 width=12) (actual time=16.862..17.105 rows=584 loops=1)\n          Group By Key: t1.customer_id\n          ->  Hash Join  (cost=37.96..842.59 rows=32119 width=4) (actual time=2.356..11.792 rows=15640 loops=1)\n                Hash Cond: (r.customer_id = t1.customer_id)\n                ->  Seq Scan on rental r  (cost=0.00..318.72 rows=16472 width=4) (actual time=0.049..2.802 rows=16044 loops=1)\n                ->  Hash  (cost=23.36..23.36 rows=1168 width=4) (actual time=1.949..1.949 rows=584 loops=1)\n                       Buckets: 32768  Batches: 1  Memory Usage: 277kB\n                      ->  CTE Scan on t1  (cost=0.00..23.36 rows=1168 width=4) (actual time=0.077..0.538 rows=584 loops=1)\n  ->  Hash Right Join  (cost=369.24..390.95 rows=200 width=44) (actual time=30.989..30.998 rows=10 loops=1)\n        Hash Cond: (payment.customer_id = t2.customer_id)\n        Filter: (COALESCE((sum(payment.amount)), 0::numeric) > 20::numeric)\n        ->  HashAggregate  (cost=362.74..368.73 rows=599 width=42) (actual time=13.266..13.267 rows=10 loops=1)\n              Group By Key: payment.customer_id\n              ->  Partition Iterator  (cost=0.00..282.49 rows=16049 width=10) (actual time=0.071..5.985 rows=16049 loops=1)\n                    Iterations: 7\n                    ->  Partitioned Seq Scan on payment  (cost=0.00..282.49 rows=16049 width=10) (actual time=0.103..3.354 rows=16049 loops=7)\n                          Selected Partitions:  1..7\n        ->  Hash  (cost=4.00..4.00 rows=200 width=12) (actual time=17.579..17.579 rows=584 loops=1)\n               Buckets: 32768  Batches: 1  Memory Usage: 284kB\n              ->  CTE Scan on t2  (cost=0.00..4.00 rows=200 width=12) (actual time=16.879..17.349 rows=584 loops=1)\nTotal runtime: 31.506 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 31,
+    "related_tables": [
+      "customer",
+      "rental",
+      "t1",
+      "payment",
+      "t2"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "info",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "GEN-001",
+        "ogexplain_rule_category": "GEN-",
+        "severity": "info",
+        "description": "多层 CTE 嵌套",
+        "evidence": "->  Seq Scan on customer  (cost=0.00..32.98 rows=1168 width=4) (actual time=0.072..0.362 rows=584 loops=1)\nFilter: (active = 1)\nRows Removed by Filter: 15",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 31ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for GEN-001",
+        "sql_or_action": "简化嵌套或拆 CTE",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "GEN-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "GEN-001",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

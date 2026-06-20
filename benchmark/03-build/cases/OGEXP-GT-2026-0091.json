@@ -1,0 +1,71 @@
+{
+  "case_id": "OGEXP-GT-2026-0091",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.159421+00:00",
+  "updated_at": "2026-06-20T14:24:32.159429+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "经典 Sakila 已优化查询:逾期未还",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT\n    CONCAT(customer.last_name, ', ', customer.first_name) AS customer,\n    address.phone,\n    film.title\nFROM rental\n    INNER JOIN customer ON rental.customer_id = customer.customer_id\n    INNER JOIN address ON customer.address_id = address.address_id\n    INNER JOIN inventory ON rental.inventory_id = inventory.inventory_id\n    INNER JOIN film ON inventory.film_id = film.film_id\nWHERE rental.return_date IS NULL\n    AND rental_date < CURRENT_DATE\nORDER BY title\nLIMIT 5",
+    "explain_output": "-- @id: Q91\n-- @target: NONE\n-- @severity: info\n-- @scenario: 经典 Sakila 已优化查询:逾期未还\nSELECT\n    CONCAT(customer.last_name, ', ', customer.first_name) AS customer,\n    address.phone,\n    film.title\nFROM rental\n    INNER JOIN customer ON rental.customer_id = customer.customer_id\n    INNER JOIN address ON customer.address_id = address.address_id\n    INNER JOIN inventory ON rental.inventory_id = inventory.inventory_id\n    INNER JOIN film ON inventory.film_id = film.film_id\nWHERE rental.return_date IS NULL\n    AND rental_date < CURRENT_DATE\nORDER BY title\nLIMIT 5;\n\nLimit  (cost=362.25..448.21 rows=5 width=40) (actual time=3.530..3.530 rows=0 loops=1)\n  ->  Nested Loop  (cost=362.25..3594.42 rows=188 width=40) (actual time=3.527..3.527 rows=0 loops=1)\n        ->  Nested Loop  (cost=362.25..3533.78 rows=188 width=32) (actual time=3.525..3.525 rows=0 loops=1)\n              ->  Nested Loop  (cost=362.25..3381.14 rows=188 width=19) (actual time=3.522..3.522 rows=0 loops=1)\n                    Join Filter: (inventory.film_id = film.film_id)\n                    ->  Index Scan using idx_title on film  (cost=0.00..101.59 rows=1000 width=19) (actual time=0.030..0.695 rows=1000 loops=1)\n                    ->  Materialize  (cost=362.25..460.01 rows=188 width=8) (actual time=2.240..2.240 rows=0 loops=1000)\n                          ->  Hash Join  (cost=362.25..459.07 rows=188 width=8) (actual time=2.185..2.185 rows=0 loops=1)\n                                Hash Cond: (inventory.inventory_id = rental.inventory_id)\n                                ->  Seq Scan on inventory  (cost=0.00..75.81 rows=4581 width=8) (actual time=0.005..0.005 rows=1 loops=1)\n                                ->  Hash  (cost=359.90..359.90 rows=188 width=8) (actual time=2.097..2.097 rows=0 loops=1)\n                                       Buckets: 32768  Batches: 1  Memory Usage: 256kB\n                                      ->  Seq Scan on rental  (cost=0.00..359.90 rows=188 width=8) (actual time=2.093..2.093 rows=0 loops=1)\n                                            Filter: ((return_date IS NULL) AND (rental_date < '2026-06-20'::date))\n                                            Rows Removed by Filter: 16044\n              ->  Index Scan using customer_pkey on customer  (cost=0.00..0.80 rows=1 width=21) (Actual time: never executed)\n                    Index Cond: (customer_id = rental.customer_id)\n        ->  Index Scan using address_pkey on address  (cost=0.00..0.31 rows=1 width=16) (Actual time: never executed)\n              Index Cond: (address_id = customer.address_id)\nTotal runtime: 3.779 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 3,
+    "related_tables": [
+      "film",
+      "inventory",
+      "rental",
+      "customer",
+      "address"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": false,
+    "expected_severity_if_problematic": null,
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "severity": "info",
+        "description": "No real performance problem; query is well-optimized.",
+        "evidence": "->  Seq Scan on inventory  (cost=0.00..75.81 rows=4581 width=8) (actual time=0.005..0.005 rows=1 loops=1)\nIndex Cond: (customer_id = rental.customer_id)\nJoin Filter: (inventory.film_id = film.film_id)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 3ms",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": []
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "NONE",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "NONE",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

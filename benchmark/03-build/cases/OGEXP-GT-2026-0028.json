@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0028",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.964274+00:00",
+  "updated_at": "2026-06-20T14:24:31.964277+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "大表 Hash Join 峰值内存高",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT COUNT(*)\nFROM rental r\nINNER JOIN payment p ON r.customer_id = p.customer_id\nINNER JOIN inventory i ON r.inventory_id = i.inventory_id",
+    "explain_output": "-- @id: Q28\n-- @target: MEM-004\n-- @severity: info\n-- @scenario: 大表 Hash Join 峰值内存高\nSELECT COUNT(*)\nFROM rental r\nINNER JOIN payment p ON r.customer_id = p.customer_id\nINNER JOIN inventory i ON r.inventory_id = i.inventory_id;\n\nAggregate  (cost=7599.86..7599.87 rows=1 width=8) (actual time=201.181..201.181 rows=1 loops=1)\n  ->  Hash Join  (cost=616.17..6480.85 rows=447604 width=0) (actual time=10.604..145.647 rows=445483 loops=1)\n        Hash Cond: (r.customer_id = p.customer_id)\n        ->  Hash Join  (cost=133.07..674.04 rows=16048 width=4) (actual time=2.216..19.499 rows=16044 loops=1)\n              Hash Cond: (r.inventory_id = i.inventory_id)\n              ->  Seq Scan on rental r  (cost=0.00..318.72 rows=16472 width=8) (actual time=0.017..4.333 rows=16044 loops=1)\n              ->  Hash  (cost=75.81..75.81 rows=4581 width=4) (actual time=1.944..1.944 rows=4581 loops=1)\n                     Buckets: 32768  Batches: 1  Memory Usage: 418kB\n                    ->  Seq Scan on inventory i  (cost=0.00..75.81 rows=4581 width=4) (actual time=0.014..0.774 rows=4581 loops=1)\n        ->  Hash  (cost=282.49..282.49 rows=16049 width=4) (actual time=8.258..8.258 rows=16049 loops=1)\n               Buckets: 32768  Batches: 1  Memory Usage: 821kB\n              ->  Partition Iterator  (cost=0.00..282.49 rows=16049 width=4) (actual time=0.039..5.169 rows=16049 loops=1)\n                    Iterations: 7\n                    ->  Partitioned Seq Scan on payment p  (cost=0.00..282.49 rows=16049 width=4) (actual time=0.077..2.889 rows=16049 loops=7)\n                          Selected Partitions:  1..7\nTotal runtime: 201.732 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 201,
+    "related_tables": [
+      "rental",
+      "inventory",
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "info",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "memory_pressure",
+        "ogexplain_rule_id": "MEM-004",
+        "ogexplain_rule_category": "MEM-",
+        "severity": "info",
+        "description": "大表 Hash Join 峰值内存高",
+        "evidence": "->  Seq Scan on rental r  (cost=0.00..318.72 rows=16472 width=8) (actual time=0.017..4.333 rows=16044 loops=1)\nSelected Partitions:  1..7",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 201ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for MEM-004",
+        "sql_or_action": "调小批次,或拆分 query",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "MEM-004",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "MEM-004",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

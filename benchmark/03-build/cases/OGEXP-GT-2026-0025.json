@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0025",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.962440+00:00",
+  "updated_at": "2026-06-20T14:24:31.962450+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "大表 ORDER BY amount",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SET work_mem = '128kB';\nSELECT * FROM payment ORDER BY amount DESC LIMIT 50;\nRESET work_mem",
+    "explain_output": "-- @id: Q25\n-- @target: MEM-001\n-- @severity: warning\n-- @scenario: 大表 ORDER BY amount\nSET work_mem = '128kB';\nSELECT * FROM payment ORDER BY amount DESC LIMIT 50;\nRESET work_mem;\n\nLimit  (cost=815.63..815.75 rows=50 width=30) (actual time=7.792..7.798 rows=50 loops=1)\n  ->  Sort  (cost=815.63..855.75 rows=16049 width=30) (actual time=7.788..7.791 rows=50 loops=1)\n        Sort Key: amount DESC\n        Sort Method: top-N heapsort  Memory: 31kB\n        ->  Partition Iterator  (cost=0.00..282.49 rows=16049 width=30) (actual time=0.023..4.321 rows=16049 loops=1)\n              Iterations: 7\n              ->  Partitioned Seq Scan on payment  (cost=0.00..282.49 rows=16049 width=30) (actual time=0.216..2.124 rows=16049 loops=7)\n                    Selected Partitions:  1..7\nTotal runtime: 7.968 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 7,
+    "related_tables": [
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "excessive_sort_spill",
+        "ogexplain_rule_id": "MEM-001",
+        "ogexplain_rule_category": "MEM-",
+        "severity": "warning",
+        "description": "大表 ORDER BY amount",
+        "evidence": "->  Partitioned Seq Scan on payment  (cost=0.00..282.49 rows=16049 width=30) (actual time=0.216..2.124 rows=16049 loops=7)\nSelected Partitions:  1..7",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 7ms; actually_triggered=True; signal=\"Sort Method: top-N heapsort  Memory: 31kB\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for MEM-001",
+        "sql_or_action": "SET work_mem = '256MB';",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "MEM-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "MEM-001",
+    "actually_triggered": true,
+    "trigger_signal": "Sort Method: top-N heapsort  Memory: 31kB",
+    "run_warnings": []
+  }
+}

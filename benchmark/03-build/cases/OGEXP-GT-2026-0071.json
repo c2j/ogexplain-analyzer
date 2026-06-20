@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0071",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.037575+00:00",
+  "updated_at": "2026-06-20T14:24:32.037597+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "大数据量 GROUP BY 走 GroupAggregate 而非 HashAggregate",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SET enable_sort = off;\nSELECT customer_id, COUNT(*) FROM rental GROUP BY customer_id LIMIT 20;\nRESET enable_sort",
+    "explain_output": "-- @id: Q71\n-- @target: AGG-001\n-- @severity: warning\n-- @scenario: 大数据量 GROUP BY 走 GroupAggregate 而非 HashAggregate\nSET enable_sort = off;\nSELECT customer_id, COUNT(*) FROM rental GROUP BY customer_id LIMIT 20;\nRESET enable_sort;\n\nLimit  (cost=401.08..401.28 rows=20 width=12) (actual time=6.543..6.551 rows=20 loops=1)\n  ->  HashAggregate  (cost=401.08..407.07 rows=599 width=12) (actual time=6.540..6.543 rows=20 loops=1)\n        Group By Key: customer_id\n        ->  Seq Scan on rental  (cost=0.00..318.72 rows=16472 width=4) (actual time=0.017..2.564 rows=16044 loops=1)\nTotal runtime: 6.718 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 6,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "AGG-001",
+        "ogexplain_rule_category": "AGG-",
+        "severity": "warning",
+        "description": "大数据量 GROUP BY 走 GroupAggregate 而非 HashAggregate",
+        "evidence": "->  Seq Scan on rental  (cost=0.00..318.72 rows=16472 width=4) (actual time=0.017..2.564 rows=16044 loops=1)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 6ms; actually_triggered=True; signal=\"HashAggregate present; GroupAggregate present\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for AGG-001",
+        "sql_or_action": "enable_hashagg=on / enable_sort=on",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "AGG-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "AGG-001",
+    "actually_triggered": true,
+    "trigger_signal": "HashAggregate present; GroupAggregate present",
+    "run_warnings": []
+  }
+}

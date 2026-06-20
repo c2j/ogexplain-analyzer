@@ -1,0 +1,79 @@
+{
+  "case_id": "OGEXP-GT-2026-0032",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.967118+00:00",
+  "updated_at": "2026-06-20T14:24:31.967121+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "UNION + ORDER BY 触发两层 sort",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT rental_id, customer_id FROM rental WHERE staff_id = 1\nUNION ALL\nSELECT rental_id, customer_id FROM rental WHERE staff_id = 2\nORDER BY 1, 2",
+    "explain_output": "-- @id: Q32\n-- @target: SORT-003\n-- @severity: warning\n-- @scenario: UNION + ORDER BY 触发两层 sort\nSELECT rental_id, customer_id FROM rental WHERE staff_id = 1\nUNION ALL\nSELECT rental_id, customer_id FROM rental WHERE staff_id = 2\nORDER BY 1, 2;\n\nSort  (cost=2038.20..2079.38 rows=16472 width=8) (actual time=16.730..17.705 rows=16044 loops=1)\n  Sort Key: public.rental.rental_id, public.rental.customer_id\n  Sort Method: quicksort  Memory: 1137kB\n  ->  Result  (cost=0.00..884.52 rows=16472 width=8) (actual time=0.020..10.920 rows=16044 loops=1)\n        ->  Append  (cost=0.00..884.52 rows=16472 width=8) (actual time=0.020..8.852 rows=16044 loops=1)\n              ->  Seq Scan on rental  (cost=0.00..359.90 rows=8254 width=8) (actual time=0.019..3.541 rows=8040 loops=1)\n                    Filter: (staff_id = 1)\n                    Rows Removed by Filter: 8004\n              ->  Seq Scan on rental  (cost=0.00..359.90 rows=8218 width=8) (actual time=0.025..3.580 rows=8004 loops=1)\n                    Filter: (staff_id = 2)\n                    Rows Removed by Filter: 8040\nTotal runtime: 19.337 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 19,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "SORT-003",
+        "ogexplain_rule_category": "SORT-",
+        "severity": "warning",
+        "description": "UNION + ORDER BY 触发两层 sort",
+        "evidence": "->  Seq Scan on rental  (cost=0.00..359.90 rows=8254 width=8) (actual time=0.019..3.541 rows=8040 loops=1)\nFilter: (staff_id = 1)\nRows Removed by Filter: 8004",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 19ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for SORT-003",
+        "sql_or_action": "去除冗余 ORDER BY",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "SORT-003",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "SORT-003",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "case_id": "OGEXP-GT-2026-0086",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.057496+00:00",
+  "updated_at": "2026-06-20T14:24:32.057506+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "language 表(6 行)",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT * FROM language",
+    "explain_output": "-- @id: Q86\n-- @target: NONE\n-- @severity: info\n-- @scenario: language 表(6 行)\nSELECT * FROM language;\n\nSeq Scan on language  (cost=0.00..16.48 rows=648 width=96) (actual time=0.016..0.018 rows=6 loops=1)\nTotal runtime: 0.131 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "language"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": false,
+    "expected_severity_if_problematic": null,
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "severity": "info",
+        "description": "No real performance problem; query is well-optimized.",
+        "evidence": "Seq Scan on language  (cost=0.00..16.48 rows=648 width=96) (actual time=0.016..0.018 rows=6 loops=1)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": []
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "NONE",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "NONE",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

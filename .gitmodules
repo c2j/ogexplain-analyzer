@@ -1,3 +1,6 @@
 [submodule "lib/openGauss-server"]
 	path = lib/openGauss-server
 	url = https://gitee.com/opengauss/openGauss-server
+[submodule "lib/ogagila"]
+	path = lib/ogagila
+	url = git@github.com:c2j/ogagila.git

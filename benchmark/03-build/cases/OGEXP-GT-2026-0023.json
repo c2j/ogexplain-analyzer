@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0023",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.961402+00:00",
+  "updated_at": "2026-06-20T14:24:31.961405+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "自连接 rental 触发大 Hash",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SET work_mem = '64kB';\nSELECT r1.rental_id, r2.rental_id\nFROM rental r1\nINNER JOIN rental r2 ON r1.customer_id = r2.customer_id\nWHERE r1.rental_date < r2.rental_date;\nRESET work_mem",
+    "explain_output": "-- @id: Q23\n-- @target: JOIN-002\n-- @severity: warning\n-- @scenario: 自连接 rental 触发大 Hash\nSET work_mem = '64kB';\nSELECT r1.rental_id, r2.rental_id\nFROM rental r1\nINNER JOIN rental r2 ON r1.customer_id = r2.customer_id\nWHERE r1.rental_date < r2.rental_date;\nRESET work_mem;\n\nHash Join  (cost=734.62..8434.86 rows=153136 width=8) (actual time=16.210..132.044 rows=214628 loops=1)\n  Hash Cond: (r1.customer_id = r2.customer_id)\n  Join Filter: (r1.rental_date < r2.rental_date)\n  Rows Removed by Join Filter: 230722\n  ->  Seq Scan on rental r1  (cost=0.00..318.72 rows=16472 width=16) (actual time=0.016..2.960 rows=16044 loops=1)\n  ->  Hash  (cost=318.72..318.72 rows=16472 width=16) (actual time=13.815..13.815 rows=16044 loops=1)\n         Buckets: 2048  Batches: 32  Memory Usage: 44kB\n        ->  Seq Scan on rental r2  (cost=0.00..318.72 rows=16472 width=16) (actual time=0.003..3.312 rows=16044 loops=1)\nTotal runtime: 148.858 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 148,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "memory_pressure",
+        "ogexplain_rule_id": "JOIN-002",
+        "ogexplain_rule_category": "JOIN-",
+        "severity": "warning",
+        "description": "自连接 rental 触发大 Hash",
+        "evidence": "->  Seq Scan on rental r1  (cost=0.00..318.72 rows=16472 width=16) (actual time=0.016..2.960 rows=16044 loops=1)\nJoin Filter: (r1.rental_date < r2.rental_date)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 148ms; actually_triggered=True; signal=\"Hash Join present; Hash spill detected (JOIN-002)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for JOIN-002",
+        "sql_or_action": "SET work_mem = '256MB'; (或更大)",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "JOIN-002",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "JOIN-002",
+    "actually_triggered": true,
+    "trigger_signal": "Hash Join present; Hash spill detected (JOIN-002)",
+    "run_warnings": []
+  }
+}

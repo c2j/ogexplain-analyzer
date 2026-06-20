@@ -1,0 +1,523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/ogexplain-groundtruth.schema.json",
+  "title": "ogexplain-analyzer Ground Truth Dataset",
+  "description": "Schema for ground-truth dataset used to evaluate ogexplain-analyzer diagnostic accuracy",
+  "version": "1.0",
+  "type": "object",
+  "required": [
+    "case_id",
+    "version",
+    "created_at",
+    "updated_at",
+    "status",
+    "source",
+    "input",
+    "ground_truth",
+    "annotations",
+    "validation"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^OGEXP-GT-\\d{4}-\\d{4,}$",
+      "description": "Global unique case identifier, format OGEXP-GT-YYYY-NNNN"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Spec version this case conforms to"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 last-update timestamp"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "verified",
+        "disputed",
+        "retired"
+      ],
+      "description": "Lifecycle status of this case"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "business_scenario",
+        "database_version",
+        "database_mode",
+        "table_size_class",
+        "collection_date",
+        "collector_id",
+        "anonymized"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "business_scenario": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "One-sentence business context"
+        },
+        "database_version": {
+          "type": "string",
+          "description": "Full version, e.g. 'GaussDB Kernel 505.2.0'"
+        },
+        "database_mode": {
+          "type": "string",
+          "enum": [
+            "centralized",
+            "distributed",
+            "mpp"
+          ]
+        },
+        "table_size_class": {
+          "type": "string",
+          "enum": [
+            "small",
+            "medium",
+            "large",
+            "xlarge"
+          ]
+        },
+        "data_volume_rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "collection_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "collector_id": {
+          "type": "string"
+        },
+        "anonymized": {
+          "type": "boolean"
+        },
+        "redaction_notes": {
+          "type": "string"
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "sql",
+        "explain_output",
+        "explain_format",
+        "has_analyze",
+        "related_tables"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "explain_output": {
+          "type": "string",
+          "minLength": 1
+        },
+        "explain_format": {
+          "type": "string",
+          "enum": [
+            "text",
+            "pretty",
+            "summary",
+            "json",
+            "yaml"
+          ]
+        },
+        "has_analyze": {
+          "type": "boolean"
+        },
+        "plan_actual_runtime_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Plan actual runtime in milliseconds; null if not parseable from EXPLAIN"
+        },
+        "related_tables": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]*$"
+          }
+        }
+      }
+    },
+    "ground_truth": {
+      "type": "object",
+      "required": [
+        "is_problematic",
+        "root_causes",
+        "suggested_fixes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "is_problematic": {
+          "type": "boolean"
+        },
+        "expected_severity_if_problematic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "critical",
+            "warning",
+            "info",
+            null
+          ]
+        },
+        "root_causes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RootCause"
+          }
+        },
+        "suggested_fixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SuggestedFix"
+          }
+        }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Annotations. At least 2 required when status=verified; empty array allowed when status=draft",
+      "items": {
+        "$ref": "#/$defs/Annotation"
+      }
+    },
+    "validation": {
+      "$ref": "#/$defs/Validation"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "description": "Free-form stratification tags"
+    }
+  },
+  "$defs": {
+    "RootCause": {
+      "type": "object",
+      "required": [
+        "cause_id",
+        "category",
+        "severity",
+        "description",
+        "evidence",
+        "verification_method",
+        "verified_by"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cause_id": {
+          "type": "string",
+          "pattern": "^RC-\\d+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "missing_index",
+            "wrong_index_choice",
+            "stale_statistics",
+            "over_under_estimation",
+            "implicit_type_coercion",
+            "suboptimal_join_order",
+            "suboptimal_join_algorithm",
+            "excessive_sort_spill",
+            "broadcast_skew",
+            "redistribute_skew",
+            "subquery_inefficiency",
+            "vectorization_disabled",
+            "pushdown_missed",
+            "partition_pruning_failed",
+            "memory_pressure",
+            "resource_contention",
+            "no_real_problem",
+            "other"
+          ]
+        },
+        "ogexplain_rule_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z]+-\\d{3}$",
+          "description": "Mapped ogexplain rule ID, e.g. SCAN-001"
+        },
+        "ogexplain_rule_category": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "SCAN-",
+            "JOIN-",
+            "MEM-",
+            "SORT-",
+            "NET-",
+            "EST-",
+            "PUSH-",
+            "TYPE-",
+            "VEC-",
+            "SUBQ-",
+            "AGG-",
+            "DIST-",
+            "STAT-",
+            "PART-",
+            "GEN-",
+            "MISC-",
+            null
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "warning",
+            "info"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Must reference specific EXPLAIN line numbers or fields"
+        },
+        "verification_method": {
+          "type": "string",
+          "enum": [
+            "post_fix_benchmark",
+            "pre_post_compare",
+            "schema_inspection",
+            "runtime_trace",
+            "planner_stats_check",
+            "consensus_only"
+          ]
+        },
+        "verification_detail": {
+          "type": "string",
+          "description": "Quantitative result when verification_method = post_fix_benchmark"
+        },
+        "verified_by": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "SuggestedFix": {
+      "type": "object",
+      "required": [
+        "fix_id",
+        "cause_id",
+        "type",
+        "description",
+        "sql_or_action",
+        "applied",
+        "effect_validated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fix_id": {
+          "type": "string",
+          "pattern": "^FIX-\\d+$"
+        },
+        "cause_id": {
+          "type": "string",
+          "pattern": "^RC-\\d+$",
+          "description": "Must reference an existing cause_id"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "create_index",
+            "drop_index",
+            "rewrite_sql",
+            "update_stats",
+            "tune_param",
+            "redesign_schema",
+            "partition_strategy",
+            "no_fix_available"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "sql_or_action": {
+          "type": "string"
+        },
+        "applied": {
+          "type": "boolean"
+        },
+        "effect_validated": {
+          "type": "boolean"
+        },
+        "speedup_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": 0,
+          "description": "Required when effect_validated = true"
+        }
+      },
+      "if": {
+        "properties": {
+          "effect_validated": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "speedup_ratio"
+        ]
+      }
+    },
+    "Annotation": {
+      "type": "object",
+      "required": [
+        "annotator_id",
+        "annotator_role",
+        "annotation_round",
+        "annotated_at",
+        "time_spent_minutes",
+        "confidence",
+        "initial_findings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "annotator_id": {
+          "type": "string"
+        },
+        "annotator_role": {
+          "type": "string",
+          "enum": [
+            "junior",
+            "senior",
+            "expert"
+          ]
+        },
+        "annotation_round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "annotated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "time_spent_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "initial_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "category",
+              "description",
+              "evidence"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "free_text_notes": {
+          "type": "string"
+        }
+      }
+    },
+    "Validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consensus_reached": {
+          "type": "boolean"
+        },
+        "kappa_score": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Cohen's Kappa between annotators"
+        },
+        "disputed_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "arbiter_id": {
+          "type": "string",
+          "description": "Use 'pending' for draft cases"
+        },
+        "final_decision_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp; null for draft cases awaiting decision"
+        },
+        "arbiter_notes": {
+          "type": "string"
+        }
+      },
+      "if": {
+        "properties": {
+          "consensus_reached": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "arbiter_notes",
+          "disputed_fields"
+        ]
+      }
+    }
+  }
+}
