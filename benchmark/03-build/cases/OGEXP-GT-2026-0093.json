@@ -1,0 +1,68 @@
+{
+  "case_id": "OGEXP-GT-2026-0093",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.176146+00:00",
+  "updated_at": "2026-06-20T14:24:32.176156+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "全文检索使用 GIN 索引",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT title FROM film WHERE fulltext @@ to_tsquery('fate&india')",
+    "explain_output": "-- @id: Q93\n-- @target: NONE\n-- @severity: info\n-- @scenario: 全文检索使用 GIN 索引\nSELECT title FROM film WHERE fulltext @@ to_tsquery('fate&india');\n\nBitmap Heap Scan on film  (cost=4.27..11.15 rows=2 width=15) (actual time=0.531..0.542 rows=3 loops=1)\n  Recheck Cond: (fulltext @@ '''fate'' & ''india'''::tsquery)\n  Heap Blocks: exact=3\n  ->  Bitmap Index Scan on film_fulltext_idx  (cost=0.00..4.26 rows=2 width=0) (actual time=0.474..0.474 rows=3 loops=1)\n        Index Cond: (fulltext @@ '''fate'' & ''india'''::tsquery)\nTotal runtime: 1.314 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 1,
+    "related_tables": [
+      "film",
+      "film_fulltext_idx"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": false,
+    "expected_severity_if_problematic": null,
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "severity": "info",
+        "description": "No real performance problem; query is well-optimized.",
+        "evidence": "Index Cond: (fulltext @@ '''fate'' & ''india'''::tsquery)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 1ms",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": []
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "NONE",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "NONE",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

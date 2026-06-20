@@ -1,0 +1,84 @@
+{
+  "case_id": "OGEXP-GT-2026-0081",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.052446+00:00",
+  "updated_at": "2026-06-20T14:24:32.052449+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "7 层以上嵌套查询",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT f.title\nFROM film f\nWHERE f.film_id IN (\n  SELECT film_id FROM inventory WHERE inventory_id IN (\n    SELECT inventory_id FROM rental WHERE customer_id IN (\n      SELECT customer_id FROM customer WHERE store_id IN (\n        SELECT store_id FROM store WHERE manager_staff_id IN (\n          SELECT staff_id FROM staff WHERE active = true\n        )\n      )\n    )\n  )\n)\nLIMIT 10",
+    "explain_output": "-- @id: Q81\n-- @target: GEN-001\n-- @severity: info\n-- @scenario: 7 层以上嵌套查询\nSELECT f.title\nFROM film f\nWHERE f.film_id IN (\n  SELECT film_id FROM inventory WHERE inventory_id IN (\n    SELECT inventory_id FROM rental WHERE customer_id IN (\n      SELECT customer_id FROM customer WHERE store_id IN (\n        SELECT store_id FROM store WHERE manager_staff_id IN (\n          SELECT staff_id FROM staff WHERE active = true\n        )\n      )\n    )\n  )\n)\nLIMIT 10;\n\nLimit  (cost=77.50..189.76 rows=10 width=15) (actual time=0.926..1.594 rows=10 loops=1)\n  ->  Hash Right Semi Join  (cost=77.50..10832.40 rows=958 width=15) (actual time=0.922..1.586 rows=10 loops=1)\n        Hash Cond: (inventory.film_id = f.film_id)\n        ->  Nested Loop Semi Join  (cost=0.00..10727.03 rows=4581 width=4) (actual time=0.070..0.721 rows=45 loops=1)\n              ->  Seq Scan on inventory  (cost=0.00..75.81 rows=4581 width=8) (actual time=0.018..0.025 rows=46 loops=1)\n              ->  Nested Loop Semi Join  (cost=0.00..5.19 rows=4 width=4) (actual time=0.670..0.670 rows=45 loops=46)\n                    ->  Index Scan using idx_fk_inventory_id on rental  (cost=0.00..0.52 rows=4 width=8) (actual time=0.218..0.218 rows=45 loops=46)\n                          Index Cond: (inventory_id = inventory.inventory_id)\n                    ->  Nested Loop Semi Join  (cost=0.00..1.16 rows=1 width=4) (actual time=0.405..0.405 rows=45 loops=45)\n                          ->  Index Scan using customer_pkey on customer  (cost=0.00..0.28 rows=1 width=8) (actual time=0.141..0.141 rows=45 loops=45)\n                                Index Cond: (customer_id = rental.customer_id)\n                          ->  Nested Loop Semi Join  (cost=0.00..0.87 rows=1 width=4) (actual time=0.217..0.217 rows=45 loops=45)\n                                ->  Index Scan using store_pkey on store  (cost=0.00..0.30 rows=1 width=8) (actual time=0.082..0.082 rows=45 loops=45)\n                                      Index Cond: (store_id = customer.store_id)\n                                ->  Index Scan using staff_pkey on staff  (cost=0.00..0.57 rows=1 width=4) (actual time=0.093..0.093 rows=45 loops=45)\n                                      Index Cond: (staff_id = store.manager_staff_id)\n                                      Filter: active\n        ->  Hash  (cost=65.00..65.00 rows=1000 width=19) (actual time=0.725..0.725 rows=1000 loops=1)\n               Buckets: 32768  Batches: 1  Memory Usage: 308kB\n              ->  Seq Scan on film f  (cost=0.00..65.00 rows=1000 width=19) (actual time=0.007..0.432 rows=1000 loops=1)\nTotal runtime: 1.892 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 1,
+    "related_tables": [
+      "inventory",
+      "rental",
+      "customer",
+      "store",
+      "staff",
+      "film"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "info",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "GEN-001",
+        "ogexplain_rule_category": "GEN-",
+        "severity": "info",
+        "description": "7 层以上嵌套查询",
+        "evidence": "->  Seq Scan on inventory  (cost=0.00..75.81 rows=4581 width=8) (actual time=0.018..0.025 rows=46 loops=1)\nIndex Cond: (inventory_id = inventory.inventory_id)\nFilter: active",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 1ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for GEN-001",
+        "sql_or_action": "简化嵌套或拆 CTE",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "GEN-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "GEN-001",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

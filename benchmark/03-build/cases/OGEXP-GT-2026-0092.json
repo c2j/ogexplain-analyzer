@@ -1,0 +1,68 @@
+{
+  "case_id": "OGEXP-GT-2026-0092",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.165045+00:00",
+  "updated_at": "2026-06-20T14:24:32.165054+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "payment 按月分区裁剪正确",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT COUNT(*) FROM payment WHERE payment_date >= '2022-03-01' AND payment_date < '2022-04-01'",
+    "explain_output": "-- @id: Q92\n-- @target: NONE\n-- @severity: info\n-- @scenario: payment 按月分区裁剪正确\nSELECT COUNT(*) FROM payment WHERE payment_date >= '2022-03-01' AND payment_date < '2022-04-01';\n\nAggregate  (cost=104.40..104.41 rows=1 width=8) (actual time=2.248..2.248 rows=1 loops=1)\n  ->  Partition Iterator  (cost=40.01..97.63 rows=2708 width=0) (actual time=0.700..1.855 rows=2713 loops=1)\n        Iterations: 1\n        ->  Partitioned Bitmap Heap Scan on payment  (cost=40.01..97.63 rows=2708 width=0) (actual time=0.688..1.589 rows=2713 loops=1)\n              Recheck Cond: ((payment_date >= '2022-03-01 00:00:00+00'::timestamp with time zone) AND (payment_date < '2022-04-01 00:00:00+00'::timestamp with time zone))\n              Heap Blocks: exact=21\n              Selected Partitions:  3\n              ->  Partitioned Bitmap Index Scan on payment_pkey  (cost=0.00..39.33 rows=2708 width=0) (actual time=0.667..0.667 rows=2713 loops=1)\n                    Index Cond: ((payment_date >= '2022-03-01 00:00:00+00'::timestamp with time zone) AND (payment_date < '2022-04-01 00:00:00+00'::timestamp with time zone))\n                    Selected Partitions:  3\nTotal runtime: 2.503 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 2,
+    "related_tables": [
+      "payment",
+      "payment_pkey"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": false,
+    "expected_severity_if_problematic": null,
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "severity": "info",
+        "description": "No real performance problem; query is well-optimized.",
+        "evidence": "Index Cond: ((payment_date >= '2022-03-01 00:00:00+00'::timestamp with time zone) AND (payment_date < '2022-04-01 00:00:00+00'::timestamp with time zone))\nSelected Partitions:  3",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 2ms",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": []
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "NONE",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "NONE",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

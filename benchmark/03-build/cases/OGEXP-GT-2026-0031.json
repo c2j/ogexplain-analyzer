@@ -1,0 +1,79 @@
+{
+  "case_id": "OGEXP-GT-2026-0031",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.966686+00:00",
+  "updated_at": "2026-06-20T14:24:31.966690+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "嵌套 ORDER BY(外层 + 内层各排一次)",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT * FROM (\n  SELECT * FROM rental ORDER BY rental_date LIMIT 100\n) t\nORDER BY customer_id",
+    "explain_output": "-- @id: Q31\n-- @target: SORT-003\n-- @severity: warning\n-- @scenario: 嵌套 ORDER BY(外层 + 内层各排一次)\nSELECT * FROM (\n  SELECT * FROM rental ORDER BY rental_date LIMIT 100\n) t\nORDER BY customer_id;\n\nSort  (cost=9.73..9.98 rows=100 width=40) (actual time=0.127..0.132 rows=100 loops=1)\n  Sort Key: rental.customer_id\n  Sort Method: quicksort  Memory: 32kB\n  ->  Limit  (cost=0.00..5.41 rows=100 width=40) (actual time=0.023..0.094 rows=100 loops=1)\n        ->  Index Scan using idx_unq_rental_rental_date_inventory_id_customer_id on rental  (cost=0.00..890.44 rows=16472 width=40) (actual time=0.022..0.083 rows=100 loops=1)\nTotal runtime: 0.190 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "SORT-003",
+        "ogexplain_rule_category": "SORT-",
+        "severity": "warning",
+        "description": "嵌套 ORDER BY(外层 + 内层各排一次)",
+        "evidence": "(no obvious signal)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for SORT-003",
+        "sql_or_action": "去除冗余 ORDER BY",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "SORT-003",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "SORT-003",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

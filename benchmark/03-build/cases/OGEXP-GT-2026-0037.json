@@ -1,0 +1,83 @@
+{
+  "case_id": "OGEXP-GT-2026-0037",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.971425+00:00",
+  "updated_at": "2026-06-20T14:24:31.971433+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "删 stats 后严重低估 payment 行数",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "DELETE STATISTICS payment;\nSELECT COUNT(*) FROM payment WHERE amount > 5.00",
+    "explain_output": "-- @id: Q37\n-- @target: EST-001\n-- @severity: warning\n-- @scenario: 删 stats 后严重低估 payment 行数\nDELETE STATISTICS payment;\nSELECT COUNT(*) FROM payment WHERE amount > 5.00;\n\nAggregate  (cost=332.50..332.51 rows=1 width=8) (actual time=4.561..4.561 rows=1 loops=1)\n  ->  Partition Iterator  (cost=0.00..322.61 rows=3957 width=0) (actual time=0.037..4.117 rows=3957 loops=1)\n        Iterations: 7\n        ->  Partitioned Seq Scan on payment  (cost=0.00..322.61 rows=3957 width=0) (actual time=0.072..3.527 rows=3957 loops=7)\n              Filter: (amount > 5.00)\n              Rows Removed by Filter: 12092\n              Selected Partitions:  1..7\nTotal runtime: 4.790 ms\n\n-- ⚠ skipped unsupported in openGauss: 'DELETE STATISTICS payment'\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 4,
+    "related_tables": [
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "over_under_estimation",
+        "ogexplain_rule_id": "EST-001",
+        "ogexplain_rule_category": "EST-",
+        "severity": "warning",
+        "description": "删 stats 后严重低估 payment 行数",
+        "evidence": "->  Partitioned Seq Scan on payment  (cost=0.00..322.61 rows=3957 width=0) (actual time=0.072..3.527 rows=3957 loops=7)\nFilter: (amount > 5.00)\nRows Removed by Filter: 12092",
+        "verification_method": "consensus_only",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 4ms; actually_triggered=False; signal=\"warning: openGauss skipped the side-effect statement; rule NOT actually tested\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "update_stats",
+        "description": "Default fix template for EST-001",
+        "sql_or_action": "ANALYZE <table>;",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "EST-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "EST-001",
+    "actually_triggered": false,
+    "trigger_signal": "warning: openGauss skipped the side-effect statement; rule NOT actually tested",
+    "run_warnings": [
+      "skipped unsupported in openGauss: 'DELETE STATISTICS payment'"
+    ]
+  }
+}

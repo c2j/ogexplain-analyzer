@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0038",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.972046+00:00",
+  "updated_at": "2026-06-20T14:24:31.972052+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "删 stats 后 rental 估算偏差",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "DELETE STATISTICS rental;\nSELECT COUNT(*) FROM rental WHERE return_date IS NULL",
+    "explain_output": "-- @id: Q38\n-- @target: EST-001\n-- @severity: warning\n-- @scenario: 删 stats 后 rental 估算偏差\nDELETE STATISTICS rental;\nSELECT COUNT(*) FROM rental WHERE return_date IS NULL;\n\nAggregate  (cost=319.19..319.20 rows=1 width=8) (actual time=1.912..1.912 rows=1 loops=1)\n  ->  Seq Scan on rental  (cost=0.00..318.72 rows=188 width=0) (actual time=1.902..1.902 rows=0 loops=1)\n        Filter: (return_date IS NULL)\n        Rows Removed by Filter: 16044\nTotal runtime: 2.017 ms\n\n-- ⚠ skipped unsupported in openGauss: 'DELETE STATISTICS rental'\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 2,
+    "related_tables": [
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "over_under_estimation",
+        "ogexplain_rule_id": "EST-001",
+        "ogexplain_rule_category": "EST-",
+        "severity": "warning",
+        "description": "删 stats 后 rental 估算偏差",
+        "evidence": "->  Seq Scan on rental  (cost=0.00..318.72 rows=188 width=0) (actual time=1.902..1.902 rows=0 loops=1)\nFilter: (return_date IS NULL)\nRows Removed by Filter: 16044",
+        "verification_method": "consensus_only",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 2ms; actually_triggered=False; signal=\"warning: openGauss skipped the side-effect statement; rule NOT actually tested\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "update_stats",
+        "description": "Default fix template for EST-001",
+        "sql_or_action": "ANALYZE <table>;",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "EST-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "EST-001",
+    "actually_triggered": false,
+    "trigger_signal": "warning: openGauss skipped the side-effect statement; rule NOT actually tested",
+    "run_warnings": [
+      "skipped unsupported in openGauss: 'DELETE STATISTICS rental'"
+    ]
+  }
+}

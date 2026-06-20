@@ -1,0 +1,79 @@
+{
+  "case_id": "OGEXP-GT-2026-0050",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.978009+00:00",
+  "updated_at": "2026-06-20T14:24:31.978012+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "customer.email 前导通配符",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT customer_id, email FROM customer WHERE email LIKE '%@example.org' LIMIT 10",
+    "explain_output": "-- @id: Q50\n-- @target: TYPE-004\n-- @severity: warning\n-- @scenario: customer.email 前导通配符\nSELECT customer_id, email FROM customer WHERE email LIKE '%@example.org' LIMIT 10;\n\nLimit  (cost=0.00..16.49 rows=1 width=36) (actual time=0.159..0.159 rows=0 loops=1)\n  ->  Seq Scan on customer  (cost=0.00..16.49 rows=1 width=36) (actual time=0.157..0.157 rows=0 loops=1)\n        Filter: (email ~~ '%@example.org'::text)\n        Rows Removed by Filter: 599\nTotal runtime: 0.239 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "customer"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "TYPE-004",
+        "ogexplain_rule_category": "TYPE-",
+        "severity": "warning",
+        "description": "customer.email 前导通配符",
+        "evidence": "->  Seq Scan on customer  (cost=0.00..16.49 rows=1 width=36) (actual time=0.157..0.157 rows=0 loops=1)\nFilter: (email ~~ '%@example.org'::text)\nRows Removed by Filter: 599",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms; actually_triggered=True; signal=\"explicit cast visible in EXPLAIN\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for TYPE-004",
+        "sql_or_action": "LIKE 模式改为后缀通配符或全文检索",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "TYPE-004",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "TYPE-004",
+    "actually_triggered": true,
+    "trigger_signal": "explicit cast visible in EXPLAIN",
+    "run_warnings": []
+  }
+}

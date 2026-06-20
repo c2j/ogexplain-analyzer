@@ -1,0 +1,79 @@
+{
+  "case_id": "OGEXP-GT-2026-0044",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:31.975270+00:00",
+  "updated_at": "2026-06-20T14:24:31.975272+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "customer_id integer 字段用字符串比较",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT * FROM customer WHERE customer_id = '42'",
+    "explain_output": "-- @id: Q44\n-- @target: TYPE-001\n-- @severity: critical\n-- @scenario: customer_id integer 字段用字符串比较\nSELECT * FROM customer WHERE customer_id = '42';\n\nIndex Scan using customer_pkey on customer  (cost=0.00..8.27 rows=1 width=78) (actual time=0.013..0.014 rows=1 loops=1)\n  Index Cond: (customer_id = 42)\nTotal runtime: 0.054 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "customer"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "critical",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "implicit_type_coercion",
+        "ogexplain_rule_id": "TYPE-001",
+        "ogexplain_rule_category": "TYPE-",
+        "severity": "critical",
+        "description": "customer_id integer 字段用字符串比较",
+        "evidence": "Index Cond: (customer_id = 42)",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms; actually_triggered=True; signal=\"no obvious cast signal in EXPLAIN\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for TYPE-001",
+        "sql_or_action": "将字面量转为目标列类型",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "TYPE-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "TYPE-001",
+    "actually_triggered": true,
+    "trigger_signal": "no obvious cast signal in EXPLAIN",
+    "run_warnings": []
+  }
+}

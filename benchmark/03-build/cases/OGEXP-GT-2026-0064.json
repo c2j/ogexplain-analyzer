@@ -1,0 +1,82 @@
+{
+  "case_id": "OGEXP-GT-2026-0064",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.000764+00:00",
+  "updated_at": "2026-06-20T14:24:32.000769+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "rental.return_date 通过相关子查询自更新",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "UPDATE rental r\nSET return_date = (\n  SELECT MAX(payment_date)\n  FROM payment p\n  WHERE p.rental_id = r.rental_id\n)\nWHERE r.return_date IS NULL",
+    "explain_output": "-- @id: Q64\n-- @target: SUBQ-006\n-- @severity: critical\n-- @scenario: rental.return_date 通过相关子查询自更新\nUPDATE rental r\nSET return_date = (\n  SELECT MAX(payment_date)\n  FROM payment p\n  WHERE p.rental_id = r.rental_id\n)\nWHERE r.return_date IS NULL;\n\nUpdate on rental r  (cost=0.00..60972.22 rows=188 width=38) (actual time=1.360..1.384 rows=0 loops=1)\n  ->  Seq Scan on rental r  (cost=0.00..60972.22 rows=188 width=38) (actual time=1.349..1.349 rows=0 loops=1)\n        Filter: (return_date IS NULL)\n        Rows Removed by Filter: 16044\n        SubPlan 1\n          ->  Aggregate  (cost=322.62..322.62 rows=1 width=16) (Actual time: never executed)\n                ->  Partition Iterator  (cost=0.00..322.61 rows=1 width=8) (Actual time: never executed)\n                      Iterations: 7\n                      ->  Partitioned Seq Scan on payment p  (cost=0.00..322.61 rows=1 width=8) (Actual time: never executed)\n                            Filter: (rental_id = r.rental_id)\n                            Selected Partitions:  1..7\nTotal runtime: 2.432 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 2,
+    "related_tables": [
+      "rental",
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "critical",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "subquery_inefficiency",
+        "ogexplain_rule_id": "SUBQ-006",
+        "ogexplain_rule_category": "SUBQ-",
+        "severity": "critical",
+        "description": "rental.return_date 通过相关子查询自更新",
+        "evidence": "->  Seq Scan on rental r  (cost=0.00..60972.22 rows=188 width=38) (actual time=1.349..1.349 rows=0 loops=1)\nFilter: (return_date IS NULL)\nRows Removed by Filter: 16044",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 2ms; actually_triggered=True; signal=\"UPDATE with SubPlan present\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "rewrite_sql",
+        "description": "Default fix template for SUBQ-006",
+        "sql_or_action": "改写为 UPDATE ... FROM",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "SUBQ-006",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "SUBQ-006",
+    "actually_triggered": true,
+    "trigger_signal": "UPDATE with SubPlan present",
+    "run_warnings": []
+  }
+}

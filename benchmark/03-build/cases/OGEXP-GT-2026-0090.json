@@ -1,0 +1,67 @@
+{
+  "case_id": "OGEXP-GT-2026-0090",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.152237+00:00",
+  "updated_at": "2026-06-20T14:24:32.152262+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "payment 主键点查(分区裁剪生效)",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT * FROM payment WHERE payment_date = '2022-03-15 10:00:00+00' AND payment_id = 1",
+    "explain_output": "-- @id: Q90\n-- @target: NONE\n-- @severity: info\n-- @scenario: payment 主键点查(分区裁剪生效)\nSELECT * FROM payment WHERE payment_date = '2022-03-15 10:00:00+00' AND payment_id = 1;\n\nPartition Iterator  (cost=0.00..8.27 rows=1 width=30) (actual time=0.098..0.098 rows=0 loops=1)\n  Iterations: 1\n  ->  Partitioned Index Scan using payment_pkey on payment  (cost=0.00..8.27 rows=1 width=30) (actual time=0.088..0.088 rows=0 loops=1)\n        Index Cond: ((payment_date = '2022-03-15 10:00:00+00'::timestamp with time zone) AND (payment_id = 1))\n        Selected Partitions:  3\nTotal runtime: 0.379 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": false,
+    "expected_severity_if_problematic": null,
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "severity": "info",
+        "description": "No real performance problem; query is well-optimized.",
+        "evidence": "Index Cond: ((payment_date = '2022-03-15 10:00:00+00'::timestamp with time zone) AND (payment_id = 1))\nSelected Partitions:  3",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": []
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "NONE",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "NONE",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

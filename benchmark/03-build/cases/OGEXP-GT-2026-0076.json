@@ -1,0 +1,80 @@
+{
+  "case_id": "OGEXP-GT-2026-0076",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.049995+00:00",
+  "updated_at": "2026-06-20T14:24:32.050002+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "rental 无分布键提示",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SELECT r.rental_id, i.film_id\nFROM rental r\nJOIN inventory i ON r.inventory_id = i.inventory_id\nWHERE r.rental_date >= '2022-06-01'\nLIMIT 20",
+    "explain_output": "-- @id: Q76\n-- @target: DIST-001\n-- @severity: info\n-- @scenario: rental 无分布键提示\nSELECT r.rental_id, i.film_id\nFROM rental r\nJOIN inventory i ON r.inventory_id = i.inventory_id\nWHERE r.rental_date >= '2022-06-01'\nLIMIT 20;\n\nLimit  (cost=0.00..2.00 rows=20 width=8) (actual time=0.024..0.084 rows=20 loops=1)\n  ->  Merge Join  (cost=0.00..1515.24 rows=15145 width=8) (actual time=0.023..0.083 rows=20 loops=1)\n        Merge Cond: (i.inventory_id = r.inventory_id)\n        ->  Index Scan using inventory_pkey on inventory i  (cost=0.00..161.97 rows=4581 width=8) (actual time=0.009..0.012 rows=8 loops=1)\n        ->  Index Scan using idx_fk_inventory_id on rental r  (cost=0.00..1152.51 rows=15145 width=8) (actual time=0.009..0.062 rows=20 loops=1)\n              Filter: (rental_date >= '2022-06-01 00:00:00+00'::timestamp with time zone)\n              Rows Removed by Filter: 2\nTotal runtime: 0.146 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 0,
+    "related_tables": [
+      "inventory",
+      "rental"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "info",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "no_real_problem",
+        "ogexplain_rule_id": "DIST-001",
+        "ogexplain_rule_category": "DIST-",
+        "severity": "info",
+        "description": "rental 无分布键提示",
+        "evidence": "Filter: (rental_date >= '2022-06-01 00:00:00+00'::timestamp with time zone)\nRows Removed by Filter: 2",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 0ms; actually_triggered=False; signal=\"(no signal pattern matched)\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for DIST-001",
+        "sql_or_action": "调整分布列",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "DIST-001",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "DIST-001",
+    "actually_triggered": false,
+    "trigger_signal": "(no signal pattern matched)",
+    "run_warnings": []
+  }
+}

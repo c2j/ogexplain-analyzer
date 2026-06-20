@@ -1,0 +1,81 @@
+{
+  "case_id": "OGEXP-GT-2026-0073",
+  "version": "1.0",
+  "created_at": "2026-06-20T14:24:32.043308+00:00",
+  "updated_at": "2026-06-20T14:24:32.043324+00:00",
+  "status": "draft",
+  "source": {
+    "business_scenario": "大 GROUP BY + 低 work_mem",
+    "database_version": "openGauss 7.0.0-RC1",
+    "database_mode": "distributed",
+    "table_size_class": "medium",
+    "data_volume_rows": 16049,
+    "collection_date": "2026-06-20",
+    "collector_id": "ogagila-auto",
+    "anonymized": true,
+    "redaction_notes": "Synthetic Pagila schema; no real customer data"
+  },
+  "input": {
+    "sql": "SET work_mem = '128kB';\nSELECT customer_id, COUNT(*), SUM(amount), AVG(amount), MAX(amount), MIN(amount)\nFROM payment\nGROUP BY customer_id;\nRESET work_mem",
+    "explain_output": "-- @id: Q73\n-- @target: AGG-002\n-- @severity: warning\n-- @scenario: 大 GROUP BY + 低 work_mem\nSET work_mem = '128kB';\nSELECT customer_id, COUNT(*), SUM(amount), AVG(amount), MAX(amount), MIN(amount)\nFROM payment\nGROUP BY customer_id;\nRESET work_mem;\n\nHashAggregate  (cost=523.23..530.71 rows=599 width=146) (actual time=18.801..34.729 rows=599 loops=1)\n  Group By Key: customer_id\nTemp File Num: 48\n  ->  Partition Iterator  (cost=0.00..282.49 rows=16049 width=10) (actual time=0.021..5.399 rows=16049 loops=1)\n        Iterations: 7\n        ->  Partitioned Seq Scan on payment  (cost=0.00..282.49 rows=16049 width=10) (actual time=0.058..3.329 rows=16049 loops=7)\n              Selected Partitions:  1..7\nTotal runtime: 35.083 ms\n",
+    "explain_format": "text",
+    "has_analyze": true,
+    "plan_actual_runtime_ms": 35,
+    "related_tables": [
+      "payment"
+    ]
+  },
+  "ground_truth": {
+    "is_problematic": true,
+    "expected_severity_if_problematic": "warning",
+    "root_causes": [
+      {
+        "cause_id": "RC-1",
+        "category": "memory_pressure",
+        "ogexplain_rule_id": "AGG-002",
+        "ogexplain_rule_category": "AGG-",
+        "severity": "warning",
+        "description": "大 GROUP BY + 低 work_mem",
+        "evidence": "->  Partitioned Seq Scan on payment  (cost=0.00..282.49 rows=16049 width=10) (actual time=0.058..3.329 rows=16049 loops=7)\nSelected Partitions:  1..7",
+        "verification_method": "runtime_trace",
+        "verification_detail": "EXPLAIN ANALYZE runtime: 35ms; actually_triggered=True; signal=\"HashAggregate present\"",
+        "verified_by": [
+          "build_cases.py:auto"
+        ]
+      }
+    ],
+    "suggested_fixes": [
+      {
+        "fix_id": "FIX-1",
+        "cause_id": "RC-1",
+        "type": "tune_param",
+        "description": "Default fix template for AGG-002",
+        "sql_or_action": "SET work_mem = '256MB';",
+        "applied": false,
+        "effect_validated": false
+      }
+    ]
+  },
+  "annotations": [],
+  "validation": {
+    "consensus_reached": false,
+    "disputed_fields": [],
+    "arbiter_id": "pending",
+    "final_decision_at": null,
+    "arbiter_notes": "Auto-generated from queries_v1.sql + ogagila EXPLAIN ANALYZE; needs DBA review."
+  },
+  "tags": [
+    "AGG-002",
+    "db-version:og7.0",
+    "schema:pagila",
+    "auto-generated",
+    "side-effect",
+    "skipped-statements"
+  ],
+  "_auto_eval": {
+    "target_rule_designed": "AGG-002",
+    "actually_triggered": true,
+    "trigger_signal": "HashAggregate present",
+    "run_warnings": []
+  }
+}
