@@ -6,6 +6,8 @@
 
 use ogexplain_core::analyzer::config::DiagnosticConfig;
 use ogexplain_core::analyzer::report::{DiagnosticCategory, Severity};
+use ogexplain_core::analyzer::rules::utils::effective_scan_size;
+use ogexplain_core::model::{NodeProperty, NodeType, PlanNode};
 use ogexplain_core::suggester::{SuggestionCategory, SuggestionEngine};
 use ogexplain_core::{analyze, analyze_with_config, parse};
 
@@ -46,18 +48,22 @@ fn get_finding<'a>(
 
 #[test]
 fn scan_001_triggers_on_large_seq_scan() {
-    let report = analyze_fixture("10_complex_plan.txt");
-    let finding = get_finding(&report, "SCAN-001")
-        .expect("Expected SCAN-001 for large Seq Scan on line_items");
+    // Fixture 10's SeqScan is under HashJoin, now correctly skipped.
+    // Use fixture 33 (limit-bound standalone scan) to verify positive case.
+    let report = analyze_fixture("33_limit_seq_scan.txt");
+    let finding =
+        get_finding(&report, "SCAN-001").expect("Expected SCAN-001 for large Seq Scan on rental");
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::ScanEfficiency);
     assert!(
-        finding.detail.contains("line_items"),
-        "detail should mention table name"
+        finding.detail.contains("rental"),
+        "detail should mention table name, got: {}",
+        finding.detail
     );
     assert!(
-        finding.detail.contains("500000"),
-        "detail should mention row count"
+        finding.detail.contains("16472"),
+        "detail should mention scanned row count, got: {}",
+        finding.detail
     );
 }
 
@@ -560,7 +566,8 @@ fn suggestion_push_findings_trigger_distribution_optimization() {
 
 #[test]
 fn finding_contains_node_type_and_line() {
-    let report = analyze_fixture("10_complex_plan.txt");
+    // Use fixture 33 (standalone large scan not under HashJoin) for SCAN-001
+    let report = analyze_fixture("33_limit_seq_scan.txt");
     let finding = get_finding(&report, "SCAN-001").expect("SCAN-001 should be present");
     assert!(finding.node_type.is_some(), "Finding should have node_type");
     assert!(finding.node_line.is_some(), "Finding should have node_line");
@@ -796,4 +803,127 @@ fn suggestion_engine_returns_empty_for_irrelevant_findings() {
     for s in &suggestions {
         assert!(s.confidence > 0.0 && s.confidence <= 1.0);
     }
+}
+
+// ---------------------------------------------------------------------------
+// SCAN-001 — Large table full scan (updated with effective_scan_size)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn scan_001_triggers_for_limit_bound_seq_scan() {
+    // Seq Scan on rental: estimated rows=16472, actual rows=10 (LIMIT)
+    // effective_scan_size should use estimated.plan_rows (16472) > 10000 → fire
+    let report = analyze_fixture("33_limit_seq_scan.txt");
+    let finding = get_finding(&report, "SCAN-001")
+        .expect("SCAN-001 should fire for 16472-row scan truncated by LIMIT");
+    assert_eq!(finding.severity, Severity::Warning);
+    assert!(
+        finding.detail.contains("16472") || finding.detail.contains("~"),
+        "detail should mention scanned row count, got: {}",
+        finding.detail
+    );
+}
+
+#[test]
+fn scan_001_triggers_for_filter_high_selectivity() {
+    // Seq Scan on payment: actual.rows=114 loops=7, Filter: amount>10, Rows Removed: 15935
+    // effective_scan_size = (114*7) + 15935 = 16733 > 10000 → fire
+    let report = analyze_fixture("34_filter_high_selectivity.txt");
+    let finding = get_finding(&report, "SCAN-001")
+        .expect("SCAN-001 should fire for 16733 effective rows (filter high selectivity)");
+    assert_eq!(finding.severity, Severity::Warning);
+    assert!(
+        finding.detail.contains("16733") || finding.detail.contains("scanned"),
+        "detail should mention effective scan size, got: {}",
+        finding.detail
+    );
+}
+
+#[test]
+fn scan_001_does_not_fire_for_hashjoin_build_scan() {
+    // Seq Scan on large_table (16044 rows) under HashJoin → legitimate hash build scan
+    let report = analyze_fixture("32_hashjoin_seqscan_fp.txt");
+    assert!(
+        !has_finding(&report, "SCAN-001"),
+        "SCAN-001 should NOT fire for HashJoin build-side scan"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// effective_scan_size utility tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn effective_scan_size_no_filter_uses_estimated() {
+    use ogexplain_core::model::{ActualStats, EstimatedCost};
+    let node = PlanNode {
+        node_type: NodeType::SeqScan,
+        relation: Some("rental".to_string()),
+        estimated: Some(EstimatedCost {
+            plan_rows: 16472.0,
+            startup_cost: 0.0,
+            total_cost: 100.0,
+            plan_width: 8,
+            pred_time: None,
+            pred_rows: None,
+            distinct: None,
+        }),
+        actual: Some(ActualStats {
+            rows: 10.0,
+            loops: 1.0,
+            startup_time_ms: 0.0,
+            total_time_ms: 1.0,
+            executed: true,
+        }),
+        properties: vec![],
+        join_type: None,
+        structured_props: None,
+        buffers: None,
+        children: vec![],
+        indent_level: 0,
+        line_number: 0,
+    };
+    assert_eq!(effective_scan_size(&node), 16472.0);
+}
+
+#[test]
+fn effective_scan_size_with_filter_uses_actual_plus_removed() {
+    use ogexplain_core::model::{ActualStats, EstimatedCost};
+    let node = PlanNode {
+        node_type: NodeType::SeqScan,
+        relation: Some("payment".to_string()),
+        estimated: Some(EstimatedCost {
+            plan_rows: 20000.0,
+            startup_cost: 0.0,
+            total_cost: 200.0,
+            plan_width: 8,
+            pred_time: None,
+            pred_rows: None,
+            distinct: None,
+        }),
+        actual: Some(ActualStats {
+            rows: 114.0,
+            loops: 7.0,
+            startup_time_ms: 0.0,
+            total_time_ms: 1.0,
+            executed: true,
+        }),
+        properties: vec![
+            NodeProperty {
+                label: "Filter".to_string(),
+                value: "(amount > 10)".to_string(),
+            },
+            NodeProperty {
+                label: "Rows Removed by Filter".to_string(),
+                value: "15935".to_string(),
+            },
+        ],
+        join_type: None,
+        structured_props: None,
+        buffers: None,
+        children: vec![],
+        indent_level: 0,
+        line_number: 0,
+    };
+    assert_eq!(effective_scan_size(&node), (114.0 * 7.0) + 15935.0);
 }

@@ -75,6 +75,33 @@ pub fn table_name_match(relation: &str, target: &str) -> bool {
     first_identifier(relation) == target
 }
 
+/// Calculate the effective number of rows a scan node EXAMINED (not just output).
+///
+/// `actual.rows` is the OUTPUT row count, artificially low when:
+/// - A parent LIMIT node truncates output
+/// - A Filter removes most rows
+///
+/// This function reconstructs the true scan size:
+/// - No Filter: `estimated.plan_rows` is the full table size
+/// - With Filter: `(actual.rows × loops) + Rows Removed by Filter`
+pub fn effective_scan_size(node: &PlanNode) -> f64 {
+    let has_filter = node.properties.iter().any(|p| p.label == "Filter");
+    if !has_filter {
+        return node.estimated.as_ref().map(|e| e.plan_rows).unwrap_or(0.0);
+    }
+    let actual = match node.actual.as_ref() {
+        Some(a) => a,
+        None => return node.estimated.as_ref().map(|e| e.plan_rows).unwrap_or(0.0),
+    };
+    let rows_removed: f64 = node
+        .properties
+        .iter()
+        .find(|p| p.label == "Rows Removed by Filter")
+        .and_then(|p| p.value.trim().parse::<f64>().ok())
+        .unwrap_or(0.0);
+    (actual.rows * actual.loops) + rows_removed
+}
+
 /// Find a property value by label.
 pub fn get_property_value<'a>(node: &'a PlanNode, label: &str) -> Option<&'a str> {
     node.properties
