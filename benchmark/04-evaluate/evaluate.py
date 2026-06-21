@@ -138,12 +138,33 @@ def get_tool_output_live(case: dict, ogexplain_binary: str) -> dict:
         )
         if result.returncode != 0:
             return {'findings': [], 'source': 'live', 'error': result.stderr.strip()[:200]}
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            return {'findings': [], 'source': 'live', 'error': 'JSON parse failed'}
-        # 适配 ogexplain JSON 结构(findings 字段位置可能变)
-        findings = data.get('findings', data.get('results', []))
+
+        stdout = result.stdout
+        findings = []
+
+        # ogexplain 在输入含 SET 语句时输出多块格式:
+        #   ═══ 第 1/2 块（仅SQL） ═══ {...}
+        #   ═══ 第 2/2 块 ═══ {...}
+        # 需要切分后逐块解析,聚合所有块的 findings。
+        if '═══' in stdout:
+            import re
+            blocks = re.split(r'═{3,}\s*第\s*\d+/\d+\s*块[^═]*═{3,}', stdout)
+            for block in blocks:
+                block = block.strip()
+                if not block:
+                    continue
+                try:
+                    bdata = json.loads(block)
+                    findings.extend(bdata.get('findings', bdata.get('results', [])))
+                except json.JSONDecodeError:
+                    pass
+        else:
+            try:
+                data = json.loads(stdout)
+                findings = data.get('findings', data.get('results', []))
+            except json.JSONDecodeError:
+                return {'findings': [], 'source': 'live', 'error': 'JSON parse failed'}
+
         # 标准化
         norm = []
         for f in findings:
@@ -159,6 +180,25 @@ def get_tool_output_live(case: dict, ogexplain_binary: str) -> dict:
             tmp_path.unlink()
         except FileNotFoundError:
             pass
+
+
+# ------------------------------------------------------------------
+# 环境检测:单节点 centralized 模式下部分规则物理不可触发
+# ------------------------------------------------------------------
+
+ENV_UNREACHABLE_MAP = {
+    'Streaming': ['DIST-001', 'SKEW-001', 'PUSH-001', 'PUSH-002', 'NET-001'],
+    'Adapter': ['VEC-001'],
+}
+
+
+def detect_env_unreachable(explain_text: str) -> set[str]:
+    plan_lines = ' '.join(l for l in explain_text.split('\n') if '(cost=' in l)
+    unreachable = set()
+    for signal, rules in ENV_UNREACHABLE_MAP.items():
+        if signal not in plan_lines:
+            unreachable.update(rules)
+    return unreachable
 
 
 # ------------------------------------------------------------------
@@ -200,10 +240,10 @@ def classify_case(case: dict, tool_output: dict) -> dict:
                 'tp': [],
                 'fp': [],
                 'fn': [],
+                'env_skipped': [],
                 'verdict': 'TN',
             }
         else:
-            # 健康 case 报了问题 = FP
             return {
                 'case_id': case['case_id'],
                 'is_healthy': True,
@@ -212,6 +252,7 @@ def classify_case(case: dict, tool_output: dict) -> dict:
                 'tp': [],
                 'fp': reported,
                 'fn': [],
+                'env_skipped': [],
                 'verdict': 'FP',
             }
 
@@ -221,6 +262,10 @@ def classify_case(case: dict, tool_output: dict) -> dict:
     tp = list(expected_set & reported_set)
     fp = list(reported_set - expected_set)
     fn = list(expected_set - reported_set)
+
+    env_unreachable = detect_env_unreachable(case.get('input', {}).get('explain_output', ''))
+    env_skipped = [r for r in fn if r in env_unreachable]
+    fn = [r for r in fn if r not in env_unreachable]
 
     if not expected_set:
         # GT 没有规则但 case 非健康(异常,理论不应发生)
@@ -246,6 +291,7 @@ def classify_case(case: dict, tool_output: dict) -> dict:
         'tp': tp,
         'fp': fp,
         'fn': fn,
+        'env_skipped': env_skipped,
         'verdict': verdict,
     }
 
@@ -539,6 +585,19 @@ def main():
     if args.limit:
         cases = cases[:args.limit]
     print(f"[load] {len(cases)} cases from {cases_dir}", file=sys.stderr)
+
+    skipped_ids = []
+    filtered = []
+    for case in cases:
+        run_warnings = case.get('_auto_eval', {}).get('run_warnings', [])
+        if run_warnings:
+            skipped_ids.append(case['case_id'])
+        else:
+            filtered.append(case)
+    if skipped_ids:
+        cases = filtered
+        print(f"[skip] {len(skipped_ids)} cases excluded (run_warnings): {skipped_ids}", file=sys.stderr)
+
     if args.mode == 'mock':
         get_tool_output_mock._noise = args.mock_noise
         print(f"[mock-noise] {args.mock_noise}", file=sys.stderr)
@@ -566,9 +625,13 @@ def main():
 
     # 汇总
     report = build_report(classifications, cases)
+    env_skipped_total = sum(len(cls.get('env_skipped', [])) for cls in classifications)
     print(f"[report] {len(classifications)} classifications, "
           f"case-F1={report['case_level']['f1']:.1%}, rule-F1={report['rule_level']['f1']:.1%}",
           file=sys.stderr)
+    if env_skipped_total > 0:
+        print(f"[env] {env_skipped_total} FN excluded as environmentally unreachable "
+              f"(no Streaming/Adapter nodes in EXPLAIN)", file=sys.stderr)
 
     # 输出报告
     md = render_markdown_report(report, classifications, cases, args.mode)
