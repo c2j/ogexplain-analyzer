@@ -1,3 +1,6 @@
 /target
 /lib/openGauss-server
 /examples/gauss
+
+# macOS
+.DS_Store
