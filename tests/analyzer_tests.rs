@@ -373,6 +373,22 @@ fn gen_001_triggers_on_deep_plan_with_custom_config() {
     );
 }
 
+#[test]
+fn sort_003_fires_on_nested_sort_with_different_keys() {
+    // SORT-003 "Duplicate sort" fires on ANY sort-within-sort, not just
+    // identical keys — the rule name is misleading.
+    let report = analyze_fixture("20_deep_plan.txt");
+    let finding = get_finding(&report, "SORT-003")
+        .expect("Expected SORT-003: outer Sort wraps inner Sort in subtree");
+    assert_eq!(finding.severity, Severity::Warning);
+    assert_eq!(finding.category, DiagnosticCategory::SortEfficiency);
+    assert!(
+        finding.detail.contains("redundant sorting"),
+        "detail should report redundant sorting, got: {}",
+        finding.detail
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Config customization tests
 // ---------------------------------------------------------------------------
