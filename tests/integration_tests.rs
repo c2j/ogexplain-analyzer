@@ -147,20 +147,21 @@ fn fixture_10_complex_plan_has_expected_findings() {
     assert!(!plan.root.children.is_empty());
 
     let report = analyze(&plan);
+    // line_items SeqScan with Filter → SCAN-004 (filter without index) fires
     assert!(
-        has_rule(&report, "SCAN-001"),
-        "Expected SCAN-001 for large Seq Scan on line_items"
+        has_rule(&report, "SCAN-004"),
+        "Expected SCAN-004 for filtered Seq Scan on line_items (1000000 rows removed)"
     );
     assert!(
         has_rule(&report, "MEM-001"),
         "Expected MEM-001 for external merge sort"
     );
 
-    // Verify the SCAN-001 finding targets the right relation
+    // Verify the SCAN-004 finding targets the right relation
     let scan_finding = report
         .findings
         .iter()
-        .find(|f| f.rule_id == "SCAN-001")
+        .find(|f| f.rule_id == "SCAN-004")
         .unwrap();
     assert!(scan_finding.detail.contains("line_items"));
 }
@@ -450,8 +451,8 @@ fn full_pipeline_on_complex_plan_produces_suggestions() {
     let plan = parse_fixture("10_complex_plan.txt");
     let report = analyze(&plan);
 
-    // SCAN-001 + MEM-001 should be present.
-    assert!(has_rule(&report, "SCAN-001"));
+    // SCAN-004 (filtered scan) + MEM-001 should be present.
+    assert!(has_rule(&report, "SCAN-004"));
     assert!(has_rule(&report, "MEM-001"));
 
     let suggestions = SuggestionEngine::suggest(&report.findings);
