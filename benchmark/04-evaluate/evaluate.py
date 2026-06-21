@@ -11,17 +11,21 @@ evaluate.py — 评估 ogexplain-analyzer 对 ground-truth case 的诊断准确�
   raw_results.json    — 每条 case 的 tool_output vs ground_truth 对照
   confusion_matrix.csv — TP/FP/FN/TN 按规则展开
 
-用法:
+前置:ground-truth case 由 ogagila 子模块提供,需先初始化:
+  git submodule update --init lib/ogagila
+
+用法(从仓库根调用):
+
   # Mock 模式(不需要编译 ogexplain,用于快速验证数据集)
-  python3 evaluate.py --mode mock \\
-    --cases ../03-build/cases/ \\
-    --output ./
+  python3 benchmark/04-evaluate/evaluate.py --mode mock \\
+    --cases lib/ogagila/benchmark/v1/cases/ \\
+    --output benchmark/04-evaluate/
 
   # Live 模式(真实评估)
-  python3 evaluate.py --mode live \\
-    --cases ../03-build/cases/ \\
-    --output ./ \\
-    --ogexplain-binary ../../target/release/ogexplain
+  python3 benchmark/04-evaluate/evaluate.py --mode live \\
+    --cases lib/ogagila/benchmark/v1/cases/ \\
+    --output benchmark/04-evaluate/ \\
+    --ogexplain-binary target/release/ogexplain
 """
 from __future__ import annotations
 
