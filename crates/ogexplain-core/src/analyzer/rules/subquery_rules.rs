@@ -46,12 +46,10 @@ impl DiagnosticRule for SubqueryNotPulledUp {
             ));
         }
 
-        if (node.node_type == NodeType::Result || node.node_type == NodeType::VectorResult)
-            && any_property_contains(node, "SubPlan")
-        {
+        if any_property_contains(node, "SubPlan") {
             return Some(make_finding(
                 self,
-                "检测到未提升的子查询(SubPlan in Result)".to_string(),
+                format!("检测到未提升的子查询(SubPlan in {})", node.node_type),
                 node,
                 Some(
                     "/*+ EXPAND_SUBLINK */ 提升子链接; /*+ USE_MAGIC_SET */ 优化关联子查询"

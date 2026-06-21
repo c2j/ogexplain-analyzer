@@ -827,14 +827,21 @@ fn scan_001_triggers_for_limit_bound_seq_scan() {
 #[test]
 fn scan_001_triggers_for_filter_high_selectivity() {
     // Seq Scan on payment: actual.rows=114 loops=7, Filter: amount>10, Rows Removed: 15935
-    // effective_scan_size = (114*7) + 15935 = 16733 > 10000 → fire
+    // Filtered scans now belong to SCAN-004, not SCAN-001.
+    // SCAN-004 fires when rows_removed (15935) > threshold (10000).
     let report = analyze_fixture("34_filter_high_selectivity.txt");
-    let finding = get_finding(&report, "SCAN-001")
-        .expect("SCAN-001 should fire for 16733 effective rows (filter high selectivity)");
+    // SCAN-001 should NOT fire for filtered scans
+    assert!(
+        !has_finding(&report, "SCAN-001"),
+        "SCAN-001 should not fire for filtered scan"
+    );
+    // SCAN-004 should fire for filter removing many rows
+    let finding = get_finding(&report, "SCAN-004")
+        .expect("SCAN-004 should fire for filter without index removing 15935 rows");
     assert_eq!(finding.severity, Severity::Warning);
     assert!(
-        finding.detail.contains("16733") || finding.detail.contains("scanned"),
-        "detail should mention effective scan size, got: {}",
+        finding.detail.contains("15935"),
+        "detail should mention rows removed count, got: {}",
         finding.detail
     );
 }

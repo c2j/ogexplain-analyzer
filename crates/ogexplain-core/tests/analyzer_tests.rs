@@ -26,18 +26,20 @@ fn has_rule(report: &ogexplain_core::analyzer::report::DiagnosticReport, rule_id
 fn complex_plan_has_findings() {
     let report = analyze_fixture("10_complex_plan.txt");
     assert!(!report.findings.is_empty());
-    assert!(has_rule(&report, "SCAN-001"));
+    // line_items SeqScan has Filter → SCAN-004 fires, not SCAN-001
+    assert!(has_rule(&report, "SCAN-004"));
     assert!(has_rule(&report, "MEM-001"));
 }
 
 #[test]
 fn scan_001_large_table_full_scan() {
+    // Fixture 10's line_items scan has Filter → SCAN-004 (filter without index) fires instead
     let report = analyze_fixture("10_complex_plan.txt");
     let finding = report
         .findings
         .iter()
-        .find(|f| f.rule_id == "SCAN-001")
-        .unwrap();
+        .find(|f| f.rule_id == "SCAN-004")
+        .expect("SCAN-004 should fire for filtered scan on line_items");
     assert_eq!(finding.severity, Severity::Warning);
     assert!(finding.detail.contains("line_items"));
     assert!(finding.suggestion.is_some());
