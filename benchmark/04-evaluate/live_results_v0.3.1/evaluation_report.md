@@ -1,6 +1,6 @@
 # ogexplain-analyzer Diagnostic Accuracy Report
 
-**Generated:** 2026-06-20T16:32:06.167901+00:00
+**Generated:** 2026-06-21T07:01:45.266946+00:00
 **Mode:** live
 **Cases:** 97 (82 problematic + 15 healthy)
 
