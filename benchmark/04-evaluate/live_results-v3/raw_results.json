@@ -1,0 +1,2377 @@
+{
+  "generated_at": "2026-06-21T12:17:27.578260+00:00",
+  "mode": "live",
+  "summary": {
+    "case_level": {
+      "tp": 28,
+      "fp": 3,
+      "fn": 22,
+      "tn": 35,
+      "precision": 0.9032258064516129,
+      "recall": 0.56,
+      "f1": 0.691358024691358
+    },
+    "rule_level": {
+      "tp": 33,
+      "fp": 21,
+      "fn": 15,
+      "precision": 0.6111111111111112,
+      "recall": 0.6875,
+      "f1": 0.6470588235294118
+    },
+    "per_rule_count": 11
+  },
+  "results": [
+    {
+      "case_id": "OGEXP-GT-2026-0001",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16472 rows (threshold: 10000)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0001",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-001"
+        ],
+        "reported_rules": [
+          "SCAN-001"
+        ],
+        "tp": [
+          "SCAN-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0002",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 8057 rows but got 10 (ratio: 805.7x), Rows Removed by Filter: 17"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0002",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0003",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on inventory with Filter: estimated 461 rows but got 454 (ratio: 1.0x), Rows Removed by Filter: 4127"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0003",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0004",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0004",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-001"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-001"
+        ],
+        "fn": [
+          "SCAN-004"
+        ],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0005",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0005",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "SCAN-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0006",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on address with Filter: estimated 9 rows but got 9 (ratio: 1.0x), Rows Removed by Filter: 594"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0006",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0007",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0007",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "SCAN-004"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0008",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 107 rows but got 114 (ratio: 0.9x), Rows Removed by Filter: 15935"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0008",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0009",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 188 rows but got 0 (ratio: infx), Rows Removed by Filter: 16044"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0009",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0010",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on customer with Filter: estimated 1 rows but got 0 (ratio: infx), Rows Removed by Filter: 599"
+          },
+          {
+            "rule_id": "TYPE-004",
+            "severity": "Warning",
+            "category": "TypeMismatch",
+            "detail": "过滤条件含前导通配符 LIKE '%@example.org', 无法使用 B-tree 索引"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0010",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "reported_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "tp": [
+          "TYPE-004",
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0011",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 3096 rows but got 10 (ratio: 309.6x), Rows Removed by Filter: 36"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0011",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0012",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on staff with Filter: estimated 1 rows but got 0 (ratio: infx), Rows Removed by Filter: 1500"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0012",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0013",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on city with Filter: estimated 2 rows but got 2 (ratio: 1.0x), Rows Removed by Filter: 598"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0013",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0014",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 111 rows but got 106 (ratio: 1.0x), Rows Removed by Filter: 894"
+          },
+          {
+            "rule_id": "TYPE-004",
+            "severity": "Warning",
+            "category": "TypeMismatch",
+            "detail": "过滤条件含前导通配符 LIKE '%Drama%', 无法使用 B-tree 索引 (前后均有通配符)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0014",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "reported_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "tp": [
+          "TYPE-004",
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0015",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0015",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0016",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0016",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0017",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "JOIN-001",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Inner side processed 278 rows × 16049 loops = 4461622 total rows (threshold: 10000), 内表已有索引"
+          },
+          {
+            "rule_id": "EST-001",
+            "severity": "Critical",
+            "category": "CostMisestimation",
+            "detail": "rental: actual 278 rows vs estimated 1 rows (278.0x 低估)"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0017",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-001",
+          "SCAN-001",
+          "EST-001"
+        ],
+        "reported_rules": [
+          "JOIN-001",
+          "EST-001",
+          "SCAN-001"
+        ],
+        "tp": [
+          "JOIN-001",
+          "SCAN-001",
+          "EST-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0018",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 223 rows but got 4 (ratio: 55.8x), Rows Removed by Filter: 25"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0018",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-001",
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [
+          "JOIN-001"
+        ],
+        "env_skipped": [],
+        "verdict": "TP+FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0019",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0019",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0020",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 15145 rows but got 14706 (ratio: 1.0x), Rows Removed by Filter: 1338"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0020",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-002"
+        ],
+        "reported_rules": [
+          "JOIN-002",
+          "SCAN-004"
+        ],
+        "tp": [
+          "JOIN-002"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0021",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 3957 rows but got 3957 (ratio: 1.0x), Rows Removed by Filter: 12092"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0021",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-002"
+        ],
+        "reported_rules": [
+          "JOIN-002",
+          "JOIN-002",
+          "JOIN-002",
+          "JOIN-002",
+          "SCAN-004"
+        ],
+        "tp": [
+          "JOIN-002"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0022",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 8 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          },
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 2 batches (spilled to disk). Memory Usage: unknown"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0022",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-002"
+        ],
+        "reported_rules": [
+          "JOIN-002",
+          "JOIN-002",
+          "JOIN-002"
+        ],
+        "tp": [
+          "JOIN-002"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0023",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "JOIN-002",
+            "severity": "Critical",
+            "category": "JoinStrategy",
+            "detail": "Hash used 32 batches (spilled to disk). Memory Usage: unknown"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0023",
+        "is_healthy": false,
+        "expected_rules": [
+          "JOIN-002"
+        ],
+        "reported_rules": [
+          "JOIN-002"
+        ],
+        "tp": [
+          "JOIN-002"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0024",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0024",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0025",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0025",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0026",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0026",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0027",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0027",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0028",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0028",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0029",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0029",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0030",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0030",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0031",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0031",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0032",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "TYPE-001",
+            "severity": "Critical",
+            "category": "TypeMismatch",
+            "detail": "Seq Scan 含过滤条件 '(staff_id = 2)' (varchar(staff_id) = int值), 过滤掉 8040 行 (共 16044 行) — 疑似隐式类型转换导致无法使用索引"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 8254 rows but got 8040 (ratio: 1.0x), Rows Removed by Filter: 8004"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 8218 rows but got 8004 (ratio: 1.0x), Rows Removed by Filter: 8040"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0032",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [
+          "TYPE-001",
+          "SCAN-004",
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "TYPE-001",
+          "SCAN-004",
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0033",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0033",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0034",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0034",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "SCAN-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0035",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0035",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "SCAN-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0036",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 27 rows but got 549 (ratio: 0.0x), Rows Removed by Filter: 320331"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0036",
+        "is_healthy": false,
+        "expected_rules": [
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SUBQ-001",
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [
+          "SUBQ-001"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0044",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0044",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0045",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0045",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0046",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0046",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0047",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0047",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0048",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 1 rows but got 0 (ratio: infx), Rows Removed by Filter: 1000"
+          },
+          {
+            "rule_id": "TYPE-004",
+            "severity": "Warning",
+            "category": "TypeMismatch",
+            "detail": "过滤条件含前导通配符 LIKE '%Action%', 无法使用 B-tree 索引 (前后均有通配符)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0048",
+        "is_healthy": false,
+        "expected_rules": [
+          "TYPE-004"
+        ],
+        "reported_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "tp": [
+          "TYPE-004"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0049",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "TYPE-004",
+            "severity": "Warning",
+            "category": "TypeMismatch",
+            "detail": "过滤条件含前导通配符 LIKE '%son%', 无法使用 B-tree 索引 (前后均有通配符)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0049",
+        "is_healthy": false,
+        "expected_rules": [
+          "TYPE-004"
+        ],
+        "reported_rules": [
+          "TYPE-004"
+        ],
+        "tp": [
+          "TYPE-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0050",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on customer with Filter: estimated 1 rows but got 0 (ratio: infx), Rows Removed by Filter: 599"
+          },
+          {
+            "rule_id": "TYPE-004",
+            "severity": "Warning",
+            "category": "TypeMismatch",
+            "detail": "过滤条件含前导通配符 LIKE '%@example.org', 无法使用 B-tree 索引"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0050",
+        "is_healthy": false,
+        "expected_rules": [
+          "TYPE-004"
+        ],
+        "reported_rules": [
+          "SCAN-004",
+          "TYPE-004"
+        ],
+        "tp": [
+          "TYPE-004"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0051",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0051",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "PUSH-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0052",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 5 rows but got 1 (ratio: 5.0x), Rows Removed by Filter: 999"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0052",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-001"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [
+          "PUSH-001"
+        ],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0053",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 5350 rows but got 10 (ratio: 535.0x), Rows Removed by Filter: 35"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0053",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-001",
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [
+          "SCAN-004"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "PUSH-001"
+        ],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0054",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 194 rows but got 194 (ratio: 1.0x), Rows Removed by Filter: 806"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0054",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-002",
+          "SCAN-001"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [
+          "SCAN-001"
+        ],
+        "env_skipped": [
+          "PUSH-002"
+        ],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0055",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          },
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0055",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-002",
+          "SCAN-004"
+        ],
+        "reported_rules": [
+          "SUBQ-001",
+          "SUBQ-001"
+        ],
+        "tp": [],
+        "fp": [
+          "SUBQ-001"
+        ],
+        "fn": [
+          "SCAN-004"
+        ],
+        "env_skipped": [
+          "PUSH-002"
+        ],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0056",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0056",
+        "is_healthy": false,
+        "expected_rules": [
+          "PUSH-002",
+          "SCAN-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "SCAN-001"
+        ],
+        "env_skipped": [
+          "PUSH-002"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0057",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 80 rows but got 2713 (ratio: 0.0x), Rows Removed by Filter: 13336"
+          },
+          {
+            "rule_id": "PART-001",
+            "severity": "Warning",
+            "category": "DistributionIssue",
+            "detail": "分区表有过滤条件但扫描了全部 7 个分区 (1..7), 分区键可能被函数/表达式包装导致无法裁剪"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0057",
+        "is_healthy": false,
+        "expected_rules": [
+          "PART-001"
+        ],
+        "reported_rules": [
+          "SCAN-004",
+          "PART-001"
+        ],
+        "tp": [
+          "PART-001"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0058",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0058",
+        "is_healthy": false,
+        "expected_rules": [
+          "PART-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "PART-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0059",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment with Filter: estimated 12929 rows but got 12930 (ratio: 1.0x), Rows Removed by Filter: 3119"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0059",
+        "is_healthy": false,
+        "expected_rules": [
+          "PART-001",
+          "SCAN-001"
+        ],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [
+          "SCAN-001",
+          "PART-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0060",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0060",
+        "is_healthy": false,
+        "expected_rules": [
+          "PART-001"
+        ],
+        "reported_rules": [
+          "SCAN-001"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-001"
+        ],
+        "fn": [
+          "PART-001"
+        ],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0061",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 27 rows but got 549 (ratio: 0.0x), Rows Removed by Filter: 320331"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0061",
+        "is_healthy": false,
+        "expected_rules": [
+          "SUBQ-001"
+        ],
+        "reported_rules": [
+          "SUBQ-001",
+          "SCAN-004"
+        ],
+        "tp": [
+          "SUBQ-001"
+        ],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0062",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0062",
+        "is_healthy": false,
+        "expected_rules": [
+          "SUBQ-001"
+        ],
+        "reported_rules": [
+          "SUBQ-001"
+        ],
+        "tp": [
+          "SUBQ-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0063",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in PartitionedSeqScan)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0063",
+        "is_healthy": false,
+        "expected_rules": [
+          "SUBQ-001"
+        ],
+        "reported_rules": [
+          "SUBQ-001"
+        ],
+        "tp": [
+          "SUBQ-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0064",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SUBQ-006",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到关联子查询自引用UPDATE (表: rental), SubPlan存在: true, 同表扫描: true"
+          },
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0064",
+        "is_healthy": false,
+        "expected_rules": [
+          "SUBQ-006"
+        ],
+        "reported_rules": [
+          "SUBQ-006",
+          "SUBQ-001"
+        ],
+        "tp": [
+          "SUBQ-006"
+        ],
+        "fp": [
+          "SUBQ-001"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0065",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "EST-001",
+            "severity": "Critical",
+            "category": "CostMisestimation",
+            "detail": "Aggregate: actual 599 rows vs estimated 1 rows (599.0x 低估)"
+          },
+          {
+            "rule_id": "EST-001",
+            "severity": "Critical",
+            "category": "CostMisestimation",
+            "detail": "rental: actual 16044 rows vs estimated 27 rows (594.2x 低估)"
+          },
+          {
+            "rule_id": "SUBQ-006",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到关联子查询自引用UPDATE (表: customer), SubPlan存在: true, 同表扫描: true"
+          },
+          {
+            "rule_id": "SUBQ-001",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到未提升的子查询(SubPlan in SeqScan)"
+          },
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 27 rows but got 16044 (ratio: 0.0x), Rows Removed by Filter: 9594312"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0065",
+        "is_healthy": false,
+        "expected_rules": [
+          "SUBQ-006",
+          "EST-001"
+        ],
+        "reported_rules": [
+          "EST-001",
+          "EST-001",
+          "SUBQ-006",
+          "SUBQ-001",
+          "SCAN-004"
+        ],
+        "tp": [
+          "SUBQ-006",
+          "EST-001"
+        ],
+        "fp": [
+          "SCAN-004",
+          "SUBQ-001"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TP+FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0066",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0066",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0067",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0067",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0068",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0068",
+        "is_healthy": false,
+        "expected_rules": [
+          "VEC-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "VEC-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0069",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0069",
+        "is_healthy": false,
+        "expected_rules": [
+          "VEC-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "VEC-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0070",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0070",
+        "is_healthy": false,
+        "expected_rules": [
+          "VEC-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "VEC-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0071",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0071",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0072",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0072",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0073",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0073",
+        "is_healthy": false,
+        "expected_rules": [
+          "AGG-002"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "AGG-002"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0074",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0074",
+        "is_healthy": false,
+        "expected_rules": [
+          "AGG-002"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "AGG-002"
+        ],
+        "env_skipped": [],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0075",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0075",
+        "is_healthy": false,
+        "expected_rules": [
+          "DIST-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "DIST-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0076",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0076",
+        "is_healthy": false,
+        "expected_rules": [
+          "DIST-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "DIST-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0077",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0077",
+        "is_healthy": false,
+        "expected_rules": [
+          "SKEW-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "SKEW-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0078",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0078",
+        "is_healthy": false,
+        "expected_rules": [
+          "SKEW-001"
+        ],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [
+          "SKEW-001"
+        ],
+        "verdict": "FN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0081",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0081",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0082",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0082",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0083",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0083",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0084",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0084",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0085",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0085",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0086",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0086",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0087",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0087",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0088",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0088",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0089",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0089",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0090",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0090",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0091",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental with Filter: estimated 188 rows but got 0 (ratio: infx), Rows Removed by Filter: 16044"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0091",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0092",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0092",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0093",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0093",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0094",
+      "tool_output": {
+        "findings": [
+          {
+            "rule_id": "SCAN-004",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on film with Filter: estimated 223 rows but got 223 (ratio: 1.0x), Rows Removed by Filter: 777"
+          }
+        ],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0094",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [
+          "SCAN-004"
+        ],
+        "tp": [],
+        "fp": [
+          "SCAN-004"
+        ],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "FP"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0095",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0095",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0096",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0096",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    },
+    {
+      "case_id": "OGEXP-GT-2026-0097",
+      "tool_output": {
+        "findings": [],
+        "source": "live"
+      },
+      "classification": {
+        "case_id": "OGEXP-GT-2026-0097",
+        "is_healthy": true,
+        "expected_rules": [],
+        "reported_rules": [],
+        "tp": [],
+        "fp": [],
+        "fn": [],
+        "env_skipped": [],
+        "verdict": "TN"
+      }
+    }
+  ]
+}

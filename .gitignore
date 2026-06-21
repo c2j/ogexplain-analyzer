@@ -4,3 +4,10 @@
 
 # macOS
 .DS_Store
+
+# Benchmark evaluation artifacts (regenerated each run)
+benchmark/04-evaluate/evaluation_report.md
+benchmark/04-evaluate/raw_results.json
+benchmark/04-evaluate/confusion_matrix.csv
+benchmark/04-evaluate/per_rule_metrics.json
+benchmark/04-evaluate/live_results-latest/
