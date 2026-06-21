@@ -28,41 +28,49 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
         let filter_prop = node.properties.iter().find(|p| p.label == "Filter")?;
         let filter_value = &filter_prop.value;
 
-        let re = Regex::new(r"\w+\s*=\s*\d+(\.\d+)?\b").ok()?;
-        if !re.is_match(filter_value) {
+        // Match both bare numeric AND quoted string literal comparisons
+        // Pattern 1: col = 123 (bare int, possible varchar col compared to int)
+        // Pattern 2: col = '123' (quoted string that looks numeric, possible int col compared to string)
+        let re_bare = Regex::new(r"\w+\s*=\s*\d+(\.\d+)?\b").ok()?;
+        let re_quoted = Regex::new(r"\w+\s*=\s*'[^']*'").ok()?;
+
+        if !re_bare.is_match(filter_value) && !re_quoted.is_match(filter_value) {
             return None;
         }
 
+        // Use RELATIVE threshold instead of absolute: filter must remove >50% of scanned rows
         let rows_removed = node
             .properties
             .iter()
             .find(|p| p.label == "Rows Removed by Filter")
-            .and_then(|p| p.value.trim().parse::<f64>().ok())?;
-        if rows_removed <= 1000.0 {
+            .and_then(|p| p.value.trim().parse::<f64>().ok());
+
+        let actual_rows = node.actual.as_ref().map(|a| a.rows).unwrap_or(0.0);
+        let total_scanned = rows_removed.unwrap_or(0.0) + actual_rows;
+
+        let rows_removed = rows_removed?;
+        // Minimum absolute threshold to avoid noise
+        if rows_removed <= 10.0 {
+            return None;
+        }
+        // Removal ratio must exceed 50% to be significant
+        if total_scanned > 0.0 && rows_removed / total_scanned <= 0.5 {
             return None;
         }
 
-        let mismatch = detect_type_mismatch(filter_value);
+        // Require a detected type mismatch — harmless string comparisons (e.g., status = 'pending')
+        // should not fire. Only flag when actual type coercion is suspected.
+        let mismatch = detect_type_mismatch(filter_value)?;
 
         let detail = format!(
-            "Seq Scan 含过滤条件 '{}' ({}), 过滤掉 {} 行 — 疑似隐式类型转换导致无法使用索引",
+            "Seq Scan 含过滤条件 '{}' ({}), 过滤掉 {} 行 (共 {} 行) — 疑似隐式类型转换导致无法使用索引",
             filter_value,
-            mismatch
-                .as_ref()
-                .map(|m| m.description())
-                .unwrap_or_else(|| "类型不匹配".to_string()),
-            rows_removed
+            mismatch.description(),
+            rows_removed as i64,
+            total_scanned as i64
         );
 
-        let suggestion = mismatch
-            .as_ref()
-            .map(|m| m.fix_suggestion())
-            .unwrap_or_else(|| {
-                format!(
-                    "WHERE 条件存在类型不匹配: {}, 隐式转换导致无法使用索引; 添加显式类型转换",
-                    filter_value
-                )
-            });
+        let suggestion = mismatch.fix_suggestion();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -72,6 +80,7 @@ struct TypeMismatch {
     column: String,
     value_type: String,
     expected_type: String,
+    literal_value: String,
 }
 
 impl TypeMismatch {
@@ -85,25 +94,45 @@ impl TypeMismatch {
     fn fix_suggestion(&self) -> String {
         match self.value_type.as_str() {
             "int" => format!(
-                "WHERE {} = N — 疑似 varchar 列用 int 值比较, 改为 WHERE {} = 'N'",
-                self.column, self.column
+                "WHERE {} = {} — 疑似 varchar 列用 int 值比较, 改为 WHERE {} = '{}'",
+                self.column, self.literal_value, self.column, self.literal_value
             ),
-            _ => format!(
-                "添加显式类型转换: WHERE {} = value::{}",
-                self.column, self.expected_type
+            "string_literal" => format!(
+                "WHERE {} = '{}' — 疑似 numeric 列用 string 值比较, 改为 WHERE {} = {}",
+                self.column, self.literal_value, self.column, self.literal_value
             ),
+            _ => format!("添加显式类型转换: WHERE {} = value::{}", self.column, self.expected_type),
         }
     }
 }
 
 fn detect_type_mismatch(filter: &str) -> Option<TypeMismatch> {
+    // Direction 1: string literal compared to column (e.g., int_col = '42')
+    let re_str = Regex::new(r"(\w+)\s*=\s*'([^']*)'").ok()?;
+    if let Some(cap) = re_str.captures(filter) {
+        let col = cap.get(1)?.as_str().to_string();
+        let val = cap.get(2)?.as_str().to_string();
+        // If the string literal is a numeric string, likely an int column compared to string
+        if val.parse::<f64>().is_ok() {
+            return Some(TypeMismatch {
+                column: col,
+                value_type: "string_literal".to_string(),
+                expected_type: "numeric".to_string(),
+                literal_value: val,
+            });
+        }
+    }
+
+    // Direction 2: bare numeric compared to column (e.g., varchar_col = 42)
     let re_int = Regex::new(r"(\w+)\s*=\s*(\d+)\b").ok()?;
     if let Some(cap) = re_int.captures(filter) {
         let col = cap.get(1)?.as_str().to_string();
+        let val = cap.get(2)?.as_str().to_string();
         return Some(TypeMismatch {
             column: col,
             value_type: "int".to_string(),
             expected_type: "varchar".to_string(),
+            literal_value: val,
         });
     }
     None
