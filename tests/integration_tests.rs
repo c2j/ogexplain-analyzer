@@ -388,8 +388,26 @@ fn fixture_21_regression_test_raw_parses_and_analyzes() {
     assert!(matches!(plan.root.node_type, NodeType::RowAdapter));
 
     let report = analyze(&plan);
-    // CStore scans and adapters are present; adapter count may or may not trigger VEC-001
-    // depending on how many adapters are detected. Just ensure analysis runs.
+
+    let vec_finding = report
+        .findings
+        .iter()
+        .find(|f| f.rule_id == "VEC-001")
+        .expect("Expected VEC-001: Row Adapter boundary between row/vector engines");
+    assert_eq!(vec_finding.severity, Severity::Warning);
+    assert_eq!(vec_finding.category, DiagnosticCategory::Vectorization);
+
+    let subq_finding = report
+        .findings
+        .iter()
+        .find(|f| f.rule_id == "SUBQ-001")
+        .expect("Expected SUBQ-001: correlated SubPlan with Filter (a = t1.a)");
+    assert_eq!(subq_finding.severity, Severity::Warning);
+    assert_eq!(
+        subq_finding.category,
+        DiagnosticCategory::SubqueryStructure
+    );
+
     assert!(report.stats.total_nodes > 0);
 }
 
