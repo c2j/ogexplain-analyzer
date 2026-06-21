@@ -10,6 +10,10 @@ mod subquery_rules;
 mod type_coercion_rules;
 pub mod utils;
 mod vectorization_rules;
+mod aggregate_rules;
+mod partition_rules;
+mod stats_rules;
+mod distribution_rules;
 
 use super::config::DiagnosticConfig;
 use super::context::GlobalStats;
@@ -64,6 +68,12 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
         Box::new(subquery_rules::SubqueryNotPulledUp),
         Box::new(subquery_rules::LargeInListNotConverted::new()),
         Box::new(subquery_rules::CorrelatedSubquerySelfUpdate),
+        Box::new(aggregate_rules::GroupAggregateShouldBeHash),
+        Box::new(aggregate_rules::HashAggregateSpillToDisk),
+        Box::new(partition_rules::PartitionPruningFailure),
+        Box::new(stats_rules::StatsNotCollected),
+        Box::new(distribution_rules::DistributionColumnMismatch),
+        Box::new(distribution_rules::DataSkewDetected),
         Box::new(super::pattern::AntiPatternRule::new()),
     ]
 }
