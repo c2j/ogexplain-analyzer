@@ -92,7 +92,7 @@ fn find_table_alias(from: &[TableRef], table_name: &str) -> Option<String> {
     for table_ref in from {
         if let TableRef::Table { name, alias, .. } = table_ref {
             if object_name_to_string(name) == table_name {
-                return alias.clone();
+                return alias.as_ref().map(|a| a.value.clone());
             }
         }
     }
@@ -170,9 +170,7 @@ fn is_qualified_ref(name: &ObjectName, target_table: &str, alias: Option<&str>) 
 }
 
 fn get_column_name(name: &ObjectName) -> String {
-    name.last()
-        .map(|i| i.value.clone())
-        .unwrap_or_default()
+    name.last().map(|i| i.value.clone()).unwrap_or_default()
 }
 
 fn extract_set_columns(columns: &[ObjectName]) -> Vec<String> {

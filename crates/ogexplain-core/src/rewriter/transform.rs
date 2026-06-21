@@ -74,7 +74,7 @@ fn rewrite_assignments(
 
     update.from.push(TableRef::Subquery {
         query: Box::new(enriched_subquery),
-        alias: Some(SUBQUERY_ALIAS.to_string()),
+        alias: Some(Ident::new(SUBQUERY_ALIAS)),
         lateral: false,
     });
 
@@ -161,12 +161,10 @@ fn ensure_correlation_in_select(subquery: &mut SelectStatement, columns: &[Strin
 
     for col in columns {
         if !existing_cols.contains(col) {
-            subquery
-                .targets
-                .push(SelectTarget::Expr(
-                    Expr::ColumnRef(vec![col.clone().into()]),
-                    None,
-                ));
+            subquery.targets.push(SelectTarget::Expr(
+                Expr::ColumnRef(vec![col.clone().into()]),
+                None,
+            ));
         }
     }
 }
