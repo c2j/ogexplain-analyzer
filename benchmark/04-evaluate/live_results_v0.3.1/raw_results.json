@@ -1,23 +1,23 @@
 {
-  "generated_at": "2026-06-20T14:35:21.358608+00:00",
+  "generated_at": "2026-06-21T07:01:45.269919+00:00",
   "mode": "live",
   "summary": {
     "case_level": {
-      "tp": 7,
-      "fp": 0,
-      "fn": 75,
-      "tn": 15,
-      "precision": 1.0,
-      "recall": 0.08536585365853659,
-      "f1": 0.15730337078651685
+      "tp": 10,
+      "fp": 1,
+      "fn": 72,
+      "tn": 14,
+      "precision": 0.9090909090909091,
+      "recall": 0.12195121951219512,
+      "f1": 0.21505376344086022
     },
     "rule_level": {
-      "tp": 7,
-      "fp": 30,
-      "fn": 75,
-      "precision": 0.1891891891891892,
-      "recall": 0.08536585365853659,
-      "f1": 0.11764705882352941
+      "tp": 10,
+      "fp": 31,
+      "fn": 72,
+      "precision": 0.24390243902439024,
+      "recall": 0.12195121951219512,
+      "f1": 0.16260162601626016
     },
     "per_rule_count": 25
   },
@@ -25,7 +25,14 @@
     {
       "case_id": "OGEXP-GT-2026-0001",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16472 rows (threshold: 10000)"
+          }
+        ],
         "source": "live"
       },
       "classification": {
@@ -34,13 +41,15 @@
         "expected_rules": [
           "SCAN-001"
         ],
-        "reported_rules": [],
-        "tp": [],
-        "fp": [],
-        "fn": [
+        "reported_rules": [
           "SCAN-001"
         ],
-        "verdict": "FN"
+        "tp": [
+          "SCAN-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "verdict": "TP"
       }
     },
     {
@@ -99,7 +108,14 @@
     {
       "case_id": "OGEXP-GT-2026-0004",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
+          }
+        ],
         "source": "live"
       },
       "classification": {
@@ -108,13 +124,15 @@
         "expected_rules": [
           "SCAN-001"
         ],
-        "reported_rules": [],
-        "tp": [],
-        "fp": [],
-        "fn": [
+        "reported_rules": [
           "SCAN-001"
         ],
-        "verdict": "FN"
+        "tp": [
+          "SCAN-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "verdict": "TP"
       }
     },
     {
@@ -183,7 +201,14 @@
     {
       "case_id": "OGEXP-GT-2026-0008",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16733 rows (threshold: 10000), Filter: (amount > 10.00), Rows Removed by Filter: 15935"
+          }
+        ],
         "source": "live"
       },
       "classification": {
@@ -192,19 +217,28 @@
         "expected_rules": [
           "SCAN-001"
         ],
-        "reported_rules": [],
-        "tp": [],
-        "fp": [],
-        "fn": [
+        "reported_rules": [
           "SCAN-001"
         ],
-        "verdict": "FN"
+        "tp": [
+          "SCAN-001"
+        ],
+        "fp": [],
+        "fn": [],
+        "verdict": "TP"
       }
     },
     {
       "case_id": "OGEXP-GT-2026-0009",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16044 rows (threshold: 10000), Filter: (return_date IS NULL), Rows Removed by Filter: 16044"
+          }
+        ],
         "source": "live"
       },
       "classification": {
@@ -213,13 +247,17 @@
         "expected_rules": [
           "SCAN-004"
         ],
-        "reported_rules": [],
+        "reported_rules": [
+          "SCAN-001"
+        ],
         "tp": [],
-        "fp": [],
+        "fp": [
+          "SCAN-001"
+        ],
         "fn": [
           "SCAN-004"
         ],
-        "verdict": "FN"
+        "verdict": "FP"
       }
     },
     {
@@ -361,20 +399,7 @@
     {
       "case_id": "OGEXP-GT-2026-0015",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          },
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -383,18 +408,13 @@
         "expected_rules": [
           "JOIN-001"
         ],
-        "reported_rules": [
-          "SCAN-001",
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "JOIN-001"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -440,16 +460,16 @@
             "detail": "Inner side processed 278 rows × 16049 loops = 4461622 total rows (threshold: 10000), 内表已有索引"
           },
           {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          },
-          {
             "rule_id": "EST-001",
             "severity": "Critical",
             "category": "CostMisestimation",
             "detail": "rental: actual 278 rows vs estimated 1 rows (278.0x 低估)"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -462,8 +482,8 @@
         ],
         "reported_rules": [
           "JOIN-001",
-          "SCAN-001",
-          "EST-001"
+          "EST-001",
+          "SCAN-001"
         ],
         "tp": [
           "JOIN-001"
@@ -719,20 +739,7 @@
     {
       "case_id": "OGEXP-GT-2026-0028",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          },
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -741,18 +748,13 @@
         "expected_rules": [
           "MEM-004"
         ],
-        "reported_rules": [
-          "SCAN-001",
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "MEM-004"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -763,7 +765,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -790,20 +792,7 @@
     {
       "case_id": "OGEXP-GT-2026-0030",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          },
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -812,18 +801,13 @@
         "expected_rules": [
           "MEM-004"
         ],
-        "reported_rules": [
-          "SCAN-001",
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "MEM-004"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -862,6 +846,18 @@
             "severity": "Critical",
             "category": "TypeMismatch",
             "detail": "Seq Scan 含过滤条件 '(staff_id = 2)' (varchar(staff_id) = int值), 过滤掉 8040 行 — 疑似隐式类型转换导致无法使用索引"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16044 rows (threshold: 10000), Filter: (staff_id = 1), Rows Removed by Filter: 8004"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16044 rows (threshold: 10000), Filter: (staff_id = 2), Rows Removed by Filter: 8040"
           }
         ],
         "source": "live"
@@ -874,10 +870,13 @@
         ],
         "reported_rules": [
           "TYPE-001",
-          "TYPE-001"
+          "TYPE-001",
+          "SCAN-001",
+          "SCAN-001"
         ],
         "tp": [],
         "fp": [
+          "SCAN-001",
           "TYPE-001"
         ],
         "fn": [
@@ -894,7 +893,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
+            "detail": "Seq Scan on rental scanned ~16472 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -921,14 +920,7 @@
     {
       "case_id": "OGEXP-GT-2026-0034",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -937,30 +929,19 @@
         "expected_rules": [
           "NET-001"
         ],
-        "reported_rules": [
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "NET-001"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
       "case_id": "OGEXP-GT-2026-0035",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -969,17 +950,13 @@
         "expected_rules": [
           "NET-001"
         ],
-        "reported_rules": [
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "NET-001"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -991,6 +968,12 @@
             "severity": "Warning",
             "category": "ScanEfficiency",
             "detail": "Seq Scan on customer with Filter: estimated 584 rows but got 20 (ratio: 29.2x), Rows Removed by Filter: 1"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~331311 rows (threshold: 10000), Filter: (customer_id = c.customer_id), Rows Removed by Filter: 320331"
           }
         ],
         "source": "live"
@@ -1002,10 +985,12 @@
           "NET-001"
         ],
         "reported_rules": [
-          "SCAN-004"
+          "SCAN-004",
+          "SCAN-001"
         ],
         "tp": [],
         "fp": [
+          "SCAN-001",
           "SCAN-004"
         ],
         "fn": [
@@ -1419,20 +1404,7 @@
     {
       "case_id": "OGEXP-GT-2026-0054",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          },
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -1441,18 +1413,13 @@
         "expected_rules": [
           "PUSH-002"
         ],
-        "reported_rules": [
-          "SCAN-001",
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "PUSH-002"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -1464,6 +1431,12 @@
             "severity": "Warning",
             "category": "ScanEfficiency",
             "detail": "Seq Scan on customer with Filter: estimated 584 rows but got 10 (ratio: 58.4x)"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~162942 rows (threshold: 10000), Filter: (customer_id = c.customer_id), Rows Removed by Filter: 160162"
           }
         ],
         "source": "live"
@@ -1475,10 +1448,12 @@
           "PUSH-002"
         ],
         "reported_rules": [
-          "SCAN-004"
+          "SCAN-004",
+          "SCAN-001"
         ],
         "tp": [],
         "fp": [
+          "SCAN-001",
           "SCAN-004"
         ],
         "fn": [
@@ -1495,7 +1470,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -1522,7 +1497,14 @@
     {
       "case_id": "OGEXP-GT-2026-0057",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on payment scanned ~32327 rows (threshold: 10000), Filter: (date_part('month'::text, payment_date) = 3::double precision), Rows Removed by Filter: 13336"
+          }
+        ],
         "source": "live"
       },
       "classification": {
@@ -1531,13 +1513,17 @@
         "expected_rules": [
           "PART-001"
         ],
-        "reported_rules": [],
+        "reported_rules": [
+          "SCAN-001"
+        ],
         "tp": [],
-        "fp": [],
+        "fp": [
+          "SCAN-001"
+        ],
         "fn": [
           "PART-001"
         ],
-        "verdict": "FN"
+        "verdict": "FP"
       }
     },
     {
@@ -1569,7 +1555,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 12930 rows (threshold: 10000), Filter: ((payment_date >= '2022-03-01 00:00:00+00'::timestamp with time zone) OR (customer_id = 100))"
+            "detail": "Seq Scan on payment scanned ~93629 rows (threshold: 10000), Filter: ((payment_date >= '2022-03-01 00:00:00+00'::timestamp with time zone) OR (customer_id = 100)), Rows Removed by Filter: 3119"
           }
         ],
         "source": "live"
@@ -1601,7 +1587,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
+            "detail": "Seq Scan on payment scanned ~16049 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -1634,6 +1620,12 @@
             "severity": "Warning",
             "category": "ScanEfficiency",
             "detail": "Seq Scan on customer with Filter: estimated 584 rows but got 20 (ratio: 29.2x), Rows Removed by Filter: 1"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~331311 rows (threshold: 10000), Filter: (customer_id = c.customer_id), Rows Removed by Filter: 320331"
           }
         ],
         "source": "live"
@@ -1645,10 +1637,12 @@
           "SUBQ-001"
         ],
         "reported_rules": [
-          "SCAN-004"
+          "SCAN-004",
+          "SCAN-001"
         ],
         "tp": [],
         "fp": [
+          "SCAN-001",
           "SCAN-004"
         ],
         "fn": [
@@ -1719,6 +1713,12 @@
             "severity": "Warning",
             "category": "SubqueryStructure",
             "detail": "检测到关联子查询自引用UPDATE (表: rental), SubPlan存在: true, 同表扫描: true"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16044 rows (threshold: 10000), Filter: (return_date IS NULL), Rows Removed by Filter: 16044"
           }
         ],
         "source": "live"
@@ -1730,14 +1730,17 @@
           "SUBQ-006"
         ],
         "reported_rules": [
-          "SUBQ-006"
+          "SUBQ-006",
+          "SCAN-001"
         ],
         "tp": [
           "SUBQ-006"
         ],
-        "fp": [],
+        "fp": [
+          "SCAN-001"
+        ],
         "fn": [],
-        "verdict": "TP"
+        "verdict": "TP+FP"
       }
     },
     {
@@ -1745,28 +1748,28 @@
       "tool_output": {
         "findings": [
           {
-            "rule_id": "SUBQ-006",
-            "severity": "Warning",
-            "category": "SubqueryStructure",
-            "detail": "检测到关联子查询自引用UPDATE (表: customer), SubPlan存在: true, 同表扫描: true"
-          },
-          {
             "rule_id": "EST-001",
             "severity": "Critical",
             "category": "CostMisestimation",
             "detail": "Aggregate: actual 599 rows vs estimated 1 rows (599.0x 低估)"
           },
           {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000), Filter: (customer_id = c.customer_id)"
-          },
-          {
             "rule_id": "EST-001",
             "severity": "Critical",
             "category": "CostMisestimation",
             "detail": "rental: actual 16044 rows vs estimated 27 rows (594.2x 低估)"
+          },
+          {
+            "rule_id": "SUBQ-006",
+            "severity": "Warning",
+            "category": "SubqueryStructure",
+            "detail": "检测到关联子查询自引用UPDATE (表: customer), SubPlan存在: true, 同表扫描: true"
+          },
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~19204668 rows (threshold: 10000), Filter: (customer_id = c.customer_id), Rows Removed by Filter: 9594312"
           }
         ],
         "source": "live"
@@ -1778,10 +1781,10 @@
           "SUBQ-006"
         ],
         "reported_rules": [
-          "SUBQ-006",
           "EST-001",
-          "SCAN-001",
-          "EST-001"
+          "EST-001",
+          "SUBQ-006",
+          "SCAN-001"
         ],
         "tp": [
           "SUBQ-006"
@@ -2069,7 +2072,7 @@
             "rule_id": "SCAN-001",
             "severity": "Warning",
             "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
+            "detail": "Seq Scan on rental scanned ~16472 rows (threshold: 10000)"
           }
         ],
         "source": "live"
@@ -2161,20 +2164,7 @@
     {
       "case_id": "OGEXP-GT-2026-0082",
       "tool_output": {
-        "findings": [
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on rental returned 16044 rows (threshold: 10000)"
-          },
-          {
-            "rule_id": "SCAN-001",
-            "severity": "Warning",
-            "category": "ScanEfficiency",
-            "detail": "Seq Scan on payment returned 16049 rows (threshold: 10000)"
-          }
-        ],
+        "findings": [],
         "source": "live"
       },
       "classification": {
@@ -2183,18 +2173,13 @@
         "expected_rules": [
           "GEN-001"
         ],
-        "reported_rules": [
-          "SCAN-001",
-          "SCAN-001"
-        ],
+        "reported_rules": [],
         "tp": [],
-        "fp": [
-          "SCAN-001"
-        ],
+        "fp": [],
         "fn": [
           "GEN-001"
         ],
-        "verdict": "FP"
+        "verdict": "FN"
       }
     },
     {
@@ -2336,18 +2321,29 @@
     {
       "case_id": "OGEXP-GT-2026-0091",
       "tool_output": {
-        "findings": [],
+        "findings": [
+          {
+            "rule_id": "SCAN-001",
+            "severity": "Warning",
+            "category": "ScanEfficiency",
+            "detail": "Seq Scan on rental scanned ~16044 rows (threshold: 10000), Filter: ((return_date IS NULL) AND (rental_date < '2026-06-20'::date)), Rows Removed by Filter: 16044"
+          }
+        ],
         "source": "live"
       },
       "classification": {
         "case_id": "OGEXP-GT-2026-0091",
         "is_healthy": true,
         "expected_rules": [],
-        "reported_rules": [],
+        "reported_rules": [
+          "SCAN-001"
+        ],
         "tp": [],
-        "fp": [],
+        "fp": [
+          "SCAN-001"
+        ],
         "fn": [],
-        "verdict": "TN"
+        "verdict": "FP"
       }
     },
     {

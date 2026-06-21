@@ -3,7 +3,7 @@ use crate::model::{NodeType, PlanNode};
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
-use super::utils::{get_property_value, is_scan_node};
+use super::utils::{effective_scan_size, get_property_value, is_scan_node};
 use super::{make_finding, DiagnosticRule};
 
 pub struct LargeTableFullScan {
@@ -32,11 +32,27 @@ impl DiagnosticRule for LargeTableFullScan {
         DiagnosticCategory::ScanEfficiency
     }
     fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
+        // check_with_ancestors overrides this — this is kept for compatibility
+        self.check_with_ancestors(node, _ctx, &[])
+    }
+    fn check_with_ancestors(
+        &self,
+        node: &PlanNode,
+        _ctx: &PlanContext,
+        ancestors: &[&PlanNode],
+    ) -> Option<Finding> {
         if node.node_type != NodeType::SeqScan && node.node_type != NodeType::PartitionedSeqScan {
             return None;
         }
-        let actual = node.actual.as_ref()?;
-        if actual.rows <= self.threshold {
+        // Skip unfiltered scans feeding a HashJoin build (legitimate full table dump for hash table).
+        // Filtered scans under HashJoin are NOT skipped — an index could still help the filter.
+        let has_filter = node.properties.iter().any(|p| p.label == "Filter");
+        if has_hash_join_ancestor(ancestors) && !has_filter {
+            return None;
+        }
+
+        let rows_examined = effective_scan_size(node);
+        if rows_examined <= self.threshold {
             return None;
         }
 
@@ -44,17 +60,24 @@ impl DiagnosticRule for LargeTableFullScan {
         let filter_cols = extract_filter_columns(node);
 
         let mut detail = format!(
-            "Seq Scan on {} returned {} rows (threshold: {})",
-            relation, actual.rows, self.threshold
+            "Seq Scan on {} scanned ~{:.0} rows (threshold: {:.0})",
+            relation, rows_examined, self.threshold
         );
         if let Some(filter) = get_property_value(node, "Filter") {
             detail.push_str(&format!(", Filter: {}", filter));
+        }
+        if let Some(removed) = node
+            .properties
+            .iter()
+            .find(|p| p.label == "Rows Removed by Filter")
+        {
+            detail.push_str(&format!(", Rows Removed by Filter: {}", removed.value));
         }
 
         let suggestion = match filter_cols {
             Some(cols) if !cols.is_empty() => {
                 format!(
-                    "CREATE INDEX ON {} ({}); 全扫描返回大量行, 过滤列适合建索引",
+                    "CREATE INDEX ON {} ({}); 全扫描大量行, 过滤列适合建索引",
                     relation,
                     cols.join(", ")
                 )
@@ -67,6 +90,17 @@ impl DiagnosticRule for LargeTableFullScan {
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
+}
+
+/// Returns true if any node in the ancestor chain is a HashJoin, Hash, or VectorHashJoin.
+/// These are legitimate full-scan contexts where the scan feeds a hash table build.
+fn has_hash_join_ancestor(ancestors: &[&PlanNode]) -> bool {
+    ancestors.iter().any(|n| {
+        matches!(
+            n.node_type,
+            NodeType::HashJoin | NodeType::Hash | NodeType::VectorHashJoin
+        )
+    })
 }
 
 pub struct FilterWithoutIndex {

@@ -1,0 +1,9 @@
+QUERY PLAN
+----------------------------------------------------
+Hash Join  (cost=100.00..300.00 rows=16044 width=16) (actual time=15.234..45.678 rows=16044 loops=1)
+  Hash Cond: (t1.id = t2.ref_id)
+  ->  Seq Scan on large_table  (cost=0.00..150.00 rows=16044 width=8) (actual time=0.015..12.345 rows=16044 loops=1)
+  ->  Hash  (cost=25.00..25.00 rows=500 width=8) (actual time=0.035..0.035 rows=500 loops=1)
+        Buckets: 1024  Batches: 1  Memory Usage: 28kB
+        ->  Seq Scan on small_table  (cost=0.00..25.00 rows=500 width=8) (actual time=0.005..0.020 rows=500 loops=1)
+Total runtime: 50.123 ms

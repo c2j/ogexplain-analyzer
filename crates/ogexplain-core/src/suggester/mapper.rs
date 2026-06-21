@@ -24,7 +24,10 @@ impl SuggestionEngine {
 
         let spill_rules: Vec<String> = findings
             .iter()
-            .filter(|f| f.rule_id == "MEM-001" || f.rule_id == "JOIN-002")
+            .filter(|f| matches!(
+                f.rule_id.as_str(),
+                "MEM-001" | "MEM-004" | "JOIN-002" | "AGG-002"
+            ))
             .map(|f| f.rule_id.clone())
             .collect();
         if spill_rules.len() >= 2 {

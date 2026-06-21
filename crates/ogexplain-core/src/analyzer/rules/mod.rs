@@ -22,6 +22,18 @@ pub trait DiagnosticRule: Send + Sync {
     fn severity(&self) -> Severity;
     fn category(&self) -> DiagnosticCategory;
     fn check(&self, node: &PlanNode, ctx: &super::context::PlanContext) -> Option<Finding>;
+    /// Context-aware check with ancestor chain (root → ... → direct parent).
+    /// Default: delegates to `check`, ignoring ancestors.
+    /// Override when a rule needs parent context (e.g., "am I under a HashJoin?").
+    fn check_with_ancestors(
+        &self,
+        node: &PlanNode,
+        ctx: &super::context::PlanContext,
+        ancestors: &[&PlanNode],
+    ) -> Option<Finding> {
+        let _ = ancestors;
+        self.check(node, ctx)
+    }
     fn check_global(&self, _plan: &ExplainPlan, _stats: &GlobalStats) -> Vec<Finding> {
         Vec::new()
     }

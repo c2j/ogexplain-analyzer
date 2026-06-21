@@ -1,0 +1,5 @@
+QUERY PLAN
+----------------------------------------------------
+Limit  (cost=0.00..0.41 rows=10 width=4) (actual time=0.015..0.052 rows=10 loops=1)
+  ->  Seq Scan on rental  (cost=0.00..682.00 rows=16472 width=4) (actual time=0.015..0.052 rows=10 loops=1)
+Total runtime: 0.123 ms

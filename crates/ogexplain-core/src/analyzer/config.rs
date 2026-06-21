@@ -1,8 +1,10 @@
 use super::report::{DiagnosticReport, Finding};
 use super::rules::DiagnosticRule;
 use crate::model::ExplainPlan;
+use serde::Deserialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct DiagnosticConfig {
     pub large_table_rows: f64,
     pub memory_threshold_kb: f64,
@@ -11,6 +13,7 @@ pub struct DiagnosticConfig {
     pub sort_time_ratio: f64,
     pub max_plan_depth: usize,
     pub disabled_rules: Vec<String>,
+    pub dedup_per_node: bool,
 }
 
 impl Default for DiagnosticConfig {
@@ -23,7 +26,20 @@ impl Default for DiagnosticConfig {
             sort_time_ratio: 0.3,
             max_plan_depth: 10,
             disabled_rules: Vec::new(),
+            dedup_per_node: false,
         }
+    }
+}
+
+impl DiagnosticConfig {
+    pub fn from_toml_str(toml_str: &str) -> Result<Self, toml::de::Error> {
+        toml::from_str(toml_str)
+    }
+
+    pub fn from_file(path: &std::path::Path) -> std::io::Result<Self> {
+        let content = std::fs::read_to_string(path)?;
+        Self::from_toml_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
 }
 
@@ -46,7 +62,7 @@ impl DiagnosticEngine {
         };
 
         let mut findings = Vec::new();
-        self.walk_node(&plan.root, &ctx, &mut findings);
+        self.walk_node(&plan.root, &ctx, &mut findings, &mut Vec::new());
 
         for rule in &self.rules {
             findings.extend(rule.check_global(plan, &stats));
@@ -54,22 +70,35 @@ impl DiagnosticEngine {
 
         findings.retain(|f| !self.config.disabled_rules.contains(&f.rule_id));
 
+        findings.sort_by(|a, b| a.severity.cmp(&b.severity));
+
+        if self.config.dedup_per_node {
+            let mut seen: std::collections::HashSet<usize> = std::collections::HashSet::new();
+            findings.retain(|f| match f.node_line {
+                Some(line) => seen.insert(line),
+                None => true,
+            });
+        }
+
         DiagnosticReport { findings, stats }
     }
 
-    fn walk_node(
+    fn walk_node<'a>(
         &self,
-        node: &crate::model::PlanNode,
+        node: &'a crate::model::PlanNode,
         ctx: &super::context::PlanContext,
         findings: &mut Vec<Finding>,
+        ancestors: &mut Vec<&'a crate::model::PlanNode>,
     ) {
         for rule in &self.rules {
-            if let Some(finding) = rule.check(node, ctx) {
+            if let Some(finding) = rule.check_with_ancestors(node, ctx, ancestors) {
                 findings.push(finding);
             }
         }
+        ancestors.push(node);
         for child in &node.children {
-            self.walk_node(child, ctx, findings);
+            self.walk_node(child, ctx, findings, ancestors);
         }
+        ancestors.pop();
     }
 }

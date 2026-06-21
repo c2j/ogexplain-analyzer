@@ -1,6 +1,6 @@
 # ogexplain-analyzer Diagnostic Accuracy Report
 
-**Generated:** 2026-06-20T14:35:21.357228+00:00
+**Generated:** 2026-06-21T07:01:45.266946+00:00
 **Mode:** live
 **Cases:** 97 (82 problematic + 15 healthy)
 
@@ -14,13 +14,13 @@
 
 | Metric | Value |
 |--------|-------|
-| TP | 7 |
-| FP | 0 |
-| FN | 75 |
-| TN | 15 |
-| **Precision** | **100.0%** |
-| **Recall** | **8.5%** |
-| **F1** | **15.7%** |
+| TP | 10 |
+| FP | 1 |
+| FN | 72 |
+| TN | 14 |
+| **Precision** | **90.9%** |
+| **Recall** | **12.2%** |
+| **F1** | **21.5%** |
 
 ### Rule-level (strict)
 
@@ -28,12 +28,12 @@
 
 | Metric | Value |
 |--------|-------|
-| TP | 7 |
-| FP | 30 |
-| FN | 75 |
-| **Precision** | **18.9%** |
-| **Recall** | **8.5%** |
-| **F1** | **11.8%** |
+| TP | 10 |
+| FP | 31 |
+| FN | 72 |
+| **Precision** | **24.4%** |
+| **Recall** | **12.2%** |
+| **F1** | **16.3%** |
 
 ---
 
@@ -56,7 +56,7 @@
 | PUSH-001 | 0 | 0 | 3 | 0.0% | 0.0% | 0.0% |  |
 | PUSH-002 | 0 | 0 | 3 | 0.0% | 0.0% | 0.0% |  |
 | REW-001 | 0 | 0 | 2 | 0.0% | 0.0% | 0.0% |  |
-| SCAN-001 | 0 | 15 | 8 | 0.0% | 0.0% | 0.0% |  |
+| SCAN-001 | 3 | 16 | 5 | 15.8% | 37.5% | 22.2% | OGEXP-GT-2026-0001, OGEXP-GT-2026-0004, OGEXP-GT-2026-0008 |
 | SCAN-004 | 1 | 10 | 5 | 9.1% | 16.7% | 11.8% | OGEXP-GT-2026-0011 |
 | SKEW-001 | 0 | 0 | 2 | 0.0% | 0.0% | 0.0% |  |
 | SORT-003 | 0 | 0 | 3 | 0.0% | 0.0% | 0.0% |  |
@@ -75,7 +75,7 @@
 |----------|----|----|----|-----------|--------|-----|
 | critical | 2 | 0 | 3 | 100.0% | 40.0% | 57.1% |
 | info | 0 | 0 | 11 | 0.0% | 0.0% | 0.0% |
-| warning | 5 | 30 | 61 | 14.3% | 7.6% | 9.9% |
+| warning | 8 | 31 | 58 | 20.5% | 12.1% | 15.2% |
 
 ---
 
@@ -83,17 +83,17 @@
 
 | Case | Expected | Reported |
 |------|----------|----------|
-| OGEXP-GT-2026-0001 | SCAN-001 | (none) |
 | OGEXP-GT-2026-0002 | SCAN-001 | SCAN-004 |
 | OGEXP-GT-2026-0003 | SCAN-001 | (none) |
-| OGEXP-GT-2026-0004 | SCAN-001 | (none) |
 | OGEXP-GT-2026-0005 | SCAN-001 | (none) |
 | OGEXP-GT-2026-0006 | SCAN-001 | (none) |
 | OGEXP-GT-2026-0007 | SCAN-001 | (none) |
-| OGEXP-GT-2026-0008 | SCAN-001 | (none) |
-| OGEXP-GT-2026-0009 | SCAN-004 | (none) |
+| OGEXP-GT-2026-0009 | SCAN-004 | SCAN-001 |
 | OGEXP-GT-2026-0010 | SCAN-004 | TYPE-004 |
-| _...65 more_ | | |
+| OGEXP-GT-2026-0012 | SCAN-004 | (none) |
+| OGEXP-GT-2026-0013 | SCAN-004 | (none) |
+| OGEXP-GT-2026-0014 | SCAN-004 | TYPE-004 |
+| _...62 more_ | | |
 
 ---
 
@@ -102,16 +102,16 @@
 | Case | Expected | Reported (false alarms) |
 |------|----------|------------------------|
 | OGEXP-GT-2026-0002 | SCAN-001 | SCAN-004 |
+| OGEXP-GT-2026-0009 | SCAN-004 | SCAN-001 |
 | OGEXP-GT-2026-0010 | SCAN-004 | TYPE-004 |
 | OGEXP-GT-2026-0014 | SCAN-004 | TYPE-004 |
-| OGEXP-GT-2026-0015 | JOIN-001 | SCAN-001, SCAN-001 |
 | OGEXP-GT-2026-0016 | JOIN-001 | SCAN-004 |
-| OGEXP-GT-2026-0017 | JOIN-001 | JOIN-001, SCAN-001, EST-001 |
+| OGEXP-GT-2026-0017 | JOIN-001 | JOIN-001, EST-001, SCAN-001 |
 | OGEXP-GT-2026-0018 | JOIN-001 | SCAN-004 |
 | OGEXP-GT-2026-0019 | JOIN-001 | SCAN-004 |
-| OGEXP-GT-2026-0028 | MEM-004 | SCAN-001, SCAN-001 |
 | OGEXP-GT-2026-0029 | MEM-004 | SCAN-001 |
-| _...18 more_ | | |
+| OGEXP-GT-2026-0032 | SORT-003 | TYPE-001, TYPE-001, SCAN-001, SCAN-001 |
+| _...15 more_ | | |
 
 ---
 
@@ -122,9 +122,9 @@
 - ⚠️ **F1 < 0.6** — 工具整体不可靠,需要回到规则定义层面复盘。
 
 ### 最弱规则(按 F1 排序,前 3)
-- **SCAN-001** — F1=0.0% (TP=0, FP=15, FN=8)
 - **EST-001** — F1=0.0% (TP=0, FP=2, FN=4)
 - **JOIN-002** — F1=0.0% (TP=0, FP=0, FN=4)
+- **MEM-001** — F1=0.0% (TP=0, FP=0, FN=4)
 
 建议:针对这些规则增加更多 case,看是规则定义本身的问题还是触发条件太严。
 

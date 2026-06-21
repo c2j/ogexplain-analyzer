@@ -40,6 +40,16 @@ enum Commands {
         csv: Option<String>,
         #[arg(long, default_value = "auto")]
         lang: String,
+        #[arg(long)]
+        config_file: Option<String>,
+        #[arg(long)]
+        large_table_rows: Option<f64>,
+        #[arg(long)]
+        nested_loop_threshold: Option<f64>,
+        #[arg(long)]
+        estimation_skew_factor: Option<f64>,
+        #[arg(long)]
+        dedup_per_node: bool,
     },
     Explain {
         /// Database connection string
@@ -629,6 +639,35 @@ pub fn run() -> Result<()> {
                         .long("lang")
                         .default_value("auto")
                         .help(t!("cli.analyze.help_lang").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("config_file")
+                        .long("config-file")
+                        .help("Diagnostic config file (TOML format)"),
+                )
+                .arg(
+                    clap::Arg::new("large_table_rows")
+                        .long("large-table-rows")
+                        .value_parser(clap::value_parser!(f64))
+                        .help("Large table row threshold for SCAN-001 [default: 10000]"),
+                )
+                .arg(
+                    clap::Arg::new("nested_loop_threshold")
+                        .long("nested-loop-threshold")
+                        .value_parser(clap::value_parser!(f64))
+                        .help("Nested loop inner rows threshold for JOIN-001 [default: 10000]"),
+                )
+                .arg(
+                    clap::Arg::new("estimation_skew_factor")
+                        .long("estimation-skew-factor")
+                        .value_parser(clap::value_parser!(f64))
+                        .help("Estimation skew factor for EST-001 [default: 100]"),
+                )
+                .arg(
+                    clap::Arg::new("dedup_per_node")
+                        .long("dedup-per-node")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Deduplicate findings per node (keep highest severity)"),
                 ),
         )
         .subcommand(
@@ -769,6 +808,29 @@ pub fn run() -> Result<()> {
             let _multi = args.get_flag("multi");
             let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
+            let diag_config = {
+                let mut cfg = match args.get_one::<String>("config_file") {
+                    Some(path) => ogexplain_core::analyzer::config::DiagnosticConfig::from_file(
+                        std::path::Path::new(path),
+                    )
+                    .map_err(|e| anyhow::anyhow!("Failed to load config from {}: {}", path, e))?,
+                    None => ogexplain_core::analyzer::config::DiagnosticConfig::default(),
+                };
+                if let Some(v) = args.get_one::<f64>("large_table_rows") {
+                    cfg.large_table_rows = *v;
+                }
+                if let Some(v) = args.get_one::<f64>("nested_loop_threshold") {
+                    cfg.nested_loop_inner_rows = *v;
+                }
+                if let Some(v) = args.get_one::<f64>("estimation_skew_factor") {
+                    cfg.estimation_skew_factor = *v;
+                }
+                if args.get_flag("dedup_per_node") {
+                    cfg.dedup_per_node = true;
+                }
+                cfg
+            };
+
             {
                 let input = read_input(file)?;
 
@@ -783,7 +845,7 @@ pub fn run() -> Result<()> {
                     let complexity_input = complexity
                         .as_ref()
                         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                    let diag = ogexplain_core::analyze(&plan);
+                    let diag = ogexplain_core::analyze_with_config(&plan, &diag_config);
                     let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                     output_block_with_diag(
                         &plan,
@@ -816,8 +878,11 @@ pub fn run() -> Result<()> {
                     let complexity_input = complexity
                         .as_ref()
                         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                    let diag =
-                        ogexplain_core::analyze_with_rewrite(&plan, block.sql_text.as_deref());
+                    let diag = ogexplain_core::analyze_with_rewrite_and_config(
+                        &plan,
+                        block.sql_text.as_deref(),
+                        &diag_config,
+                    );
                     let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                     output_block_with_diag(
                         &plan,
@@ -851,9 +916,10 @@ pub fn run() -> Result<()> {
                             let complexity_input = complexity
                                 .as_ref()
                                 .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
-                            let diag = ogexplain_core::analyze_with_rewrite(
+                            let diag = ogexplain_core::analyze_with_rewrite_and_config(
                                 &plan,
                                 block.sql_text.as_deref(),
+                                &diag_config,
                             );
                             let row = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
                             output_block_with_diag(
