@@ -100,6 +100,37 @@ fn regression_test_raw() {
 }
 
 #[test]
+fn regression_test_raw_cost_wildcard_not_parsed_as_number() {
+    let plan = parse_fixture("21_regression_test_raw.txt");
+    assert!(
+        plan.root.estimated.is_none(),
+        "cost=.* regex wildcard must not parse as EstimatedCost"
+    );
+}
+
+#[test]
+fn regression_test_raw_mixed_marker_prefix_parses() {
+    let input = "\
+--? Row Adapter  (cost=.* rows=10 width=4)
+--?   ->  Vector Nest Loop  (cost=.* rows=10 width=4)
+--?         ->  CStore Scan on t1  (cost=.* rows=10 width=4)
+                     Filter: (a = b)
+";
+    let plan = parse(input).expect("mixed --? / non-marker lines must parse");
+    assert!(matches!(plan.root.node_type, ogexplain_core::model::NodeType::RowAdapter));
+    assert_eq!(plan.root.children.len(), 1);
+    let inner = &plan.root.children[0];
+    assert!(matches!(inner.node_type, ogexplain_core::model::NodeType::VectorNestLoop));
+    let scan = &inner.children[0];
+    assert!(matches!(scan.node_type, ogexplain_core::model::NodeType::CStoreScan));
+    assert_eq!(scan.relation.as_deref(), Some("t1"));
+    assert!(
+        scan.properties.iter().any(|p| p.label == "Filter"),
+        "non-marker Filter line must still be captured as property"
+    );
+}
+
+#[test]
 fn mixed_sql_file() {
     let plan = parse_fixture("22_mixed_sql_file.txt");
     insta::with_settings!({ sort_maps => true }, {
