@@ -1386,6 +1386,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gaussdb"
+version = "0.1.0"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+dependencies = [
+ "fallible-iterator",
+ "opengauss",
+ "opengauss-protocol",
+ "tokio-opengauss",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2380,11 +2391,11 @@ dependencies = [
  "clap",
  "colored",
  "dirs",
+ "gaussdb",
  "keyring",
  "ogexplain-core",
  "ogexplain-mcp",
  "ogsql-complexity",
- "opengauss",
  "rust-i18n",
  "serde",
  "serde_json",
@@ -2473,7 +2484,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "opengauss"
 version = "0.19.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=master#e1da03461bb85ee9548fa909740dfa6f309b630e"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -2486,7 +2497,7 @@ dependencies = [
 [[package]]
 name = "opengauss-protocol"
 version = "0.6.11"
-source = "git+https://github.com/c2j/rust-opengauss?branch=master#e1da03461bb85ee9548fa909740dfa6f309b630e"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
 dependencies = [
  "base64 0.22.1",
  "byteorder",
@@ -2506,7 +2517,7 @@ dependencies = [
 [[package]]
 name = "opengauss-types"
 version = "0.2.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=master#e1da03461bb85ee9548fa909740dfa6f309b630e"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -4100,7 +4111,7 @@ dependencies = [
 [[package]]
 name = "tokio-opengauss"
 version = "0.7.17"
-source = "git+https://github.com/c2j/rust-opengauss?branch=master#e1da03461bb85ee9548fa909740dfa6f309b630e"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
 dependencies = [
  "async-trait",
  "byteorder",

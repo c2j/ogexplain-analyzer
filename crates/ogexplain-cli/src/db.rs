@@ -42,7 +42,8 @@ pub fn fetch_explain(dsn: &str, sql: &str, analyze: bool) -> Result<String> {
 
 #[cfg(feature = "db")]
 fn fetch_explain_impl(dsn: &str, sql: &str, analyze: bool) -> Result<String> {
-    use opengauss::{Client, NoTls, SimpleQueryMessage};
+    use gaussdb::sync::{Client, NoTls};
+    use gaussdb::SimpleQueryMessage;
 
     let mut client = Client::connect(dsn, NoTls).context("Failed to connect to database")?;
 
