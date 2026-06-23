@@ -69,9 +69,7 @@ impl AntiPatternDef for IndexScanAmplify {
         root: &'a PlanNode,
         ancestors: &[&'a PlanNode],
     ) -> Option<MatchResult<'a>> {
-        if root.node_type != NodeType::NestedLoop
-            && root.node_type != NodeType::VectorNestLoop
-        {
+        if root.node_type != NodeType::NestedLoop && root.node_type != NodeType::VectorNestLoop {
             return None;
         }
 

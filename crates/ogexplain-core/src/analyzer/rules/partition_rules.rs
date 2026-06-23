@@ -44,9 +44,13 @@ impl DiagnosticRule for PartitionPruningFailure {
             .properties
             .iter()
             .find(|p| p.label == "Filter")
-            .map(|p| p.value.contains("date_part") || p.value.contains("EXTRACT")
-                       || p.value.contains("to_char") || p.value.contains("to_date")
-                       || p.value.contains("to_timestamp"))
+            .map(|p| {
+                p.value.contains("date_part")
+                    || p.value.contains("EXTRACT")
+                    || p.value.contains("to_char")
+                    || p.value.contains("to_date")
+                    || p.value.contains("to_timestamp")
+            })
             .unwrap_or(false);
         let sel = match &node.structured_props {
             Some(props) => match &props.selected_partitions {

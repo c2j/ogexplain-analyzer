@@ -101,7 +101,10 @@ impl TypeMismatch {
                 "WHERE {} = '{}' — 疑似 numeric 列用 string 值比较, 改为 WHERE {} = {}",
                 self.column, self.literal_value, self.column, self.literal_value
             ),
-            _ => format!("添加显式类型转换: WHERE {} = value::{}", self.column, self.expected_type),
+            _ => format!(
+                "添加显式类型转换: WHERE {} = value::{}",
+                self.column, self.expected_type
+            ),
         }
     }
 }
