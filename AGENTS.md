@@ -37,7 +37,7 @@ Rust Cargo workspace with five crates:
 | Crate | Binary | Purpose |
 |-------|--------|---------|
 | `ogexplain-core` | library | Parser + Model + Analyzer + Suggester (no UI deps) |
-| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON/CSV output |
+| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON/CSV output, config file for DB connections (`~/.gaussdb-mcp.toml`) |
 | `ogexplain-tui` | `ogexplain-tui` | Interactive TUI — collapsible plan tree, node detail, paste input |
 | `ogsql-complexity` | library | SQL complexity scoring (standalone, reusable) |
 | `ogexplain-mcp` | `ogexplain-mcp` | MCP server — exposes analysis as MCP tools for AI assistants |
