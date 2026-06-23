@@ -16,7 +16,7 @@ async fn create_client() -> rmcp::service::RunningService<rmcp::RoleClient, ()> 
 
     // Start the MCP server in a background task.
     tokio::spawn(async move {
-        let server = OgexplainServer::default();
+        let server = OgexplainServer;
         let running = rmcp::serve_server(server, server_io).await;
         match running {
             Ok(r) => {
