@@ -19,7 +19,8 @@ anyhow = "1"
 rust-i18n = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-opengauss = { git = "https://github.com/c2j/rust-opengauss", branch = "master", optional = true }
+gaussdb = { git = "https://github.com/c2j/rust-opengauss", branch = "main", features = ["sync"], optional = true }
+native-tls = { version = "0.2", optional = true }
 toml = { version = "0.8", optional = true }
 dirs = { version = "6", optional = true }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"], optional = true }
@@ -27,7 +28,8 @@ ogexplain-mcp = { path = "../ogexplain-mcp", optional = true }
 
 [features]
 default = ["db"]
-db = ["dep:opengauss", "dep:toml", "dep:dirs", "dep:keyring"]
+db = ["dep:gaussdb", "dep:toml", "dep:dirs", "dep:keyring"]
+db-tls = ["db", "gaussdb/tls-native-tls", "dep:native-tls"]
 mcp = ["dep:ogexplain-mcp"]
 
 [dev-dependencies]
