@@ -49,8 +49,32 @@ cli.explain.about:
   zh-CN: "连接数据库并获取 SQL 的执行计划"
 
 cli.explain.help_dsn:
-  en: "Database connection string (e.g. 'host=localhost user=postgres dbname=mydb')"
-  zh-CN: "数据库连接串（如 'host=localhost user=postgres dbname=mydb'）"
+  en: "Database connection string (overrides config file; e.g. 'host=localhost user=postgres dbname=mydb')"
+  zh-CN: "数据库连接串（覆盖配置文件; 如 'host=localhost user=postgres dbname=mydb'）"
+
+cli.explain.help_config:
+  en: "Path to config file (default: ~/.gaussdb-mcp.toml)"
+  zh-CN: "配置文件路径（默认: ~/.gaussdb-mcp.toml）"
+
+cli.explain.help_name:
+  en: "Connection name from config file (for multi-connection setups)"
+  zh-CN: "配置文件中的连接名（用于多连接配置）"
+
+cli.explain.error.config_not_found:
+  en: "Config file not found: %{path}. Create ~/.gaussdb-mcp.toml or pass --config <path>"
+  zh-CN: "配置文件未找到: %{path}。请创建 ~/.gaussdb-mcp.toml 或使用 --config <path> 指定"
+
+cli.explain.error.config_parse:
+  en: "Failed to parse config file: %{detail}"
+  zh-CN: "解析配置文件失败: %{detail}"
+
+cli.explain.error.connection_not_found:
+  en: "Connection '%{name}' not found in config file"
+  zh-CN: "配置文件中未找到连接 '%{name}'"
+
+cli.explain.error.no_config_source:
+  en: "No connection configuration found. Use --dsn, --config, set GAUSSDB_URL/DATABASE_URL env var, or create ~/.gaussdb-mcp.toml"
+  zh-CN: "未找到连接配置。请使用 --dsn、--config、设置 GAUSSDB_URL/DATABASE_URL 环境变量，或创建 ~/.gaussdb-mcp.toml"
 
 cli.explain.help_sql:
   en: "SQL statement to explain (inline string)"
