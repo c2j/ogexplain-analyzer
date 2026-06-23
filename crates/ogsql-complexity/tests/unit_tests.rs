@@ -3,6 +3,17 @@
 //! These are regression guard tests covering pure functions and model types
 //! that are NOT tested by the existing complexity_tests.rs integration tests.
 
+// These tests intentionally use patterns that clippy flags in production
+// but are idiomatic in test code:
+//   - `1 * TABLE + 1 * WHERE_CONDITION` style formulas to self-document scoring
+//   - `assert_eq!(score, CONST_EXPR)` to assert computed vs. expected
+//   - `let mut m = T::default(); m.field = x;` for ergonomic test setup
+#![allow(
+    clippy::assertions_on_constants,
+    clippy::identity_op,
+    clippy::field_reassign_with_default
+)]
+
 use ogsql_complexity::model::gauss_weights::*;
 use ogsql_complexity::model::{ComplexityLevel, ComplexityMetrics, SqlCategory, WeightProfile};
 use ogsql_complexity::{analyze, gauss_analyze, ComplexityConfig};

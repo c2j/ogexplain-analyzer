@@ -185,21 +185,30 @@ impl DiagnosticRule for FilterWithoutIndex {
 
         let mut detail = format!(
             "Seq Scan on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
-            relation, estimated.plan_rows, actual.rows as i64,
-            if actual.rows > 0.0 { estimated.plan_rows / actual.rows } else { f64::INFINITY }
+            relation,
+            estimated.plan_rows,
+            actual.rows as i64,
+            if actual.rows > 0.0 {
+                estimated.plan_rows / actual.rows
+            } else {
+                f64::INFINITY
+            }
         );
         if rows_removed > 0.0 {
-            detail.push_str(&format!(", Rows Removed by Filter: {}", rows_removed as i64));
+            detail.push_str(&format!(
+                ", Rows Removed by Filter: {}",
+                rows_removed as i64
+            ));
         }
 
         let suggestion = match filter_cols {
             Some(cols) if !cols.is_empty() => format!(
                 "ANALYZE {}; 同时考虑 CREATE INDEX ON {} ({})",
-                relation, relation, cols.join(", ")
+                relation,
+                relation,
+                cols.join(", ")
             ),
-            _ => format!(
-                "过滤条件移除大量行, 考虑在过滤列上创建索引",
-            ),
+            _ => "过滤条件移除大量行, 考虑在过滤列上创建索引".to_string(),
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))

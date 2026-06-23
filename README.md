@@ -99,18 +99,79 @@ ogexplain analyze <file> [options]
 # Build with database support (default feature)
 cargo build -p ogexplain-cli
 
-# Run EXPLAIN on a remote database
+# Run EXPLAIN on a remote database (DSN via command line)
 ogexplain explain -d "host=... port=5432 dbname=mydb user=gaussdb password=... sslmode=disable" \
     -s "SELECT * FROM orders WHERE status = 'pending'"
 
-# Run EXPLAIN ANALYZE (actually executes the query)
-ogexplain explain -d "host=..." -s "SELECT ..." --analyze
+# Run EXPLAIN using config file (no plaintext password on CLI)
+ogexplain explain -s "SELECT * FROM orders" --config ~/.gaussdb-mcp.toml
 
-# SQL from file
-ogexplain explain -d "host=..." -f query.sql
+# Select a named connection from config file
+ogexplain explain -s "SELECT ..." --name prod
 
 # With all analysis options
 ogexplain explain -d "host=..." -s "SELECT ..." -o json --csv results.csv --threshold warning
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-d, --dsn` | Connection string (optional; overrides config file). E.g. `'host=localhost user=postgres dbname=mydb'` |
+| `--config <path>` | Path to TOML config file (default: `~/.gaussdb-mcp.toml`) |
+| `--name <name>` | Named connection from `[[connections]]` in config file |
+| `-s, --sql <sql>` | SQL statement to explain (inline string) |
+| `-f, --sql-file <path>` | File containing SQL statement |
+| `--analyze` | Run EXPLAIN ANALYZE (executes the query) |
+| `-o, --output <fmt>` | Output format: `text`, `json`, `heatmap`, `waterfall` |
+| `--threshold <level>` | Minimum severity: `info`, `warning`, `critical` |
+| `-q, --quiet` | Show findings only |
+| `--csv <path>` | Export summary to CSV |
+| `--lang <lang>` | Language: `en`, `zh-CN`, `auto` |
+
+**Config file format** (reuses `~/.gaussdb-mcp.toml` from `gaussdb-mcp`):
+
+```toml
+# Flat single-connection config
+host = "localhost"
+port = 5432
+user = "gaussdb"
+password = "keyring"       # "keyring" sentinel reads from OS keychain
+dbname = "mydb"
+sslmode = "disable"
+```
+
+```toml
+# Multi-connection config with named profiles
+default_connection = "prod"
+
+[[connections]]
+name = "dev"
+host = "dev.example.com"
+user = "dev_user"
+password = "dev_pass"
+dbname = "dev_db"
+
+[[connections]]
+name = "prod"
+host = "prod.example.com"
+user = "prod_user"
+password = "keyring"       # uses OS keychain
+dbname = "prod_db"
+sslmode = "verify-full"
+```
+
+**Connection resolution priority:**
+
+1. `--dsn` argument (if provided, overrides everything)
+2. `GAUSSDB_URL` environment variable
+3. `DATABASE_URL` environment variable
+4. Config file (`--config <path>` or `~/.gaussdb-mcp.toml`)
+5. Error with actionable message
+
+**Keyring support:** When `password = "keyring"` is set in the config file, the tool reads the actual password from the OS keychain using the `gaussdb-mcp` service name. Store passwords with:
+```bash
+gaussdb-mcp store-password
 ```
 
 **Note:** `--analyze` will actually execute the query on the database. Use with caution on production systems.

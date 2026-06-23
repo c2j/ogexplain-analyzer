@@ -1,19 +1,19 @@
+mod aggregate_rules;
+mod distribution_rules;
 mod estimation_rules;
 mod general_rules;
 mod join_rules;
 mod memory_rules;
 mod network_rules;
+mod partition_rules;
 mod pushdown_rules;
 mod scan_rules;
 mod sort_rules;
+mod stats_rules;
 mod subquery_rules;
 mod type_coercion_rules;
 pub mod utils;
 mod vectorization_rules;
-mod aggregate_rules;
-mod partition_rules;
-mod stats_rules;
-mod distribution_rules;
 
 use super::config::DiagnosticConfig;
 use super::context::GlobalStats;

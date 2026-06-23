@@ -10,9 +10,12 @@ use ogexplain_core::summary::{ComplexityInput, SummaryRow};
 use rust_i18n::t;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
+use std::path::Path;
 
 #[cfg(feature = "db")]
 pub mod db;
+#[cfg(feature = "db")]
+pub mod db_config;
 
 #[derive(Parser)]
 #[command(name = "ogexplain")]
@@ -677,8 +680,18 @@ pub fn run() -> Result<()> {
                     clap::Arg::new("dsn")
                         .short('d')
                         .long("dsn")
-                        .required(true)
+                        .required(false)
                         .help(t!("cli.explain.help_dsn").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("config")
+                        .long("config")
+                        .help(t!("cli.explain.help_config").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("name")
+                        .long("name")
+                        .help(t!("cli.explain.help_name").to_string()),
                 )
                 .arg(
                     clap::Arg::new("sql")
@@ -741,7 +754,9 @@ pub fn run() -> Result<()> {
         Some(("explain", args)) => {
             #[cfg(feature = "db")]
             {
-                let dsn = args.get_one::<String>("dsn").unwrap();
+                let dsn_opt: Option<&str> = args.get_one::<String>("dsn").map(|s| s.as_str());
+                let config_opt: Option<&str> = args.get_one::<String>("config").map(|s| s.as_str());
+                let name_opt: Option<&str> = args.get_one::<String>("name").map(|s| s.as_str());
                 let sql: Option<String> = args.get_one::<String>("sql").cloned();
                 let sql_file: Option<String> = args.get_one::<String>("sql_file").cloned();
                 let analyze = args.get_flag("analyze");
@@ -757,7 +772,9 @@ pub fn run() -> Result<()> {
                 let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
                 return run_explain(
-                    dsn,
+                    dsn_opt,
+                    config_opt,
+                    name_opt,
                     sql.as_deref(),
                     sql_file.as_deref(),
                     analyze,
@@ -958,7 +975,9 @@ pub fn run() -> Result<()> {
 #[cfg(feature = "db")]
 #[allow(clippy::too_many_arguments)]
 fn run_explain(
-    dsn: &str,
+    dsn_opt: Option<&str>,
+    config_opt: Option<&str>,
+    name_opt: Option<&str>,
     sql: Option<&str>,
     sql_file: Option<&str>,
     analyze: bool,
@@ -968,6 +987,7 @@ fn run_explain(
     csv: Option<&str>,
 ) -> Result<()> {
     use crate::db;
+    use crate::db_config;
 
     let sql_text = match (sql, sql_file) {
         (Some(s), None) => s.to_string(),
@@ -985,7 +1005,10 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let explain_text = db::fetch_explain(dsn, &sql_text, analyze)?;
+    let resolved_dsn = db_config::resolve_dsn(dsn_opt, config_opt.map(Path::new), name_opt)
+        .context("Failed to resolve database connection")?;
+
+    let explain_text = db::fetch_explain(&resolved_dsn, &sql_text, analyze)?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);
@@ -1866,16 +1889,15 @@ fn output_heatmap(
         .entries
         .iter()
         .find(|e| e.deviation.line_number == heatmap.summary.max_qerror_line);
-    let max_icon = max_entry.map(|e| e.deviation.severity.icon()).unwrap_or("⚪");
+    let max_icon = max_entry
+        .map(|e| e.deviation.severity.icon())
+        .unwrap_or("⚪");
     let max_node_type = max_entry
         .map(|e| e.deviation.node_type.as_str())
         .unwrap_or("?");
     println!(
         "  {} Max Q-Error: {:.1}x at {} (line {})",
-        max_icon,
-        heatmap.summary.max_qerror,
-        max_node_type,
-        heatmap.summary.max_qerror_line,
+        max_icon, heatmap.summary.max_qerror, max_node_type, heatmap.summary.max_qerror_line,
     );
     println!(
         "  \u{1f4cd} Critical Path: {} nodes",

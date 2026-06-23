@@ -20,9 +20,15 @@ rust-i18n = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 opengauss = { git = "https://github.com/c2j/rust-opengauss", branch = "master", optional = true }
+toml = { version = "0.8", optional = true }
+dirs = { version = "6", optional = true }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"], optional = true }
 ogexplain-mcp = { path = "../ogexplain-mcp", optional = true }
 
 [features]
 default = ["db"]
-db = ["dep:opengauss"]
+db = ["dep:opengauss", "dep:toml", "dep:dirs", "dep:keyring"]
 mcp = ["dep:ogexplain-mcp"]
+
+[dev-dependencies]
+tempfile = "3"

@@ -87,7 +87,7 @@ Total runtime: 55.789 ms";
     // SeqScan: est 50000 vs actual 500000 = 10x
     let ratio = row.worst_est_ratio.unwrap();
     assert!(
-        ratio >= 9.0 && ratio <= 11.0,
+        (9.0..=11.0).contains(&ratio),
         "expected ~10x, got {}",
         ratio
     );
