@@ -403,10 +403,7 @@ fn fixture_21_regression_test_raw_parses_and_analyzes() {
         .find(|f| f.rule_id == "SUBQ-001")
         .expect("Expected SUBQ-001: correlated SubPlan with Filter (a = t1.a)");
     assert_eq!(subq_finding.severity, Severity::Warning);
-    assert_eq!(
-        subq_finding.category,
-        DiagnosticCategory::SubqueryStructure
-    );
+    assert_eq!(subq_finding.category, DiagnosticCategory::SubqueryStructure);
 
     assert!(report.stats.total_nodes > 0);
 }

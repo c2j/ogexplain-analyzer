@@ -117,12 +117,21 @@ fn regression_test_raw_mixed_marker_prefix_parses() {
                      Filter: (a = b)
 ";
     let plan = parse(input).expect("mixed --? / non-marker lines must parse");
-    assert!(matches!(plan.root.node_type, ogexplain_core::model::NodeType::RowAdapter));
+    assert!(matches!(
+        plan.root.node_type,
+        ogexplain_core::model::NodeType::RowAdapter
+    ));
     assert_eq!(plan.root.children.len(), 1);
     let inner = &plan.root.children[0];
-    assert!(matches!(inner.node_type, ogexplain_core::model::NodeType::VectorNestLoop));
+    assert!(matches!(
+        inner.node_type,
+        ogexplain_core::model::NodeType::VectorNestLoop
+    ));
     let scan = &inner.children[0];
-    assert!(matches!(scan.node_type, ogexplain_core::model::NodeType::CStoreScan));
+    assert!(matches!(
+        scan.node_type,
+        ogexplain_core::model::NodeType::CStoreScan
+    ));
     assert_eq!(scan.relation.as_deref(), Some("t1"));
     assert!(
         scan.properties.iter().any(|p| p.label == "Filter"),

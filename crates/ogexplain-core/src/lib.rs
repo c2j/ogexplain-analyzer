@@ -38,7 +38,11 @@ pub fn analyze_with_rewrite(
     plan: &model::ExplainPlan,
     sql_text: Option<&str>,
 ) -> analyzer::report::DiagnosticReport {
-    analyze_with_rewrite_and_config(plan, sql_text, &analyzer::config::DiagnosticConfig::default())
+    analyze_with_rewrite_and_config(
+        plan,
+        sql_text,
+        &analyzer::config::DiagnosticConfig::default(),
+    )
 }
 
 pub fn analyze_with_rewrite_and_config(
