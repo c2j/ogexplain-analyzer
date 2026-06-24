@@ -74,7 +74,7 @@ macro_rules! fetch {
         tokio::task::spawn_blocking({
             let dsn = $dsn.to_string();
             let sql = $sql.to_string();
-            move || ogexplain_cli::db::fetch_explain(&dsn, &sql, $analyze)
+            move || ogexplain_cli::db::fetch_explain(Some(&dsn), None, None, &sql, $analyze)
         })
         .await
         .expect("spawn_blocking panicked")
@@ -163,7 +163,9 @@ async fn test_fetch_explain_bad_sql() {
 #[test]
 fn test_fetch_explain_connection_failure() {
     let result = ogexplain_cli::db::fetch_explain(
-        "host=localhost port=99999 user=nobody dbname=nonexistent sslmode=disable",
+        Some("host=localhost port=99999 user=nobody dbname=nonexistent sslmode=disable"),
+        None,
+        None,
         "SELECT 1",
         false,
     );

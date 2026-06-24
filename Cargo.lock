@@ -1403,13 +1403,20 @@ dependencies = [
 [[package]]
 name = "gaussdb"
 version = "0.1.0"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
+ "dirs",
  "fallible-iterator",
+ "keyring",
+ "native-tls",
  "opengauss",
  "opengauss-native-tls",
  "opengauss-protocol",
+ "serde",
+ "thiserror 2.0.18",
+ "tokio",
  "tokio-opengauss",
+ "toml",
 ]
 
 [[package]]
@@ -2423,10 +2430,7 @@ dependencies = [
  "anyhow",
  "clap",
  "colored",
- "dirs",
  "gaussdb",
- "keyring",
- "native-tls",
  "ogexplain-core",
  "ogexplain-mcp",
  "ogsql-complexity",
@@ -2434,7 +2438,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "toml",
 ]
 
 [[package]]
@@ -2518,7 +2521,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "opengauss"
 version = "0.19.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -2531,7 +2534,7 @@ dependencies = [
 [[package]]
 name = "opengauss-native-tls"
 version = "0.5.3"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
  "native-tls",
  "tokio",
@@ -2542,7 +2545,7 @@ dependencies = [
 [[package]]
 name = "opengauss-protocol"
 version = "0.6.11"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
  "base64 0.22.1",
  "byteorder",
@@ -2562,7 +2565,7 @@ dependencies = [
 [[package]]
 name = "opengauss-types"
 version = "0.2.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -3955,7 +3958,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.2",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -4203,7 +4206,7 @@ dependencies = [
 [[package]]
 name = "tokio-opengauss"
 version = "0.7.17"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#32075aac00100ee5665d4c3aafaab2c777f5e0d7"
+source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
 dependencies = [
  "async-trait",
  "byteorder",
