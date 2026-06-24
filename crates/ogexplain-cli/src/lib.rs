@@ -14,8 +14,6 @@ use std::path::Path;
 
 #[cfg(feature = "db")]
 pub mod db;
-#[cfg(feature = "db")]
-pub mod db_config;
 
 #[derive(Parser)]
 #[command(name = "ogexplain")]
@@ -987,7 +985,6 @@ fn run_explain(
     csv: Option<&str>,
 ) -> Result<()> {
     use crate::db;
-    use crate::db_config;
 
     let sql_text = match (sql, sql_file) {
         (Some(s), None) => s.to_string(),
@@ -1005,10 +1002,13 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let resolved_dsn = db_config::resolve_dsn(dsn_opt, config_opt.map(Path::new), name_opt)
-        .context("Failed to resolve database connection")?;
-
-    let explain_text = db::fetch_explain(&resolved_dsn, &sql_text, analyze)?;
+    let explain_text = db::fetch_explain(
+        dsn_opt,
+        config_opt.map(Path::new),
+        name_opt,
+        &sql_text,
+        analyze,
+    )?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);
