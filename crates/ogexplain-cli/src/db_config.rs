@@ -18,6 +18,7 @@
 use anyhow::{Context, Result};
 use keyring::Entry;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 pub(crate) const KEYRING_SERVICE: &str = "gaussdb-mcp";
@@ -45,6 +46,7 @@ pub enum PasswordSource {
 /// Fields match `gaussdb-mcp::config::NamedConnection` exactly.
 #[derive(Debug, Deserialize, Clone)]
 pub struct NamedConnection {
+    #[serde(skip)]
     pub name: String,
     pub url: Option<String>,
     pub host: Option<String>,
@@ -75,7 +77,8 @@ pub struct MultiConfig {
     pub connection_max_lifetime: Option<String>,
     pub timeout_action: Option<String>,
     pub default_connection: Option<String>,
-    pub connections: Option<Vec<NamedConnection>>,
+    #[serde(default)]
+    pub connections: BTreeMap<String, NamedConnection>,
 }
 
 // ─── NamedConnection impl ─────────────────────────────────────────────
@@ -155,35 +158,37 @@ impl MultiConfig {
     ///
     /// Matches `gaussdb-mcp::config::MultiConfig::resolve()` exactly.
     pub fn resolve(self) -> Result<(Vec<NamedConnection>, Option<String>)> {
-        match self.connections {
-            Some(ref conns) if !conns.is_empty() => {
-                let default = self
-                    .default_connection
-                    .clone()
-                    .or_else(|| conns.first().map(|c| c.name.clone()));
-                Ok((self.connections.unwrap(), default))
+        if !self.connections.is_empty() {
+            let default = self
+                .default_connection
+                .clone()
+                .or_else(|| self.connections.keys().next().cloned());
+            let mut conns = Vec::with_capacity(self.connections.len());
+            for (name, mut conn) in self.connections {
+                conn.name = name;
+                conns.push(conn);
             }
-            _ => {
-                if self.host.is_none() && self.user.is_none() && self.url.is_none() {
-                    anyhow::bail!(
-                        "config must contain either [[connections]] or flat host/user fields"
-                    );
-                }
-                let single = NamedConnection {
-                    name: "default".to_string(),
-                    url: self.url,
-                    host: self.host,
-                    port: self.port,
-                    user: self.user,
-                    password: self.password,
-                    dbname: self.dbname,
-                    sslmode: self.sslmode,
-                    statement_timeout: self.statement_timeout,
-                    connection_max_lifetime: self.connection_max_lifetime,
-                    timeout_action: self.timeout_action,
-                };
-                Ok((vec![single], Some("default".to_string())))
+            Ok((conns, default))
+        } else {
+            if self.host.is_none() && self.user.is_none() && self.url.is_none() {
+                anyhow::bail!(
+                    "config must contain either [connections.<name>] or flat host/user fields"
+                );
             }
+            let single = NamedConnection {
+                name: "default".to_string(),
+                url: self.url,
+                host: self.host,
+                port: self.port,
+                user: self.user,
+                password: self.password,
+                dbname: self.dbname,
+                sslmode: self.sslmode,
+                statement_timeout: self.statement_timeout,
+                connection_max_lifetime: self.connection_max_lifetime,
+                timeout_action: self.timeout_action,
+            };
+            Ok((vec![single], Some("default".to_string())))
         }
     }
 }
@@ -550,14 +555,12 @@ dbname = "mydb"
         let toml_str = r#"
 default_connection = "prod"
 
-[[connections]]
-name = "dev"
+[connections.dev]
 host = "dev.example.com"
 user = "dev_user"
 dbname = "dev_db"
 
-[[connections]]
-name = "prod"
+[connections.prod]
 host = "prod.example.com"
 user = "prod_user"
 dbname = "prod_db"
@@ -573,14 +576,12 @@ dbname = "prod_db"
         let toml_str = r#"
 default_connection = "prod"
 
-[[connections]]
-name = "dev"
+[connections.dev]
 host = "dev.example.com"
 user = "dev_user"
 dbname = "dev_db"
 
-[[connections]]
-name = "stage"
+[connections.stage]
 host = "stage.example.com"
 user = "stage_user"
 dbname = "stage_db"
@@ -596,14 +597,12 @@ dbname = "stage_db"
     #[test]
     fn test_multi_connections_fallback_to_first() {
         let toml_str = r#"
-[[connections]]
-name = "alpha"
+[connections.alpha]
 host = "alpha.example.com"
 user = "alpha_user"
 dbname = "alpha_db"
 
-[[connections]]
-name = "beta"
+[connections.beta]
 host = "beta.example.com"
 user = "beta_user"
 dbname = "beta_db"
@@ -693,8 +692,7 @@ dbname = "beta_db"
         write!(
             tmpfile,
             r#"
-[[connections]]
-name = "alpha"
+[connections.alpha]
 host = "alpha.host"
 user = "alpha_user"
 dbname = "alpha_db"
@@ -715,15 +713,13 @@ dbname = "alpha_db"
         write!(
             tmpfile,
             r#"
-[[connections]]
-name = "dev"
+[connections.dev]
 host = "dev.example.com"
 user = "dev_user"
 dbname = "dev_db"
 port = 5432
 
-[[connections]]
-name = "prod"
+[connections.prod]
 host = "prod.example.com"
 user = "prod_user"
 password = "prod_pass"
@@ -751,14 +747,12 @@ sslmode = "disable"
         write!(
             tmpfile,
             r#"
-[[connections]]
-name = "default"
+[connections.default]
 host = "default.host"
 user = "default_user"
 dbname = "default_db"
 
-[[connections]]
-name = "other"
+[connections.other]
 host = "other.host"
 user = "other_user"
 dbname = "other_db"
