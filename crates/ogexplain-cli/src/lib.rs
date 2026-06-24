@@ -14,8 +14,6 @@ use std::path::Path;
 
 #[cfg(feature = "db")]
 pub mod db;
-#[cfg(feature = "db")]
-pub mod db_config;
 
 #[derive(Parser)]
 #[command(name = "ogexplain")]
@@ -987,7 +985,6 @@ fn run_explain(
     csv: Option<&str>,
 ) -> Result<()> {
     use crate::db;
-    use crate::db_config;
 
     let sql_text = match (sql, sql_file) {
         (Some(s), None) => s.to_string(),
@@ -1005,8 +1002,9 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let resolved_dsn = db_config::resolve_dsn(dsn_opt, config_opt.map(Path::new), name_opt)
+    let resolved = gaussdb::config::resolve(dsn_opt, config_opt.map(Path::new), name_opt)
         .context("Failed to resolve database connection")?;
+    let resolved_dsn = resolved.connection_url;
 
     let explain_text = db::fetch_explain(&resolved_dsn, &sql_text, analyze)?;
     let plan =
