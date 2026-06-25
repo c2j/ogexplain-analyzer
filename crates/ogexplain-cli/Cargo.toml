@@ -20,18 +20,22 @@ rust-i18n = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 gaussdb = { git = "https://github.com/c2j/rust-opengauss", branch = "main", features = ["sync", "config", "tls-native-tls"], optional = true }
-# Direct optional dep so we can toggle `openssl-sys/vendored` for static musl
-# builds. Pulls the same version `native-tls` already resolves to.
+# Direct optional deps so we can toggle `*/vendored` for static musl builds.
+# Each pulls the same version the relevant transitive dep already resolves to.
 openssl-sys = { version = "0.9", optional = true }
+libdbus-sys = { version = "0.2", optional = true }
 ogexplain-mcp = { path = "../ogexplain-mcp", optional = true }
 
 [features]
 default = ["db"]
 db = ["dep:gaussdb"]
-# Static-musl / hermetic-release helper: compiles OpenSSL from source so the
-# resulting binary has no system libssl/libcrypto dependency. Use this in CI
-# release builds; local dev keeps using system OpenSSL via plain `db`.
-db-vendored = ["db", "openssl-sys/vendored"]
+# Static-musl / hermetic-release helper: compiles OpenSSL + libdbus from source
+# so the resulting binary has no system libssl/libcrypto/libdbus dependency.
+# Required because gaussdb's `config` feature pulls keyring's Linux
+# sync-secret-service backend (libdbus-sys), which pkg-config refuses to
+# cross-compile to musl. Use this in CI release builds; local dev keeps using
+# system libraries via plain `db`.
+db-vendored = ["db", "openssl-sys/vendored", "libdbus-sys/vendored"]
 mcp = ["dep:ogexplain-mcp"]
 
 [dev-dependencies]

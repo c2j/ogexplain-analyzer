@@ -56,10 +56,16 @@ jobs:
           cross build --release -p ogexplain-cli --no-default-features --features db-vendored,mcp --target aarch64-unknown-linux-musl
           cross build --release -p ogexplain-tui --target aarch64-unknown-linux-musl
 
-      - name: Build (native)
-        if: matrix.target != 'aarch64-unknown-linux-musl'
+      - name: Build (Linux native)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
           cargo build --release -p ogexplain-cli --no-default-features --features db-vendored,mcp --target ${{ matrix.target }}
+          cargo build --release -p ogexplain-tui --target ${{ matrix.target }}
+
+      - name: Build (Windows)
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        run: |
+          cargo build --release -p ogexplain-cli --no-default-features --features mcp --target ${{ matrix.target }}
           cargo build --release -p ogexplain-tui --target ${{ matrix.target }}
 
       - name: Package (Linux)
