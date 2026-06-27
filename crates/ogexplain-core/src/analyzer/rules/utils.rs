@@ -115,6 +115,74 @@ pub fn any_property_contains(node: &PlanNode, needle: &str) -> bool {
     node.properties.iter().any(|p| p.value.contains(needle))
 }
 
+fn strip_cast_annotations(s: &str) -> String {
+    let re = regex::Regex::new(r"::[a-zA-Z_][a-zA-Z0-9_]*(\([^)]*\))?")
+        .expect("valid strip_cast_annotations regex");
+    re.replace_all(s, "").to_string()
+}
+
+fn is_reserved_type_name(s: &str) -> bool {
+    matches!(
+        s.to_lowercase().as_str(),
+        "text"
+            | "numeric"
+            | "int"
+            | "int2"
+            | "int4"
+            | "int8"
+            | "bigint"
+            | "smallint"
+            | "integer"
+            | "varchar"
+            | "char"
+            | "bpchar"
+            | "float"
+            | "float4"
+            | "float8"
+            | "double"
+            | "precision"
+            | "real"
+            | "bool"
+            | "boolean"
+            | "date"
+            | "timestamp"
+            | "timestamptz"
+            | "time"
+            | "timetz"
+            | "interval"
+            | "name"
+            | "bytea"
+            | "uuid"
+            | "json"
+            | "jsonb"
+            | "clob"
+            | "blob"
+            | "raw"
+    )
+}
+
+/// Extract the first column name from a SQL filter expression of the form
+/// `column = literal` or `(column)::type = literal::type`.
+///
+/// Handles OpenGauss `::type` cast annotations by stripping them first,
+/// so `((facctcode)::text = '1002'::text)` correctly returns `"facctcode"`
+/// instead of `"text"`.
+///
+/// Returns `None` when no `identifier = value` pattern is found.
+pub fn extract_column_from_filter(filter: &str) -> Option<String> {
+    let stripped = strip_cast_annotations(filter);
+    let cleaned = stripped.trim();
+    // After stripping ::cast annotations, closing parens may remain
+    // between the column name and `=`, e.g. `(status) = 'ready'`.
+    let re = regex::Regex::new(
+        r"(?:^|[\s(,])([a-zA-Z_][a-zA-Z0-9_]*)\)*\s*=\s*(?:'[^']*'|\d+(?:\.\d+)?)"
+    )
+    .expect("valid extract_column_from_filter regex");
+    re.captures(cleaned)
+        .and_then(|cap| cap.get(1).map(|m| m.as_str().to_string()))
+        .filter(|col| !is_reserved_type_name(col))
+}
+
 /// Extract the content of the innermost parentheses.
 ///
 /// `"outer(inner)"` → `Some("inner")`, `"no parens"` → `None`.
@@ -188,5 +256,48 @@ mod tests {
         assert_eq!(extract_innermost_parens("no parens"), None);
         assert_eq!(extract_innermost_parens("(a)(b)"), Some("b".to_string()));
         assert_eq!(extract_innermost_parens(")reverse("), None);
+    }
+
+    #[test]
+    fn test_extract_column_from_filter_basic() {
+        // Simple case: col = 'val'
+        assert_eq!(
+            extract_column_from_filter("(status)::text = 'ready'::text").unwrap(),
+            "status"
+        );
+    }
+
+    #[test]
+    fn test_extract_column_from_filter_with_cast() {
+        // Key regression: ::cast should not be mistaken for column name
+        // (the core bug in TYPE-001 from 38-case analysis)
+        assert_eq!(
+            extract_column_from_filter("((facctcode)::text = '1002'::text)").unwrap(),
+            "facctcode"
+        );
+    }
+
+    #[test]
+    fn test_extract_column_from_filter_nested_parens() {
+        // Nested parentheses wrapping
+        assert_eq!(
+            extract_column_from_filter("(((amount)::numeric = '100'::numeric))").unwrap(),
+            "amount"
+        );
+    }
+
+    #[test]
+    fn test_extract_column_from_filter_no_match() {
+        // No = comparison — returns None
+        assert!(extract_column_from_filter("col ~~ '%foo'").is_none());
+    }
+
+    #[test]
+    fn test_extract_column_from_filter_complex_or() {
+        // OR chain — takes the first = comparison
+        assert_eq!(
+            extract_column_from_filter("(a = '1' OR b = '2')").unwrap(),
+            "a"
+        );
     }
 }
