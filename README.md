@@ -99,25 +99,28 @@ ogexplain analyze <file> [options]
 # Build with database support (default feature)
 cargo build -p ogexplain-cli
 
-# Run EXPLAIN on a remote database (DSN via command line)
-ogexplain explain -d "host=... port=5432 dbname=mydb user=gaussdb password=... sslmode=disable" \
-    -s "SELECT * FROM orders WHERE status = 'pending'"
-
 # Run EXPLAIN using config file (no plaintext password on CLI)
 ogexplain explain -s "SELECT * FROM orders" --config ~/.gaussdb-mcp.toml
+
+# Or rely on the default config path (~/.gaussdb-mcp.toml)
+ogexplain explain -s "SELECT * FROM orders"
 
 # Select a named connection from config file
 ogexplain explain -s "SELECT ..." --name prod
 
 # With all analysis options
-ogexplain explain -d "host=..." -s "SELECT ..." -o json --csv results.csv --threshold warning
+ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --threshold warning
 ```
+
+> The `-d/--dsn` flag was removed. Connection info must come from a config file
+> (`--config <path>`, default `~/.gaussdb-mcp.toml`) or the `GAUSSDB_URL` /
+> `DATABASE_URL` environment variable. Storing credentials in a file or env var
+> keeps them out of shell history and `ps` output.
 
 **Options:**
 
 | Option | Description |
 |--------|-------------|
-| `-d, --dsn` | Connection string (optional; overrides config file). E.g. `'host=localhost user=postgres dbname=mydb'` |
 | `--config <path>` | Path to TOML config file (default: `~/.gaussdb-mcp.toml`) |
 | `--name <name>` | Named connection from `[[connections]]` in config file |
 | `-s, --sql <sql>` | SQL statement to explain (inline string) |
@@ -163,10 +166,9 @@ sslmode = "verify-full"
 
 **Connection resolution priority:**
 
-1. `--dsn` argument (if provided, overrides everything)
-2. `GAUSSDB_URL` environment variable
-3. `DATABASE_URL` environment variable
-4. Config file (`--config <path>` or `~/.gaussdb-mcp.toml`)
+1. `GAUSSDB_URL` environment variable
+2. `DATABASE_URL` environment variable
+3. Config file (`--config <path>` or `~/.gaussdb-mcp.toml`)
 5. Error with actionable message
 
 **Keyring support:** When `password = "keyring"` is set in the config file, the tool reads the actual password from the OS keychain using the `gaussdb-mcp` service name. Store passwords with:

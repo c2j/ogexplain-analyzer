@@ -187,14 +187,17 @@ ogexplain analyze explain_output.txt --csv -
 The `explain` subcommand connects directly to an OpenGauss/GaussDB database, runs `EXPLAIN` or `EXPLAIN ANALYZE`, and analyzes the result in one step. Requires the `db` feature flag.
 
 ```bash
-ogexplain explain -d <connection-string> -s <sql> [options]
+ogexplain explain -s <sql> [options]
 ```
+
+Connection info is loaded from a config file (`--config <path>`, default `~/.gaussdb-mcp.toml`) or the `GAUSSDB_URL` / `DATABASE_URL` environment variable. The `-d/--dsn` flag was removed so credentials never appear on the command line.
 
 #### Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--dsn <string>` | `-d` | Database connection string (required) |
+| `--config <path>` | | Path to TOML config file (default: `~/.gaussdb-mcp.toml`) |
+| `--name <name>` | | Named connection from `[[connections]]` in config file |
 | `--sql <statement>` | `-s` | SQL statement to explain (inline) |
 | `--sql-file <path>` | `-f` | SQL statement from file |
 | `--analyze` | | Run `EXPLAIN ANALYZE` (actually executes the query) |
@@ -210,19 +213,23 @@ ogexplain explain -d <connection-string> -s <sql> [options]
 # Build with database support
 cargo build -p ogexplain-cli --features db
 
-# Run EXPLAIN on a remote database
-ogexplain explain \
-    -d "host=db.example.com port=5432 dbname=mydb user=gaussdb password=secret sslmode=disable" \
-    -s "SELECT * FROM orders WHERE status = 'pending'"
+# Run EXPLAIN using the default config path (~/.gaussdb-mcp.toml)
+ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
+
+# Explicit config path
+ogexplain explain --config /etc/ogexplain/prod.toml -s "SELECT ..."
+
+# Named connection from multi-connection config
+ogexplain explain --name prod -s "SELECT ..."
 
 # Run EXPLAIN ANALYZE (executes the query!)
-ogexplain explain -d "host=..." -s "SELECT ..." --analyze
+ogexplain explain -s "SELECT ..." --analyze
 
 # Read SQL from file
-ogexplain explain -d "host=..." -f query.sql
+ogexplain explain -f query.sql
 
 # JSON output with CSV export
-ogexplain explain -d "host=..." -s "SELECT ..." -o json --csv results.csv --threshold warning
+ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --threshold warning
 ```
 
 > **Warning:** The `--analyze` flag causes the query to execute on the database. Use with caution on production systems. Prefer `EXPLAIN` (without `ANALYZE`) for read-only estimation checks.
@@ -883,14 +890,12 @@ The CSV output contains 43 columns covering:
 Connect directly to a database for one-step analysis:
 
 ```bash
-# Quick check (EXPLAIN only, no query execution)
-ogexplain explain \
-    -d "host=localhost port=5432 dbname=mydb user=gaussdb" \
-    -s "SELECT COUNT(*) FROM orders WHERE created_at > CURRENT_DATE - 7"
+# Quick check (EXPLAIN only, no query execution).
+# Connection info is read from ~/.gaussdb-mcp.toml by default.
+ogexplain explain -s "SELECT COUNT(*) FROM orders WHERE created_at > CURRENT_DATE - 7"
 
 # Full analysis with actual execution (EXPLAIN ANALYZE)
 ogexplain explain \
-    -d "host=localhost port=5432 dbname=mydb user=gaussdb" \
     -s "SELECT COUNT(*) FROM orders WHERE created_at > CURRENT_DATE - 7" \
     --analyze -o json
 ```
@@ -991,20 +996,24 @@ export LANG=en_US.UTF-8
 
 **Symptom:** Connection refused, timeout, or authentication errors.
 
-**Fix:** Verify your connection string:
+**Fix:** Check your config file (`~/.gaussdb-mcp.toml` by default, override with `--config <path>`):
 
-```bash
-# Full connection string format
-ogexplain explain \
-    -d "host=<hostname> port=<port> dbname=<database> user=<username> password=<password> sslmode=<disable|require|verify-ca|verify-full>" \
-    -s "SELECT 1"
-
-# Common issues:
-# - host: Use the correct hostname or IP address
-# - port: Default is 5432 for OpenGauss
-# - sslmode: Use 'disable' for local dev, 'require' for production
-# - password: Special characters may need URL encoding
+```toml
+# Example ~/.gaussdb-mcp.toml — verify these fields
+host = "<hostname>"            # Use the correct hostname or IP address
+port = 5432                    # Default is 5432 for OpenGauss
+user = "<username>"
+password = "<password>"        # Or "keyring" to read from OS keychain
+dbname = "<database>"
+sslmode = "disable"            # disable | require | verify-ca | verify-full
 ```
+
+Common issues:
+- **host**: Use the correct hostname or IP address
+- **port**: Default is 5432 for OpenGauss
+- **sslmode**: Use `disable` for local dev, `require` for production
+- **password**: Special characters are fine inside TOML strings; no shell escaping needed
+- **keyring mismatch**: If you see "keyring entry not found", the password was likely stored under service `gaussdb-mcp` (via `gaussdb-mcp store-password`) but the gaussdb library queries service `gaussdb`. Until the upstream fix ([rust-opengauss#35](https://github.com/c2j/rust-opengauss/issues/35)) lands, use a plaintext password in the config — it will be migrated back to keyring automatically later.
 
 ---
 

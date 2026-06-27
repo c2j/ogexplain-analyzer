@@ -4,7 +4,9 @@
 //!
 //! Run: cargo test --test db_explain --features ogexplain-cli/db
 
+use std::io::Write;
 use std::net::TcpStream;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use testcontainers::{
@@ -21,11 +23,28 @@ const OG_PASSWORD: &str = "OpenGauss@2026";
 const OG_USER: &str = "gaussdb";
 const OG_DB: &str = "postgres";
 
-/// Build a connection string from the running container's host:port.
-fn build_dsn(host: &str, port: u16) -> String {
-    format!(
-        "host={host} port={port} dbname={OG_DB} user={OG_USER} password={OG_PASSWORD} sslmode=disable"
-    )
+/// Write a temp config file pointing at the given host:port.
+///
+/// Each call produces a unique filename so parallel `#[tokio::test]` runs do not
+/// race on the same file. Caller is responsible for cleanup via
+/// [`cleanup_temp_config`].
+fn write_temp_config(host: &str, port: u16) -> PathBuf {
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    let path = std::env::temp_dir().join(format!("ogexplain-dbtest-{pid}-{nanos}.toml"));
+    let content = format!(
+        "host = \"{host}\"\nport = {port}\nuser = \"{OG_USER}\"\npassword = \"{OG_PASSWORD}\"\ndbname = \"{OG_DB}\"\nsslmode = \"disable\"\n"
+    );
+    let mut file = std::fs::File::create(&path).expect("failed to create temp config");
+    file.write_all(content.as_bytes()).expect("failed to write");
+    path
+}
+
+fn cleanup_temp_config(path: &Path) {
+    let _ = std::fs::remove_file(path);
 }
 
 async fn start_opengauss() -> (testcontainers::ContainerAsync<GenericImage>, String, u16) {
@@ -70,23 +89,25 @@ async fn start_opengauss() -> (testcontainers::ContainerAsync<GenericImage>, Str
 // so it cannot be called inside a tokio async context. spawn_blocking runs it
 // on a dedicated thread where no runtime is active.
 macro_rules! fetch {
-    ($dsn:expr, $sql:expr, $analyze:expr) => {
-        tokio::task::spawn_blocking({
-            let dsn = $dsn.to_string();
-            let sql = $sql.to_string();
-            move || ogexplain_cli::db::fetch_explain(Some(&dsn), None, None, &sql, $analyze)
+    ($host:expr, $port:expr, $sql:expr, $analyze:expr) => {{
+        let config_path = write_temp_config($host, $port);
+        let cleanup_path = config_path.clone();
+        let sql = $sql.to_string();
+        let result = tokio::task::spawn_blocking(move || {
+            ogexplain_cli::db::fetch_explain(Some(&config_path), None, &sql, $analyze)
         })
         .await
-        .expect("spawn_blocking panicked")
-    };
+        .expect("spawn_blocking panicked");
+        cleanup_temp_config(&cleanup_path);
+        result
+    }};
 }
 
 #[tokio::test]
 async fn test_fetch_explain_simple_select() {
     let (_container, host, port) = start_opengauss().await;
-    let dsn = build_dsn(&host, port);
 
-    let result = fetch!(&dsn, "SELECT 1", false);
+    let result = fetch!(&host, port, "SELECT 1", false);
     assert!(result.is_ok(), "fetch_explain failed: {:?}", result.err());
 
     let plan_text = result.unwrap();
@@ -100,9 +121,8 @@ async fn test_fetch_explain_simple_select() {
 #[tokio::test]
 async fn test_fetch_explain_analyze() {
     let (_container, host, port) = start_opengauss().await;
-    let dsn = build_dsn(&host, port);
 
-    let result = fetch!(&dsn, "SELECT 1", true);
+    let result = fetch!(&host, port, "SELECT 1", true);
     assert!(
         result.is_ok(),
         "fetch_explain ANALYZE failed: {:?}",
@@ -119,9 +139,8 @@ async fn test_fetch_explain_analyze() {
 #[tokio::test]
 async fn test_fetch_explain_system_catalog() {
     let (_container, host, port) = start_opengauss().await;
-    let dsn = build_dsn(&host, port);
 
-    let result = fetch!(&dsn, "SELECT * FROM pg_class LIMIT 10", false);
+    let result = fetch!(&host, port, "SELECT * FROM pg_class LIMIT 10", false);
     assert!(result.is_ok(), "fetch_explain failed: {:?}", result.err());
 
     let plan_text = result.unwrap();
@@ -135,10 +154,9 @@ async fn test_fetch_explain_system_catalog() {
 #[tokio::test]
 async fn test_fetch_explain_full_pipeline() {
     let (_container, host, port) = start_opengauss().await;
-    let dsn = build_dsn(&host, port);
 
-    let explain_text =
-        fetch!(&dsn, "SELECT count(*) FROM pg_class", false).expect("fetch_explain failed");
+    let explain_text = fetch!(&host, port, "SELECT count(*) FROM pg_class", false)
+        .expect("fetch_explain failed");
 
     let plan = ogexplain_core::parse(&explain_text).expect("parse failed");
     let _diag = ogexplain_core::analyze(&plan);
@@ -152,9 +170,8 @@ async fn test_fetch_explain_full_pipeline() {
 #[tokio::test]
 async fn test_fetch_explain_bad_sql() {
     let (_container, host, port) = start_opengauss().await;
-    let dsn = build_dsn(&host, port);
 
-    let result = fetch!(&dsn, "NOT VALID SQL !!", false);
+    let result = fetch!(&host, port, "NOT VALID SQL !!", false);
     assert!(result.is_err(), "Expected error for invalid SQL");
 }
 
@@ -162,12 +179,8 @@ async fn test_fetch_explain_bad_sql() {
 
 #[test]
 fn test_fetch_explain_connection_failure() {
-    let result = ogexplain_cli::db::fetch_explain(
-        Some("host=localhost port=99999 user=nobody dbname=nonexistent sslmode=disable"),
-        None,
-        None,
-        "SELECT 1",
-        false,
-    );
+    let config_path = write_temp_config("127.0.0.1", 1);
+    let result = ogexplain_cli::db::fetch_explain(Some(&config_path), None, "SELECT 1", false);
+    cleanup_temp_config(&config_path);
     assert!(result.is_err(), "Expected connection error");
 }

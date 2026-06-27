@@ -675,13 +675,6 @@ pub fn run() -> Result<()> {
             clap::Command::new("explain")
                 .about(t!("cli.explain.about").to_string())
                 .arg(
-                    clap::Arg::new("dsn")
-                        .short('d')
-                        .long("dsn")
-                        .required(false)
-                        .help(t!("cli.explain.help_dsn").to_string()),
-                )
-                .arg(
                     clap::Arg::new("config")
                         .long("config")
                         .help(t!("cli.explain.help_config").to_string()),
@@ -752,7 +745,6 @@ pub fn run() -> Result<()> {
         Some(("explain", args)) => {
             #[cfg(feature = "db")]
             {
-                let dsn_opt: Option<&str> = args.get_one::<String>("dsn").map(|s| s.as_str());
                 let config_opt: Option<&str> = args.get_one::<String>("config").map(|s| s.as_str());
                 let name_opt: Option<&str> = args.get_one::<String>("name").map(|s| s.as_str());
                 let sql: Option<String> = args.get_one::<String>("sql").cloned();
@@ -770,7 +762,6 @@ pub fn run() -> Result<()> {
                 let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
                 return run_explain(
-                    dsn_opt,
                     config_opt,
                     name_opt,
                     sql.as_deref(),
@@ -973,7 +964,6 @@ pub fn run() -> Result<()> {
 #[cfg(feature = "db")]
 #[allow(clippy::too_many_arguments)]
 fn run_explain(
-    dsn_opt: Option<&str>,
     config_opt: Option<&str>,
     name_opt: Option<&str>,
     sql: Option<&str>,
@@ -1003,7 +993,6 @@ fn run_explain(
     }
 
     let explain_text = db::fetch_explain(
-        dsn_opt,
         config_opt.map(Path::new),
         name_opt,
         &sql_text,

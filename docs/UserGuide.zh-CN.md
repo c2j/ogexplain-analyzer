@@ -264,14 +264,17 @@ ogexplain analyze file.txt --csv - | head -1
 直接连接 OpenGauss/GaussDB 数据库，执行 `EXPLAIN [ANALYZE]` 并一步完成分析。**需要编译时启用 `db` feature**（默认已启用）。
 
 ```bash
-ogexplain explain -d "<连接字符串>" -s "<SQL 语句>" [选项]
+ogexplain explain -s "<SQL 语句>" [选项]
 ```
+
+连接信息从配置文件（`--config <path>`，默认 `~/.gaussdb-mcp.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量加载。已移除 `-d/--dsn` 选项，避免凭据出现在命令行 / shell 历史 / `ps` 输出中。
 
 #### 参数说明
 
 | 参数 | 说明 |
 |------|------|
-| `-d, --dsn` | 数据库连接字符串（必需） |
+| `--config <path>` | TOML 配置文件路径（默认：`~/.gaussdb-mcp.toml`） |
+| `--name <name>` | 多连接配置中的命名连接 |
 | `-s, --sql` | 内联 SQL 语句 |
 | `-f, --sql-file` | SQL 文件路径 |
 | `--analyze` | 执行 EXPLAIN ANALYZE（会实际执行查询） |
@@ -286,16 +289,17 @@ ogexplain explain -d "<连接字符串>" -s "<SQL 语句>" [选项]
 **基本 EXPLAIN（仅查看计划，不执行查询）：**
 
 ```bash
-ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret sslmode=disable" \
-    -s "SELECT * FROM orders WHERE status = 'pending'"
+# 使用默认配置路径 ~/.gaussdb-mcp.toml
+ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
+
+# 显式指定配置文件
+ogexplain explain --config /etc/ogexplain/prod.toml -s "SELECT * FROM orders WHERE status = 'pending'"
 ```
 
 **EXPLAIN ANALYZE（实际执行查询并分析）：**
 
 ```bash
 ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret" \
     -s "SELECT COUNT(*) FROM orders WHERE create_date > '2025-01-01'" \
     --analyze
 ```
@@ -305,26 +309,36 @@ ogexplain explain \
 **从文件读取 SQL：**
 
 ```bash
-ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret" \
-    -f query.sql
+ogexplain explain -f query.sql
+```
+
+**指定命名连接（多连接配置）：**
+
+```bash
+ogexplain explain --name prod -s "SELECT ..."
 ```
 
 **带完整分析选项：**
 
 ```bash
 ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret" \
+    --name prod \
     -s "SELECT * FROM orders JOIN customers ON orders.customer_id = customers.id WHERE orders.status = 'pending'" \
     -o json --csv results.csv --threshold warning
 ```
 
-**连接字符串格式**
+**配置文件格式**
 
-连接字符串使用 libpq 风格的键值对格式，常用参数：
+`~/.gaussdb-mcp.toml`（与 `gaussdb-mcp` 工具共享）支持扁平单连接或 `[[connections]]` 多连接形式：
 
-```
-host=<主机地址> port=<端口> dbname=<数据库名> user=<用户名> password=<密码> sslmode=<SSL模式>
+```toml
+# 扁平单连接
+host = "192.168.1.100"
+port = 5432
+dbname = "mydb"
+user = "gaussdb"
+password = "secret"   # 或 "keyring" 表示从 OS keychain 读取
+sslmode = "disable"
 ```
 
 sslmode 可选值：`disable`、`allow`、`prefer`、`require`、`verify-ca`、`verify-full`。
@@ -915,15 +929,13 @@ CSV 文件包含 43 列，涵盖：SQL 预览、复杂度评分、计划指标�
 直接连接数据库，执行 EXPLAIN ANALYZE 并一步完成分析：
 
 ```bash
-# 基本用法
+# 基本用法（连接信息从 ~/.gaussdb-mcp.toml 读取）
 ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret" \
     -s "SELECT * FROM orders WHERE status = 'pending'" \
     --analyze
 
 # 导出为 JSON
 ogexplain explain \
-    -d "host=192.168.1.100 port=5432 dbname=mydb user=gaussdb password=secret" \
     -s "SELECT * FROM orders WHERE status = 'pending'" \
     --analyze -o json > full_analysis.json
 
