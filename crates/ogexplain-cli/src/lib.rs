@@ -27,8 +27,12 @@ struct Cli {
 enum Commands {
     Analyze {
         file: String,
-        #[arg(short, long, default_value = "text")]
-        output: String,
+        #[arg(long, default_value = "txt")]
+        input_format: String,
+        #[arg(long, default_value = "text")]
+        format: String,
+        #[arg(short, long)]
+        output: Option<String>,
         #[arg(long, default_value = "info")]
         threshold: String,
         #[arg(short, long)]
@@ -37,8 +41,8 @@ enum Commands {
         verbose: bool,
         #[arg(long)]
         multi: bool,
-        #[arg(long)]
-        csv: Option<String>,
+        #[arg(long, default_value = "minimal")]
+        output_columns: String,
         #[arg(long, default_value = "auto")]
         lang: String,
         #[arg(long)]
@@ -51,12 +55,6 @@ enum Commands {
         estimation_skew_factor: Option<f64>,
         #[arg(long)]
         dedup_per_node: bool,
-        /// CSV input file path (expects columns: sql,explain)
-        #[arg(long)]
-        csv_input: Option<String>,
-        /// Output columns for CSV mode: minimal, focused, full (default: minimal)
-        #[arg(long, default_value = "minimal")]
-        csv_columns: String,
     },
     Explain {
         /// Database connection string
@@ -72,17 +70,17 @@ enum Commands {
         #[arg(long)]
         analyze: bool,
         /// Output format
-        #[arg(short, long, default_value = "text")]
-        output: String,
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: Option<String>,
         /// Minimum severity threshold
         #[arg(long, default_value = "info")]
         threshold: String,
         /// Only show findings, no summary
         #[arg(short, long)]
         quiet: bool,
-        /// Export summary to CSV
-        #[arg(long)]
-        csv: Option<String>,
         /// Language
         #[arg(long, default_value = "auto")]
         lang: String,
@@ -980,11 +978,17 @@ pub fn run() -> Result<()> {
                         .help(t!("cli.analyze.help_file").to_string()),
                 )
                 .arg(
+                    clap::Arg::new("format")
+                        .long("format")
+                        .default_value("text")
+                        .value_parser(["text", "json", "heatmap", "waterfall"])
+                        .help(t!("cli.analyze.help_output").to_string()),
+                )
+                .arg(
                     clap::Arg::new("output")
                         .short('o')
                         .long("output")
-                        .default_value("text")
-                        .help(t!("cli.analyze.help_output").to_string()),
+                        .help("Output file path"),
                 )
                 .arg(
                     clap::Arg::new("threshold")
@@ -1011,11 +1015,6 @@ pub fn run() -> Result<()> {
                         .long("multi")
                         .action(clap::ArgAction::SetTrue)
                         .help(t!("cli.analyze.help_multi").to_string()),
-                )
-                .arg(
-                    clap::Arg::new("csv")
-                        .long("csv")
-                        .help(t!("cli.analyze.help_csv").to_string()),
                 )
                 .arg(
                     clap::Arg::new("lang")
@@ -1053,15 +1052,17 @@ pub fn run() -> Result<()> {
                         .help("Deduplicate findings per node (keep highest severity)"),
                 )
                 .arg(
-                    clap::Arg::new("csv_input")
-                        .long("csv-input")
-                        .help("CSV input file path (expects columns: sql, explain)"),
+                    clap::Arg::new("input_format")
+                        .long("input-format")
+                        .default_value("txt")
+                        .value_parser(["csv", "txt"])
+                        .help("Input format: csv (batch) or txt (single EXPLAIN text)"),
                 )
                 .arg(
-                    clap::Arg::new("csv_columns")
-                        .long("csv-columns")
+                    clap::Arg::new("output_columns")
+                        .long("output-columns")
                         .default_value("minimal")
-                        .help("Output columns for CSV mode: minimal, focused, full"),
+                        .help("Output columns for CSV batch mode: minimal, focused, full"),
                 ),
         )
         .subcommand(
@@ -1096,11 +1097,17 @@ pub fn run() -> Result<()> {
                         .help(t!("cli.explain.help_analyze").to_string()),
                 )
                 .arg(
+                    clap::Arg::new("format")
+                        .long("format")
+                        .default_value("text")
+                        .value_parser(["text", "json", "heatmap", "waterfall"])
+                        .help(t!("cli.explain.help_output").to_string()),
+                )
+                .arg(
                     clap::Arg::new("output")
                         .short('o')
                         .long("output")
-                        .default_value("text")
-                        .help(t!("cli.explain.help_output").to_string()),
+                        .help("Output file path"),
                 )
                 .arg(
                     clap::Arg::new("threshold")
@@ -1114,11 +1121,6 @@ pub fn run() -> Result<()> {
                         .long("quiet")
                         .action(clap::ArgAction::SetTrue)
                         .help(t!("cli.explain.help_quiet").to_string()),
-                )
-                .arg(
-                    clap::Arg::new("csv")
-                        .long("csv")
-                        .help(t!("cli.explain.help_csv").to_string()),
                 )
                 .arg(
                     clap::Arg::new("lang")
@@ -1143,16 +1145,16 @@ pub fn run() -> Result<()> {
                 let sql: Option<String> = args.get_one::<String>("sql").cloned();
                 let sql_file: Option<String> = args.get_one::<String>("sql_file").cloned();
                 let analyze = args.get_flag("analyze");
-                let output = args
-                    .get_one::<String>("output")
+                let format = args
+                    .get_one::<String>("format")
                     .map(|s| s.as_str())
                     .unwrap_or("text");
+                let output: Option<String> = args.get_one::<String>("output").cloned();
                 let threshold = args
                     .get_one::<String>("threshold")
                     .map(|s| s.as_str())
                     .unwrap_or("info");
                 let quiet = args.get_flag("quiet");
-                let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
                 return run_explain(
                     config_opt,
@@ -1160,10 +1162,10 @@ pub fn run() -> Result<()> {
                     sql.as_deref(),
                     sql_file.as_deref(),
                     analyze,
-                    output,
+                    format,
                     threshold,
                     quiet,
-                    csv.as_deref(),
+                    output.as_deref(),
                 );
             }
             #[cfg(not(feature = "db"))]
@@ -1194,10 +1196,19 @@ pub fn run() -> Result<()> {
                 .get_one::<String>("file")
                 .map(|s: &String| s.as_str())
                 .unwrap_or("-");
-            let output = args
-                .get_one::<String>("output")
+            let input_format = args
+                .get_one::<String>("input_format")
+                .map(|s: &String| s.as_str())
+                .unwrap_or("txt");
+            let format = args
+                .get_one::<String>("format")
                 .map(|s: &String| s.as_str())
                 .unwrap_or("text");
+            let output_path: Option<String> = args.get_one::<String>("output").cloned();
+            let output_columns: String = args
+                .get_one::<String>("output_columns")
+                .cloned()
+                .unwrap_or_else(|| "minimal".to_string());
             let threshold = args
                 .get_one::<String>("threshold")
                 .map(|s: &String| s.as_str())
@@ -1205,13 +1216,6 @@ pub fn run() -> Result<()> {
             let quiet = args.get_flag("quiet");
             let _verbose = args.get_flag("verbose");
             let _multi = args.get_flag("multi");
-            let csv: Option<String> = args.get_one::<String>("csv").cloned();
-            let csv_input: Option<String> =
-                args.get_one::<String>("csv_input").cloned();
-            let csv_columns: String = args
-                .get_one::<String>("csv_columns")
-                .cloned()
-                .unwrap_or_else(|| "minimal".to_string());
 
             let diag_config = {
                 let mut cfg = match args.get_one::<String>("config_file") {
@@ -1236,11 +1240,11 @@ pub fn run() -> Result<()> {
                 cfg
             };
 
-            if let Some(ref csv_input_path) = csv_input {
+            if input_format == "csv" {
                 return process_csv_input(
-                    csv_input_path,
-                    csv.as_deref(),
-                    &csv_columns,
+                    file,
+                    output_path.as_deref(),
+                    &output_columns,
                     &diag_config,
                 );
             }
@@ -1264,7 +1268,7 @@ pub fn run() -> Result<()> {
                     output_block_with_diag(
                         &plan,
                         &diag,
-                        output,
+                        format,
                         threshold,
                         quiet,
                         complexity.as_ref(),
@@ -1301,7 +1305,7 @@ pub fn run() -> Result<()> {
                     output_block_with_diag(
                         &plan,
                         &diag,
-                        output,
+                        format,
                         threshold,
                         quiet,
                         complexity.as_ref(),
@@ -1339,7 +1343,7 @@ pub fn run() -> Result<()> {
                             output_block_with_diag(
                                 &plan,
                                 &diag,
-                                output,
+                                format,
                                 threshold,
                                 quiet,
                                 complexity.as_ref(),
@@ -1350,16 +1354,16 @@ pub fn run() -> Result<()> {
                             )?;
                             summary_rows.push(row);
                         } else if let Some(sql) = &block.sql_text {
-                            output_sql_only(sql, output, num, total)?;
+                            output_sql_only(sql, format, num, total)?;
                         }
                     }
                 }
 
-                if let Some(ref csv_path) = csv {
-                    export_csv(&summary_rows, csv_path)?;
+                if let Some(ref out_path) = output_path {
+                    export_csv(&summary_rows, out_path)?;
                 }
 
-                if output != "json" && !summary_rows.is_empty() {
+                if format != "json" && !summary_rows.is_empty() {
                     print_summary_table(&summary_rows);
                 }
             }
