@@ -99,19 +99,28 @@ ogexplain analyze <文件路径> [选项]
 # 构建（默认已启用数据库支持）
 cargo build -p ogexplain-cli
 
-# 对远程数据库执行 EXPLAIN
-ogexplain explain -d "host=... port=5432 dbname=mydb user=gaussdb password=... sslmode=disable" \
-    -s "SELECT * FROM orders WHERE status = 'pending'"
+# 通过配置文件连接（避免在命令行明文输入密码）
+ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'" --config ~/.gaussdb-mcp.toml
+
+# 也可使用默认配置路径（~/.gaussdb-mcp.toml）
+ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
 
 # 执行 EXPLAIN ANALYZE（会实际执行查询）
-ogexplain explain -d "host=..." -s "SELECT ..." --analyze
+ogexplain explain -s "SELECT ..." --analyze
 
 # 从文件读取 SQL
-ogexplain explain -d "host=..." -f query.sql
+ogexplain explain -f query.sql
+
+# 指定配置中的命名连接
+ogexplain explain -s "SELECT ..." --name prod
 
 # 带完整分析选项
-ogexplain explain -d "host=..." -s "SELECT ..." -o json --csv results.csv --threshold warning
+ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --threshold warning
 ```
+
+> 已移除 `-d/--dsn` 选项。连接信息必须来自配置文件（`--config <path>`，默认
+> `~/.gaussdb-mcp.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量。把凭据放到
+> 文件或环境变量里可以避免泄露到 shell 历史和 `ps` 输出。
 
 **注意：** `--analyze` 会在数据库上实际执行查询。在生产系统上请谨慎使用。
 
