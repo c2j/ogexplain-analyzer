@@ -1403,7 +1403,7 @@ dependencies = [
 [[package]]
 name = "gaussdb"
 version = "0.1.0"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "dirs",
  "fallible-iterator",
@@ -1417,6 +1417,7 @@ dependencies = [
  "tokio",
  "tokio-opengauss",
  "toml",
+ "tracing",
 ]
 
 [[package]]
@@ -2524,7 +2525,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "opengauss"
 version = "0.19.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -2537,7 +2538,7 @@ dependencies = [
 [[package]]
 name = "opengauss-native-tls"
 version = "0.5.3"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "native-tls",
  "tokio",
@@ -2548,7 +2549,7 @@ dependencies = [
 [[package]]
 name = "opengauss-protocol"
 version = "0.6.11"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "base64 0.22.1",
  "byteorder",
@@ -2568,7 +2569,7 @@ dependencies = [
 [[package]]
 name = "opengauss-types"
 version = "0.2.13"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "bytes",
  "fallible-iterator",
@@ -4219,7 +4220,7 @@ dependencies = [
 [[package]]
 name = "tokio-opengauss"
 version = "0.7.17"
-source = "git+https://github.com/c2j/rust-opengauss?branch=main#b21cc7e3e24213f42ea0f143139907a4f5c8b5e6"
+source = "git+https://github.com/c2j/rust-opengauss?tag=gaussdb-mcp-v0.5.3#d29619431ad4aec74aff55a37d6348056284caa8"
 dependencies = [
  "async-trait",
  "byteorder",
