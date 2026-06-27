@@ -6,7 +6,7 @@ use colored::*;
 use ogexplain_core::analyzer::heatmap::{DeviationDirection, DeviationSeverity, HeatmapEntry};
 use ogexplain_core::i18n;
 use ogexplain_core::suggester::SuggestionEngine;
-use ogexplain_core::summary::{ComplexityInput, SummaryRow};
+use ogexplain_core::summary::{ComplexityInput, PushdownStatus, SummaryRow};
 use rust_i18n::t;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
@@ -51,6 +51,12 @@ enum Commands {
         estimation_skew_factor: Option<f64>,
         #[arg(long)]
         dedup_per_node: bool,
+        /// CSV input file path (expects columns: sql,explain)
+        #[arg(long)]
+        csv_input: Option<String>,
+        /// Output columns for CSV mode: minimal, focused, full (default: minimal)
+        #[arg(long, default_value = "minimal")]
+        csv_columns: String,
     },
     Explain {
         /// Database connection string
@@ -544,6 +550,382 @@ critical_count,warning_count,info_count";
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// CSV input / batch processing
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug)]
+enum CsvColumnsMode {
+    Minimal,
+    Focused,
+    Full,
+}
+
+impl CsvColumnsMode {
+    fn from_str(s: &str) -> Result<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "minimal" => Ok(Self::Minimal),
+            "focused" => Ok(Self::Focused),
+            "full" => Ok(Self::Full),
+            _ => anyhow::bail!(
+                "Invalid --csv-columns '{}': expected minimal, focused, or full",
+                s
+            ),
+        }
+    }
+}
+
+struct CsvRowResult {
+    sql_text: String,
+    explain_text: String,
+    parse_status: String,
+    findings_total: usize,
+    critical_count: usize,
+    warning_count: usize,
+    info_count: usize,
+    findings: String,
+    suggestions: String,
+    root_op: String,
+    actual_rows: Option<f64>,
+    estimated_rows: Option<f64>,
+    total_time_ms: f64,
+    pushdown: PushdownStatus,
+    worst_est_ratio: Option<f64>,
+    spill_kb: Option<f64>,
+    peak_memory_kb: Option<f64>,
+    complexity_score: Option<f64>,
+    complexity_level: Option<String>,
+    summary: Option<SummaryRow>,
+}
+
+impl CsvRowResult {
+    fn error(sql: &str, explain: &str, msg: &str) -> Self {
+        Self {
+            sql_text: sql.to_string(),
+            explain_text: explain.to_string(),
+            parse_status: msg.to_string(),
+            findings_total: 0,
+            critical_count: 0,
+            warning_count: 0,
+            info_count: 0,
+            findings: String::new(),
+            suggestions: String::new(),
+            root_op: String::new(),
+            actual_rows: None,
+            estimated_rows: None,
+            total_time_ms: 0.0,
+            pushdown: PushdownStatus::Local,
+            worst_est_ratio: None,
+            spill_kb: None,
+            peak_memory_kb: None,
+            complexity_score: None,
+            complexity_level: None,
+            summary: None,
+        }
+    }
+}
+
+fn process_csv_input(
+    input_path: &str,
+    output_path: Option<&str>,
+    csv_columns: &str,
+    diag_config: &ogexplain_core::analyzer::config::DiagnosticConfig,
+) -> Result<()> {
+    let mode = CsvColumnsMode::from_str(csv_columns)?;
+
+    let mut reader = csv::ReaderBuilder::new()
+        .flexible(true)
+        .from_path(Path::new(input_path))
+        .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+
+    let headers = reader
+        .headers()
+        .context("Failed to read CSV header")?
+        .clone();
+
+    let sql_idx = headers
+        .iter()
+        .position(|h| h.to_lowercase() == "sql")
+        .context("CSV header missing 'sql' column")?;
+    let explain_idx = headers
+        .iter()
+        .position(|h| h.to_lowercase() == "explain")
+        .context("CSV header missing 'explain' column")?;
+
+    let mut results: Vec<CsvRowResult> = Vec::new();
+
+    for result in reader.records() {
+        let record = match result {
+            Ok(r) => r,
+            Err(e) => {
+                results.push(CsvRowResult::error("", "", &format!("CSV parse error: {}", e)));
+                continue;
+            }
+        };
+
+        let sql_text = record.get(sql_idx).unwrap_or_default();
+        let explain_text = record.get(explain_idx).unwrap_or_default();
+
+        match process_csv_row(sql_text, explain_text, diag_config) {
+            Ok(row) => results.push(row),
+            Err(e) => results.push(CsvRowResult::error(sql_text, explain_text, &e.to_string())),
+        };
+    }
+
+    let out: Box<dyn std::io::Write> = match output_path {
+        Some("-") | None => Box::new(std::io::stdout()),
+        Some(path) => {
+            let file = std::fs::File::create(Path::new(path))
+                .with_context(|| format!("Failed to create CSV output: {}", path))?;
+            Box::new(file)
+        }
+    };
+
+    let mut writer = csv::Writer::from_writer(out);
+    write_csv_header(&mut writer, mode)?;
+    for row_result in &results {
+        write_csv_row(&mut writer, row_result, mode)?;
+    }
+    writer.flush()?;
+
+    Ok(())
+}
+
+fn process_csv_row(
+    sql_text: &str,
+    explain_text: &str,
+    diag_config: &ogexplain_core::analyzer::config::DiagnosticConfig,
+) -> Result<CsvRowResult> {
+    let plan =
+        ogexplain_core::parse(explain_text).context("Failed to parse EXPLAIN text")?;
+
+    let complexity = ogsql_complexity::analyze(sql_text).ok();
+    let gauss_complexity = ogsql_complexity::gauss_analyze(
+        sql_text,
+        &ogsql_complexity::ComplexityConfig::default(),
+    )
+    .ok();
+    let complexity_input = complexity
+        .as_ref()
+        .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
+
+    let diag = ogexplain_core::analyze_with_rewrite_and_config(&plan, Some(sql_text), diag_config);
+    let suggestions = SuggestionEngine::suggest(&diag.findings);
+
+    let summary = SummaryRow::compute(&plan, &diag, complexity_input.as_ref());
+
+    let findings_str = diag
+        .findings
+        .iter()
+        .map(|f| format!("{}: {}", f.rule_id, f.title))
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    let suggestions_str = suggestions
+        .iter()
+        .map(|s| s.message.as_str())
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    Ok(CsvRowResult {
+        sql_text: sql_text.to_string(),
+        explain_text: explain_text.to_string(),
+        parse_status: "ok".to_string(),
+        findings_total: diag.findings.len(),
+        critical_count: summary.critical_count,
+        warning_count: summary.warning_count,
+        info_count: summary.info_count,
+        findings: findings_str,
+        suggestions: suggestions_str,
+        root_op: summary.root_op.clone(),
+        actual_rows: summary.actual_rows,
+        estimated_rows: summary.estimated_rows,
+        total_time_ms: summary.total_time_ms,
+        pushdown: summary.pushdown,
+        worst_est_ratio: summary.worst_est_ratio,
+        spill_kb: summary.spill_kb,
+        peak_memory_kb: summary.peak_memory_kb,
+        complexity_score: summary.score,
+        complexity_level: summary.level.clone(),
+        summary: Some(summary),
+    })
+}
+
+fn write_csv_header<W: std::io::Write>(
+    writer: &mut csv::Writer<W>,
+    mode: CsvColumnsMode,
+) -> Result<()> {
+    let mut cols: Vec<&str> = vec![
+        "sql",
+        "explain",
+        "parse_status",
+        "findings_total",
+        "critical_count",
+        "warning_count",
+        "info_count",
+        "findings",
+        "suggestions",
+    ];
+
+    if matches!(mode, CsvColumnsMode::Focused | CsvColumnsMode::Full) {
+        cols.extend_from_slice(&[
+            "root_op",
+            "actual_rows",
+            "estimated_rows",
+            "total_time_ms",
+            "pushdown",
+            "worst_est_ratio",
+            "spill_kb",
+            "peak_memory_kb",
+            "complexity_score",
+            "complexity_level",
+        ]);
+    }
+
+    if matches!(mode, CsvColumnsMode::Full) {
+        cols.extend_from_slice(&[
+            "total_cost",
+            "plan_depth",
+            "node_count",
+            "buffer_hit_rate",
+            "total_temp_read_kb",
+            "total_temp_written_kb",
+            "max_filter_removed",
+            "total_loops",
+            "network_kb",
+            "planner_time_ms",
+            "tables",
+            "joins",
+            "subqueries",
+            "where_conditions",
+            "aggregates",
+            "cases",
+            "set_ops",
+            "ctes",
+            "windows",
+            "has_group_by",
+            "has_order_by",
+            "has_distinct",
+            "subquery_depth",
+            "hints",
+            "sql_category",
+            "sql_sub_type",
+            "gauss_score",
+            "gauss_level",
+            "gauss_sql_structure",
+            "gauss_pl_logic",
+            "gauss_advanced_feature",
+            "gauss_extension",
+            "gauss_tags",
+        ]);
+    }
+
+    writer.write_record(&cols)?;
+    Ok(())
+}
+
+fn write_csv_row<W: std::io::Write>(
+    writer: &mut csv::Writer<W>,
+    row: &CsvRowResult,
+    mode: CsvColumnsMode,
+) -> Result<()> {
+    let mut cols: Vec<String> = vec![
+        row.sql_text.clone(),
+        row.explain_text.clone(),
+        row.parse_status.clone(),
+        row.findings_total.to_string(),
+        row.critical_count.to_string(),
+        row.warning_count.to_string(),
+        row.info_count.to_string(),
+        row.findings.clone(),
+        row.suggestions.clone(),
+    ];
+
+    if matches!(mode, CsvColumnsMode::Focused | CsvColumnsMode::Full) {
+        let pushdown_str = match row.pushdown {
+            PushdownStatus::Pushed => "Pushed",
+            PushdownStatus::NotPushed => "NotPushed",
+            PushdownStatus::Local => "Local",
+        };
+        cols.push(row.root_op.clone());
+        cols.push(fmt_opt_f64(row.actual_rows));
+        cols.push(fmt_opt_f64(row.estimated_rows));
+        cols.push(row.total_time_ms.to_string());
+        cols.push(pushdown_str.to_string());
+        cols.push(fmt_opt_f64(row.worst_est_ratio));
+        cols.push(fmt_opt_f64(row.spill_kb));
+        cols.push(fmt_opt_f64(row.peak_memory_kb));
+        cols.push(
+            row.complexity_score
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+        );
+        cols.push(row.complexity_level.clone().unwrap_or_default());
+    }
+
+    if matches!(mode, CsvColumnsMode::Full) {
+        if let Some(ref s) = row.summary {
+            cols.push(s.total_cost.to_string());
+            cols.push(s.plan_depth.to_string());
+            cols.push(s.node_count.to_string());
+            cols.push(fmt_opt_f64(s.buffer_hit_rate));
+            cols.push(fmt_opt_f64(s.total_temp_read_kb));
+            cols.push(fmt_opt_f64(s.total_temp_written_kb));
+            cols.push(fmt_opt_f64(s.max_filter_removed));
+            cols.push(fmt_opt_f64(s.total_loops));
+            cols.push(fmt_opt_f64(s.network_kb));
+            cols.push(fmt_opt_f64(s.planner_time_ms));
+            cols.push(s.tables.to_string());
+            cols.push(s.joins.to_string());
+            cols.push(s.subqueries.to_string());
+            cols.push(s.where_conditions.to_string());
+            cols.push(s.aggregates.to_string());
+            cols.push(s.cases.to_string());
+            cols.push(s.set_ops.to_string());
+            cols.push(s.ctes.to_string());
+            cols.push(s.windows.to_string());
+            cols.push(fmt_bool(s.has_group_by));
+            cols.push(fmt_bool(s.has_order_by));
+            cols.push(fmt_bool(s.has_distinct));
+            cols.push(s.subquery_depth.to_string());
+            cols.push(s.hints.to_string());
+            cols.push(s.sql_category.clone().unwrap_or_default());
+            cols.push(s.sql_sub_type.clone().unwrap_or_default());
+            cols.push(fmt_opt_i64(s.gauss_score));
+            cols.push(s.gauss_level.clone().unwrap_or_default());
+            cols.push(fmt_opt_i64(s.gauss_sql_structure));
+            cols.push(fmt_opt_i64(s.gauss_pl_logic));
+            cols.push(fmt_opt_i64(s.gauss_advanced_feature));
+            cols.push(fmt_opt_i64(s.gauss_extension));
+            cols.push(s.gauss_tags.join(";"));
+        } else {
+            let empty: Vec<String> = (0..33).map(|_| String::new()).collect();
+            cols.extend(empty);
+        }
+    }
+
+    writer.write_record(&cols)?;
+    Ok(())
+}
+
+fn fmt_opt_f64(v: Option<f64>) -> String {
+    match v {
+        Some(n) => n.to_string(),
+        None => String::new(),
+    }
+}
+
+fn fmt_opt_i64(v: Option<i64>) -> String {
+    match v {
+        Some(n) => n.to_string(),
+        None => String::new(),
+    }
+}
+
+fn fmt_bool(v: bool) -> String {
+    if v { "Y" } else { "N" }.to_string()
+}
+
 const LOGO: &str = concat!(
     "██████╗  ██████╗ ███████╗██╗  ██╗ ██████╗ ██╗      █████╗ ██╗ ██╗  ██╗\n",
     "██╔═══██╗██╔════╝ ██╔════╝╚██╗██╔╝██╔══██╗██║     ██╔══██╗██║ ██║  ██║\n",
@@ -669,6 +1051,17 @@ pub fn run() -> Result<()> {
                         .long("dedup-per-node")
                         .action(clap::ArgAction::SetTrue)
                         .help("Deduplicate findings per node (keep highest severity)"),
+                )
+                .arg(
+                    clap::Arg::new("csv_input")
+                        .long("csv-input")
+                        .help("CSV input file path (expects columns: sql, explain)"),
+                )
+                .arg(
+                    clap::Arg::new("csv_columns")
+                        .long("csv-columns")
+                        .default_value("minimal")
+                        .help("Output columns for CSV mode: minimal, focused, full"),
                 ),
         )
         .subcommand(
@@ -813,6 +1206,12 @@ pub fn run() -> Result<()> {
             let _verbose = args.get_flag("verbose");
             let _multi = args.get_flag("multi");
             let csv: Option<String> = args.get_one::<String>("csv").cloned();
+            let csv_input: Option<String> =
+                args.get_one::<String>("csv_input").cloned();
+            let csv_columns: String = args
+                .get_one::<String>("csv_columns")
+                .cloned()
+                .unwrap_or_else(|| "minimal".to_string());
 
             let diag_config = {
                 let mut cfg = match args.get_one::<String>("config_file") {
@@ -836,6 +1235,15 @@ pub fn run() -> Result<()> {
                 }
                 cfg
             };
+
+            if let Some(ref csv_input_path) = csv_input {
+                return process_csv_input(
+                    csv_input_path,
+                    csv.as_deref(),
+                    &csv_columns,
+                    &diag_config,
+                );
+            }
 
             {
                 let input = read_input(file)?;
