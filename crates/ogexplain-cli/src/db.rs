@@ -56,34 +56,110 @@ fn fetch_explain_impl(
     sql: &str,
     analyze: bool,
 ) -> Result<String> {
-    use gaussdb::SimpleQueryMessage;
+    let debug_raw = std::env::var_os("OGEXPLAIN_DEBUG_RAW").is_some();
 
     let mut client = gaussdb::config::connect_sync(None, config_path, name)
         .map_err(|err| map_connect_error(err, config_path, name))?;
 
     let explain_sql = build_explain_sql(sql, analyze);
 
-    let messages = client
-        .simple_query(&explain_sql)
+    // Use the extended-query protocol (client.query) instead of the simple-query
+    // protocol (client.simple_query). The extended protocol is the same path used
+    // by gaussdb-mcp cli / psql / gsql for display, and is reliably implemented
+    // across OG versions for EXPLAIN's text-column result. The simple-query
+    // protocol has been observed to return unexpected row content for EXPLAIN
+    // on some OG builds, producing "No plan nodes found" downstream.
+    let rows = client
+        .query(&explain_sql, &[])
         .context("Failed to execute EXPLAIN")?;
 
+    if debug_raw {
+        dump_query_rows(&rows);
+    }
+
     let mut output = String::new();
-    for msg in &messages {
-        if let SimpleQueryMessage::Row(row) = msg {
-            if let Some(text) = row.get(0) {
-                output.push_str(text);
-                output.push('\n');
-            }
+    for row in &rows {
+        let line: Option<String> = row.get(0);
+        if let Some(text) = line {
+            output.push_str(&text);
+            output.push('\n');
         }
     }
 
     let trimmed = output.trim_end().to_string();
+
+    if debug_raw {
+        dump_final_output(&trimmed);
+    }
 
     if trimmed.is_empty() {
         anyhow::bail!("EXPLAIN returned empty result");
     }
 
     Ok(trimmed)
+}
+
+/// Debug-only dump: show each binary-protocol Row with full byte visibility.
+///
+/// Activated by setting `OGEXPLAIN_DEBUG_RAW=1`. Useful for diagnosing parse
+/// failures where the fetched text differs from what a psql/gsql client would
+/// display (BOM, ideographic spaces, unexpected column counts/types, etc.).
+#[cfg(feature = "db")]
+fn dump_query_rows(rows: &[gaussdb::sync::Row]) {
+    eprintln!("--- OGEXPLAIN_DEBUG_RAW: {} rows ---", rows.len());
+    for (i, row) in rows.iter().enumerate() {
+        let cols = row.len();
+        let line: Option<String> = row.get(0);
+        let col0 = line.as_deref().unwrap_or("<NULL>");
+        eprintln!(
+            "[{:3}] Row (cols={}, col0_len={}): {:?}",
+            i,
+            cols,
+            col0.len(),
+            col0
+        );
+    }
+}
+
+/// Debug-only dump: show the final trimmed string with visible whitespace.
+#[cfg(feature = "db")]
+fn dump_final_output(trimmed: &str) {
+    eprintln!(
+        "--- OGEXPLAIN_DEBUG_RAW: final trimmed output = {} bytes, {} lines ---",
+        trimmed.len(),
+        trimmed.lines().count()
+    );
+
+    let bytes = trimmed.as_bytes();
+    let show = bytes.len().min(64);
+    eprintln!("--- hex of first {} bytes ---", show);
+    for chunk in bytes[..show].chunks(16) {
+        let hex: String = chunk.iter().map(|b| format!("{:02x} ", b)).collect();
+        let ascii: String = chunk
+            .iter()
+            .map(|&b| if (32..127).contains(&b) { b as char } else { '.' })
+            .collect();
+        eprintln!("  {:48} {}", hex, ascii);
+    }
+
+    eprintln!("--- per-line (visible whitespace) ---");
+    for (i, line) in trimmed.lines().enumerate() {
+        let visible: String = line
+            .chars()
+            .map(|c| match c {
+                '\t' => "\\t".to_string(),
+                '\r' => "\\r".to_string(),
+                '\u{00A0}' => "[NBSP]".to_string(),
+                '\u{202F}' => "[NNBSP]".to_string(),
+                '\u{3000}' => "[IDEOGRAPHIC_SPACE]".to_string(),
+                '\u{FEFF}' => "[BOM]".to_string(),
+                c if (c as u32) < 0x20 => format!("[^{:02x}]", c as u32),
+                c => c.to_string(),
+            })
+            .collect();
+        eprintln!("[{:3}|len={:3}] {}", i + 1, line.len(), visible);
+    }
+    eprintln!("--- end debug dump ---");
 }
 
 /// Translate a [`gaussdb::config::ConnectError`] into a specific, actionable
