@@ -196,6 +196,25 @@ pub fn extract_innermost_parens(s: &str) -> Option<String> {
     }
 }
 
+/// Recursively finds the first scan node in a subtree using DFS (left-to-right)
+/// and returns its `relation` field.
+///
+/// Used to extract the underlying table name from wrapper nodes like
+/// `SubqueryScan` that may be nested arbitrarily deep.
+///
+/// Returns `None` when no scan node is found in the subtree.
+pub fn find_first_scan_descendant(node: &PlanNode) -> Option<String> {
+    if is_scan_node(&node.node_type) {
+        return node.relation.clone();
+    }
+    for child in &node.children {
+        if let Some(r) = find_first_scan_descendant(child) {
+            return Some(r);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,6 +317,77 @@ mod tests {
         assert_eq!(
             extract_column_from_filter("(a = '1' OR b = '2')").unwrap(),
             "a"
+        );
+    }
+
+    // ── find_first_scan_descendant tests ──────────────────────────
+
+    fn make_node(nt: NodeType, line: usize, relation: Option<&str>) -> PlanNode {
+        PlanNode {
+            node_type: nt,
+            relation: relation.map(|s| s.to_string()),
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: line,
+        }
+    }
+
+    #[test]
+    fn test_find_first_scan_descendant_direct_child() {
+        // SubqueryScan → SeqScan(table=foo)
+        // 返回 Some("foo")
+        let mut subquery = make_node(NodeType::SubqueryScan, 1, None);
+        let child = make_node(NodeType::SeqScan, 2, Some("foo"));
+        subquery.children.push(child);
+        assert_eq!(
+            find_first_scan_descendant(&subquery),
+            Some("foo".to_string())
+        );
+    }
+
+    #[test]
+    fn test_find_first_scan_descendant_nested() {
+        // SubqueryScan → Limit → HashJoin (left=SeqScan(table=bar), right=IndexScan(table=baz))
+        // DFS 先访问左子树，返回 Some("bar")
+        let mut subquery = make_node(NodeType::SubqueryScan, 1, None);
+        let mut limit = make_node(NodeType::Limit, 2, None);
+        let mut join = make_node(NodeType::HashJoin, 3, None);
+        let left = make_node(NodeType::SeqScan, 4, Some("bar"));
+        let right = make_node(NodeType::IndexScan, 5, Some("baz"));
+        join.children.push(left);
+        join.children.push(right);
+        limit.children.push(join);
+        subquery.children.push(limit);
+        assert_eq!(
+            find_first_scan_descendant(&subquery),
+            Some("bar".to_string())
+        );
+    }
+
+    #[test]
+    fn test_find_first_scan_descendant_no_scan() {
+        // SubqueryScan → Sort → Result (无 scan)
+        let mut subquery = make_node(NodeType::SubqueryScan, 1, None);
+        let mut sort = make_node(NodeType::Sort, 2, None);
+        let result = make_node(NodeType::Result, 3, None);
+        sort.children.push(result);
+        subquery.children.push(sort);
+        assert_eq!(find_first_scan_descendant(&subquery), None);
+    }
+
+    #[test]
+    fn test_find_first_scan_descendant_self_is_scan() {
+        // 节点本身是 scan 节点
+        let scan = make_node(NodeType::SeqScan, 1, Some("orders"));
+        assert_eq!(
+            find_first_scan_descendant(&scan),
+            Some("orders".to_string())
         );
     }
 }
