@@ -15,6 +15,9 @@ use std::path::Path;
 #[cfg(feature = "db")]
 pub mod db;
 
+#[cfg(feature = "db")]
+pub mod optimize;
+
 #[derive(Parser)]
 #[command(name = "ogexplain")]
 #[command(version)]
@@ -1151,6 +1154,79 @@ pub fn run() -> Result<()> {
         .subcommand(
             clap::Command::new("mcp")
                 .about("Start MCP server (Model Context Protocol, stdio transport)"),
+        )
+        .subcommand(
+            clap::Command::new("optimize")
+                .about("Closed-loop SQL optimization: EXPLAIN → rewrite → re-EXPLAIN → converge")
+                .arg(
+                    clap::Arg::new("sql")
+                        .long("sql")
+                        .short('s')
+                        .help("SQL statement (inline)"),
+                )
+                .arg(
+                    clap::Arg::new("sql_file")
+                        .long("sql-file")
+                        .short('f')
+                        .help("File containing SQL statement"),
+                )
+                .arg(
+                    clap::Arg::new("config")
+                        .long("config")
+                        .help("Path to DB config file (default: ~/.gaussdb-mcp.toml)"),
+                )
+                .arg(
+                    clap::Arg::new("name")
+                        .long("name")
+                        .help("Named connection from config file"),
+                )
+                .arg(
+                    clap::Arg::new("schema")
+                        .long("schema")
+                        .help("Schema JSON file path (passed to metamorphosis)"),
+                )
+                .arg(
+                    clap::Arg::new("metamorphosis")
+                        .long("metamorphosis")
+                        .default_value("metamorphosis")
+                        .help("Path to metamorphosis binary"),
+                )
+                .arg(
+                    clap::Arg::new("max_iterations")
+                        .long("max-iterations")
+                        .default_value("10")
+                        .help("Maximum iterations"),
+                )
+                .arg(
+                    clap::Arg::new("analyze")
+                        .long("analyze")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Run EXPLAIN ANALYZE (executes query). Requires --i-know-the-risks."),
+                )
+                .arg(
+                    clap::Arg::new("i_know_the_risks")
+                        .long("i-know-the-risks")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Acknowledge that --analyze executes rewritten (possibly-unverified) SQL"),
+                )
+                .arg(
+                    clap::Arg::new("skip_stats_check")
+                        .long("skip-stats-check")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip Phase 0 stats check warning"),
+                )
+                .arg(
+                    clap::Arg::new("format")
+                        .long("format")
+                        .default_value("text")
+                        .help("Output format: text, json"),
+                )
+                .arg(
+                    clap::Arg::new("output")
+                        .long("output")
+                        .short('o')
+                        .help("Output file path"),
+                ),
         );
 
     let matches = cmd.get_matches();
@@ -1202,6 +1278,57 @@ pub fn run() -> Result<()> {
             #[cfg(not(feature = "mcp"))]
             {
                 anyhow::bail!("MCP support not compiled. Rebuild with --features mcp");
+            }
+        }
+        Some(("optimize", args)) => {
+            #[cfg(feature = "db")]
+            {
+                let sql: Option<String> = args.get_one::<String>("sql").cloned();
+                let sql_from_file: Option<String> = args
+                    .get_one::<String>("sql_file")
+                    .and_then(|p| std::fs::read_to_string(p).ok());
+                let sql = sql.or(sql_from_file).ok_or_else(|| {
+                    anyhow::anyhow!("Either --sql or --sql-file is required")
+                })?;
+                let config_path = args
+                    .get_one::<String>("config")
+                    .map(std::path::PathBuf::from);
+                let name = args.get_one::<String>("name").cloned();
+                let schema_path = args.get_one::<String>("schema").cloned();
+                let metamorphosis_path = args
+                    .get_one::<String>("metamorphosis")
+                    .cloned()
+                    .unwrap_or_else(|| "metamorphosis".to_string());
+                let max_iterations = args
+                    .get_one::<String>("max_iterations")
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(10);
+                let analyze = args.get_flag("analyze");
+                let i_know = args.get_flag("i_know_the_risks");
+                let skip_stats = args.get_flag("skip_stats_check");
+                let format = args
+                    .get_one::<String>("format")
+                    .map(|s| s.as_str().to_string())
+                    .unwrap_or_else(|| "text".to_string());
+                let output = args.get_one::<String>("output").cloned();
+
+                return optimize::run_optimize(optimize::OptimizeArgs {
+                    sql,
+                    config_path,
+                    name,
+                    schema_path,
+                    metamorphosis_path,
+                    max_iterations,
+                    analyze_enabled: analyze && i_know,
+                    skip_stats_check: skip_stats,
+                    format,
+                    output,
+                });
+            }
+            #[cfg(not(feature = "db"))]
+            {
+                let _ = args;
+                anyhow::bail!("Database support not compiled. Rebuild with --features db");
             }
         }
         _ => {
