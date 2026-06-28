@@ -1,0 +1,53 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q48"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q48 (SELECT film_id, title FROM film WHERE title LIKE '%Action%' LIMIT 10) produces Limit -> Seq Scan on film with Filter: (title ~~ '%Action%'::text) and Rows Removed by Filter: 1000. TYPE-004 fires on the SeqScan node: Filter value contains substring \"~~ '%\" (rule also matches LIKE/like variants). extract_like_pattern regex (?:LIKE|like|~~)\\s+'([^']+)' captures pattern = '%Action%'. is_double_sided = true (starts AND ends with '%', len > 1). detail = t!('finding.TYPE-004.detail', pattern='%Action%') concatenated with t!('finding.TYPE-004.detail_double_sided') = \"Filter condition contains leading wildcard LIKE '%Action%', cannot use B-tree index (wildcards on both sides)\". suggestion = t!('finding.TYPE-004.suggestion_double') mentioning pg_trgm + GIN index and full text search. severity=Warning, category=TypeMismatch. SCAN-004 co-fires on the same SeqScan: actual.rows=0 (Limit-truncated), rows_removed=1000 > min_rows_removed threshold (500) so should_fire=true. filter_cols regex captures column 'title' from 'title ~~ %Action%'. detail includes relation=film and Rows Removed by Filter: 1000. suggestion = suggestion_with_cols: ANALYZE film; also consider CREATE INDEX ON film (title). SCAN-001 does NOT fire (has Filter -> bails immediately; SCAN-001 is for pure full scans). TYPE-001 does NOT fire (extract_column_from_filter requires '=' operator; Q48 filter has '~~' not '=', returns None at column extraction). SCAN-005 does NOT fire (only matches IndexScan/IndexOnlyScan/PartitionedIndexScan/CStoreIndexScan; Q48 is SeqScan). GEN-001 does NOT fire (depth=2 < default threshold 10)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "TYPE-004",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "TypeMismatch",
+      "detail_must_contain": ["LIKE", "%Action%", "wildcards on both sides"],
+      "suggestion_must_contain": ["pg_trgm", "GIN"]
+    },
+    {
+      "rule_id": "SCAN-004",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "ScanEfficiency",
+      "detail_must_contain": ["film", "1000"],
+      "suggestion_must_contain": ["film", "title"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 only fires on pure full scans (no Filter property); filtered scans are delegated to SCAN-004. Q48's SeqScan has Filter (title ~~ '%Action%'::text), so SCAN-001 bails at scan_rules.rs:53-55."
+    },
+    {
+      "rule_id": "TYPE-001",
+      "must_not_fire": true,
+      "reason": "TYPE-001 (SuspectedImplicitTypeCast) requires extract_column_from_filter to find a 'col = value' pattern (regex at utils.rs:177-180 requires '=' operator). Q48 filter uses '~~' (LIKE) with no '=', so column extraction returns None and TYPE-001 bails."
+    },
+    {
+      "rule_id": "SCAN-005",
+      "must_not_fire": true,
+      "reason": "SCAN-005 (IndexScanPoorSelectivity) only matches IndexScan / IndexOnlyScan / PartitionedIndexScan / CStoreIndexScan. Q48 is a SeqScan."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Q48 depth = 2 (Limit -> SeqScan)."
+    }
+  ]
+}

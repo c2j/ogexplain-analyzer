@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "supplemental",
+    "ogagila_version": "supplemental",
+    "ogagila_query_ids": [],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Fixture tests/fixtures/20_deep_plan.txt is a hand-written EXPLAIN (not ogagila-backed) with plan depth 6 (Sort -> Hash Join -> Merge Join -> Hash Join -> Nested Loop -> Seq Scan on t1). Default max_plan_depth=10, so GEN-001 does NOT fire on this fixture under defaults; the per-case [config] override max_plan_depth=3 lowers the threshold so 6 > 3 triggers GEN-001. This mirrors the existing analyzer_tests.rs::gen_001_triggers_on_deep_plan_with_custom_config contract. source=supplemental is required because no ogagila query produces plan depth > 10 at ogagila's small data scale — the rule's default threshold cannot be exercised by any real ogagila plan, so a hand-authored deep plan is the only way to lock in GEN-001 behavior. ogagila_commit is set to the literal 'supplemental' (not a git SHA) to signal no ogagila dependency; ogagila_query_ids is empty for the same reason. Anti-findings rationale: SCAN-001 excluded (all Seq Scans report rows <= 100, well below default large_table_rows=10000); JOIN-001 excluded (Nested Loop inner Index Scan work = 5 rows x 10 loops = 50, far below nested_loop_inner_rows=10000); JOIN-002 excluded (no Hash node carries Batches > 1 / spill info); MEM-001 excluded (no Sort node reports an external-merge Sort Method). SORT-003 is intentionally NOT listed as an anti-finding because fixture 20's outer Sort (line 3) wraps an inner Sort (line 16) with a different Sort Key, and SORT-003 fires on ANY sort-within-sort regardless of key equality (see analyzer_tests.rs::sort_003_fires_on_nested_sort_with_different_keys)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "GEN-001",
+      "must_fire": true,
+      "min_severity": "info",
+      "category": "General",
+      "detail_must_contain": ["depth is 6", "threshold: 3"],
+      "detail_must_not_contain": [],
+      "suggestion_must_contain": ["EXPAND_SUBQUERY"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "All four Seq Scans (t1, t3, t4, t5) report estimated rows <= 100, far below the default large_table_rows threshold of 10000."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "Nested Loop inner Index Scan on t2 has rows=5 x loops=10 = 50 total work, well below nested_loop_inner_rows threshold of 10000."
+    },
+    {
+      "rule_id": "JOIN-002",
+      "must_not_fire": true,
+      "reason": "No Hash node carries Batches > 1 or disk-spill information; JOIN-002 requires a spilling Hash node."
+    },
+    {
+      "rule_id": "MEM-001",
+      "must_not_fire": true,
+      "reason": "Neither Sort node reports an external-merge Sort Method; MEM-001 only fires on Sort Method containing 'external' spill indicators."
+    }
+  ]
+}

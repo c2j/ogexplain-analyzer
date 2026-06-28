@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q09"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q09 (SELECT COUNT(*) FROM rental WHERE return_date IS NULL) produces Aggregate -> Seq Scan on rental with Filter (return_date IS NULL) and Rows Removed by Filter=16044. SCAN-004 fires via the else branch (actual.rows=0, so rule falls back to rows_removed(16044) > min_rows_removed(500) threshold). ratio_str becomes INFINITY -> 'inf' in detail, with literal 'x' from template producing 'infx'. extract_filter_columns captures 'return_date' from the IS NULL pattern and feeds it into suggestion_with_cols ('ANALYZE rental; also consider CREATE INDEX ON rental (return_date)'), but the column name does NOT appear in detail. detail template: '%{node_label} on %{relation} with Filter: estimated %{estimated} rows but got %{actual} (ratio: %{ratio}x)' with appended ', Rows Removed by Filter: 16044' when rows_removed > 0. SCAN-001 does NOT fire (Filter present -> SCAN-001 requires NO Filter). SCAN-005 does NOT fire (rule only matches IndexScan variants). GEN-001 does NOT fire (depth=2). JOIN-001 does NOT fire (no Nested Loop)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "SCAN-004",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "ScanEfficiency",
+      "detail_must_contain": ["rental", "188", "16044"],
+      "detail_must_not_contain": ["Index Scan", "Partitioned"],
+      "suggestion_must_contain": ["rental", "return_date"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 requires NO Filter on the scan (pure full scan). Q09's SeqScan has Filter (return_date IS NULL), which routes it to SCAN-004 instead."
+    },
+    {
+      "rule_id": "SCAN-005",
+      "must_not_fire": true,
+      "reason": "SCAN-005 only matches IndexScan / IndexOnlyScan / CStoreIndexScan / PartitionedIndexScan. Q09 is a SeqScan."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "Plan depth = 2 (Aggregate -> SeqScan); default max_plan_depth = 10."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "No Nested Loop node in plan."
+    }
+  ]
+}

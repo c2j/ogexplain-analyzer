@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "ogagila_commit": "supplemental",
+    "ogagila_version": "supplemental",
+    "ogagila_query_ids": [],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Supplemental EXPLAIN (tests/fixtures/17_implicit_cast.txt) used because the ogagila optimizer always picks an IndexScan on PK for the cast queries surveyed (Q44-Q47, Q132), but TYPE-001 only triggers on SeqScan nodes. Fixture 17 was purpose-built for this rule. Plan: single SeqScan on orders (est rows=100000, actual rows=500) with Filter: (status = '42') and Rows Removed by Filter: 500000. TYPE-001 fires via the BareColumnStringLiteral variant: extract_column_from_filter strips outer parens and returns column='status'; detect_asymmetric_cast finds no symmetric ::type on either side of '=' and Pattern 1 (status\\)*\\s*=\\s*'([^']+)') captures '42', which parses as f64 -> mismatch=MismatchPattern::BareColumnStringLiteral. Threshold checks pass: rows_removed=500000 > 10, removal ratio=500000/500500 ~= 0.999 > 0.5. detail = t!('finding.TYPE-001.detail', filter='(status = \\'42\\')', desc=t!('finding.TYPE-001.desc_bare_col', col='status', val='42')=\"status = '42' (column vs string value)\", removed=500000_i64, total=500500_i64) = \"Seq Scan with filter '(status = '42')' (status = '42' (column vs string value)), filtered out 500000 rows (total 500500) — suspected implicit type cast preventing index usage\". suggestion = t!('finding.TYPE-001.suggestion_bare_col', col='status', val='42') = \"WHERE status = 42 — suspected numeric column compared with string literal, consider removing quotes or adding explicit cast\". severity=Critical (per SuspectedImplicitTypeCast::severity()), category=TypeMismatch. SCAN-004 co-fires on the same SeqScan: has_filter=true, estimated.plan_rows=100000 > 0, actual.rows=500 > 0, ratio=100000/500=200 > estimation_ratio (default 10) so should_fire=true. extract_filter_columns captures 'status'. detail = \"Seq Scan on orders with Filter: estimated 100000 rows but got 500 (ratio: 200x), Rows Removed by Filter: 500000\". suggestion = suggestion_with_cols: \"ANALYZE orders; also consider CREATE INDEX ON orders (status)\". SCAN-001 does NOT fire (has_filter=true -> bails at scan_rules.rs:53-55; pure full scans only). TYPE-004 does NOT fire (no LIKE/~~ operator, just '='). GEN-001 does NOT fire (plan depth = 1, default threshold = 10). JOIN-001 does NOT fire (no Nested Loop node, no join at all)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "TYPE-001",
+      "must_fire": true,
+      "min_severity": "critical",
+      "category": "TypeMismatch",
+      "detail_must_contain": ["status = '42'", "500000", "suspected implicit type cast"],
+      "detail_must_not_contain": ["Index"],
+      "suggestion_must_contain": ["status", "removing quotes"]
+    },
+    {
+      "rule_id": "SCAN-004",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "ScanEfficiency",
+      "detail_must_contain": ["orders", "100000"],
+      "suggestion_must_contain": ["orders", "status"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 (LargeTableFullScan) only fires on pure full scans; fixture 17's SeqScan has a Filter property so SCAN-001 bails at scan_rules.rs:53-55 and delegates to SCAN-004."
+    },
+    {
+      "rule_id": "TYPE-004",
+      "must_not_fire": true,
+      "reason": "TYPE-004 (LikeWithLeadingWildcard) requires LIKE/~~ operator in the Filter; fixture 17 uses 'status = \\'42\\'' (equality), not LIKE."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds default threshold 10; fixture 17 is a single SeqScan (depth=1)."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "JOIN-001 (NestedLoopOnLargeTables) requires a Nested Loop node; fixture 17 has no join at all (single scan)."
+    }
+  ]
+}

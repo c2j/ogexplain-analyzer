@@ -1,0 +1,19 @@
+rule_id             = "JOIN-001"
+case_name           = "join-001-nested-loop-large"
+expect_fired        = true
+expect_min_severity = "critical"
+
+[dataset]
+source            = "ogagila"
+ogagila_version   = "v3"
+ogagila_query_ids = ["Q17"]
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = true
+weak_signal      = false
+skip_live_reason = ""

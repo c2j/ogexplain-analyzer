@@ -1,0 +1,19 @@
+rule_id             = "TYPE-004"
+case_name           = "type-004-like-leading-wildcard"
+expect_fired        = true
+expect_min_severity = "warning"
+
+[dataset]
+source            = "ogagila"
+ogagila_version   = "v3"
+ogagila_query_ids = ["Q48"]
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = true
+weak_signal      = false
+skip_live_reason = ""

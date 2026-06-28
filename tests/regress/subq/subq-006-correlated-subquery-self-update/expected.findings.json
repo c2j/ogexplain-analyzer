@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "supplemental",
+    "ogagila_version": "supplemental",
+    "ogagila_query_ids": [],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Supplemental EXPLAIN (fixture 23) because no ogagila UPDATE query produces this exact correlated-self-update shape — ogagila benchmark queries are SELECT-heavy and do not exercise the SubPlan-correlated-to-outer-DML-table pattern that SUBQ-006 targets. The fixture is hand-written EXPLAIN TEXT already proven to parse (used by tests/analyzer_tests.rs subq_006_triggers_on_correlated_subquery_update). Trigger node: Update on employees (NodeType::Update is in the DML allowlist at subquery_rules.rs:176-182). collect_signals walks the subtree and finds: has_subplan=true (SubPlan 1 property on the Seq Scan), same_table_scan=true (Seq Scan on employees + Index Scan on employees e both match target_table='employees'), has_streaming=false (no Streaming nodes — detail_streaming suffix suppressed). correlation_column='emp_id' extracted from Index Cond '(emp_id = employees.emp_id)' via extract_innermost_parens + split-on-'=' + last-segment-after-dot. detail = finding.SUBQ-006.detail with table=employees, subplan=true, scan=true. suggestion = finding.SUBQ-006.suggestion with table=employees, col=emp_id (Method 1 UPDATE FROM + Method 2 CTE). Anti-findings rationale: SCAN-001 — Seq Scan rows=1000 < threshold 10000 (no fire); SCAN-004 — no Filter property on the Seq Scan (no fire); GEN-001 — plan depth ~4 < threshold 10 (no fire); JOIN-001 — no NestedLoop node, pure DML+scan plan (no fire). SUBQ-001 may co-fire (SubPlan property present on Seq Scan, no SubqueryScan ancestor) — deliberately NOT listed as anti since it is a legitimate co-finding representing the subquery-not-pulled-up signal, not a false positive."
+  },
+
+  "findings": [
+    {
+      "rule_id": "SUBQ-006",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "SubqueryStructure",
+      "detail_must_contain": ["employees", "SubPlan", "self-referencing UPDATE"],
+      "detail_must_not_contain": ["Streaming", "distributed"],
+      "suggestion_must_contain": ["UPDATE employees", "CTE"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 (LargeTableFullScan) fires on unfiltered SeqScan with effective_scan_size > threshold (default 10000). Seq Scan on employees has rows=1000 < 10000."
+    },
+    {
+      "rule_id": "SCAN-004",
+      "must_not_fire": true,
+      "reason": "SCAN-004 (FilterWithoutIndex) requires a Filter property on the scan node. The Seq Scan on employees has no Filter property (pure scan driving the UPDATE)."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Fixture 23 depth is ~4 (Update -> Seq Scan -> SubPlan -> Index Scan)."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "JOIN-001 (NestedLoopLargeDataset) requires a NestedLoop node. Fixture 23 is a DML plan (Update -> Seq Scan + correlated Index Scan), no join node present."
+    }
+  ]
+}

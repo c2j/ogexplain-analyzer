@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q150"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q150 (SELECT t1.customer_id, t1.amount, t2.amount FROM (SELECT customer_id, amount FROM payment ORDER BY amount DESC LIMIT 10) t1 JOIN (SELECT customer_id, amount FROM payment ORDER BY amount DESC LIMIT 10) t2 USING (customer_id) ORDER BY t1.amount DESC, t2.amount DESC) yields a plan with THREE Sort nodes: outer Sort [A] (Sort Key: 'public.payment.amount DESC, t2.amount DESC') over a Hash Join whose left branch is Limit -> inner Sort [B] (Sort Key: 'public.payment.amount DESC') -> Partition Iterator -> Partitioned Seq Scan on payment, and whose right branch is Hash -> Subquery Scan on t2 -> Limit -> inner Sort [C] (Sort Key: 'public.payment.amount DESC') -> Partition Iterator -> Partitioned Seq Scan on payment. SORT-003 fires ONLY on the outer Sort [A]: collect_child_sort_keys recurses and finds two descendant Sorts ([B] and [C]), so child_sorts is non-empty. duplicates filter compares each child key against outer Sort's current_key; both children have 'public.payment.amount DESC' which is NOT string-equal to outer's 'public.payment.amount DESC, t2.amount DESC' (the outer sort has two columns including the join-qualified t2.amount), so duplicates is empty -> detail_redundant variant fires (NOT detail_duplicate). Suggestion uses suggestion_with_key because current_key is non-empty. The two inner Sorts [B] and [C] do NOT fire SORT-003 themselves because they have no Sort descendants. Co-firing: SUBQ-001 fires on 'Subquery Scan on t2' (expected, not listed in anti_findings). Anti-findings: SCAN-001 does NOT fire because every Partitioned Seq Scan on payment has a Sort ancestor (Sort is in has_legitimate_full_scan_ancestor allowlist) even though rows=16049 > threshold 10000. SCAN-004 does NOT fire because the Partitioned Seq Scans have no Filter property (only 'Selected Partitions: 1..7'). MEM-001 does NOT fire because all three Sort Methods are 'quicksort' or 'top-N heapsort' (no 'external merge' disk spill). GEN-001 does NOT fire because max plan depth = 8 (Sort -> Hash Join -> Hash -> Subquery Scan -> Limit -> Sort -> Partition Iterator -> Partitioned Seq Scan) <= default max_plan_depth 10. JOIN-001 does NOT fire because the plan uses HashJoin (Hash Cond: public.payment.customer_id = t2.customer_id), not NestedLoop."
+  },
+
+  "findings": [
+    {
+      "rule_id": "SORT-003",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "SortEfficiency",
+      "detail_must_contain": ["Sort", "redundant"],
+      "detail_must_not_contain": ["identical"],
+      "suggestion_must_contain": ["public.payment.amount DESC", "REDUCE_ORDER_BY"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "Both Partitioned Seq Scans on payment (est rows=16049 > threshold 10000) have a Sort ancestor (Sort is in has_legitimate_full_scan_ancestor allowlist), so SCAN-001 is suppressed as a legitimate full-table dump feeding the sort."
+    },
+    {
+      "rule_id": "SCAN-004",
+      "must_not_fire": true,
+      "reason": "SCAN-004 requires a Filter property on the scan node. The Partitioned Seq Scans have only 'Selected Partitions: 1..7', no Filter."
+    },
+    {
+      "rule_id": "MEM-001",
+      "must_not_fire": true,
+      "reason": "MEM-001 (SortSpillToDisk) requires Sort Method containing 'external'. All three Sorts use 'quicksort' (outer) or 'top-N heapsort' (inner two) — in-memory only."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when max_depth > 10. Q150 max depth = 8 (Sort -> Hash Join -> Hash -> Subquery Scan -> Limit -> Sort -> Partition Iterator -> Partitioned Seq Scan)."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "JOIN-001 (NestedLoopLargeDataset) requires a NestedLoop node. Q150 uses HashJoin with Hash Cond on customer_id; no NestedLoop in plan."
+    }
+  ]
+}

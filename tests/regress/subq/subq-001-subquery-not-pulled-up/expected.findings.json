@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q118"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q118 (SELECT customer_id FROM customer WHERE active=1 INTERSECT SELECT customer_id FROM payment WHERE amount>5) produces HashSetOp Intersect -> Append -> [Subquery Scan on *SELECT* 2 -> Partition Iterator -> Partitioned Seq Scan on payment (Filter amount>5, Rows Removed 12092), Subquery Scan on *SELECT* 1 -> Seq Scan on customer (Filter active=1, Rows Removed 15)]. SUBQ-001 fires on EACH SubqueryScan node via the detail_subquery_scan variant (SubqueryNotPulledUp::check_with_ancestors short-circuits straight to check() for SubqueryScan nodes, subquery_rules.rs:35-39). OG represents INTERSECT/EXCEPT set-operation branches as unpulled SubqueryScan wrappers around each SELECT, so this is the canonical SubqueryScan trigger. Two findings produced: (1) involving table 'payment' (find_first_scan_descendant of *SELECT* 2 descends Partition Iterator -> Partitioned Seq Scan on payment, first_identifier='payment'); (2) involving table 'customer' (find_first_scan_descendant of *SELECT* 1 = Seq Scan on customer). Both use suggestion_subquery_scan template. Because the driver requires every detail_must_contain needle to appear in EVERY matching finding, detail asserts only the common template substrings and excludes the SubPlan variant via detail_must_not_contain=['SubPlan']. SCAN-001 does NOT fire: both scans carry a Filter property, short-circuited at scan_rules.rs:53 (has_filter -> return None); SCAN-001 only handles PURE unfiltered full scans. SCAN-004 is intentionally NOT listed as anti because it co-fires on the payment Partitioned Seq Scan (Rows Removed by Filter=12092 > min_rows_removed=500 at scan_rules.rs:159); it is a legitimate co-finding, left unstated in findings[]. GEN-001 does NOT fire (plan depth=5 < max_plan_depth=10). JOIN-001 does NOT fire (no NestedLoop node; INTERSECT uses HashSetOp+Append). SUBQ-006 does NOT fire (Q118 is a SELECT, SUBQ-006 requires Update/ModifyTable/VectorUpdate DML root at subquery_rules.rs:176-182)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "SUBQ-001",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "SubqueryStructure",
+      "detail_must_contain": ["SubqueryScan", "involving table"],
+      "detail_must_not_contain": ["SubPlan"],
+      "suggestion_must_contain": ["EXPAND_SUBQUERY", "USE_MAGIC_SET"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 (LargeTableFullScan) only fires on unfiltered SeqScan/PartitionedSeqScan. Both Q118 scans (customer, payment) carry a Filter property, so SCAN-001 short-circuits at scan_rules.rs:53 (has_filter -> return None). SCAN-004 is the filtered-scan rule and DOES co-fire on payment; see review_notes."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Q118 depth = 5 (HashSetOp Intersect -> Append -> Subquery Scan -> Partition Iterator -> Partitioned Seq Scan)."
+    },
+    {
+      "rule_id": "JOIN-001",
+      "must_not_fire": true,
+      "reason": "JOIN-001 (NestedLoopLargeDataset) requires a NestedLoop node. Q118 is an INTERSECT set operation (HashSetOp Intersect -> Append), no join node present."
+    },
+    {
+      "rule_id": "SUBQ-006",
+      "must_not_fire": true,
+      "reason": "SUBQ-006 (CorrelatedSubquerySelfUpdate) only fires on DML roots (Update/ModifyTable/VectorUpdate). Q118 is a SELECT with INTERSECT."
+    }
+  ]
+}

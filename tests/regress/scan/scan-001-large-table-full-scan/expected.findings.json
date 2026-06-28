@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q01"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q01 (SELECT * FROM rental LIMIT 10) produces Limit -> SeqScan on rental with estimated plan_rows=16472, actual rows=10 (Limit-truncated). SCAN-001 fires: pure full scan (no Filter), est 16472 > threshold 10000, parent Limit is not a 'legitimate full scan' ancestor (allowlist excludes Limit). detail template 'Seq Scan on %{relation} scanned ~%{rows} rows (threshold: %{threshold})' with relation=rental, rows=16472, threshold=10000. SCAN-004 does NOT fire (no Filter property). GEN-001 does NOT fire (depth=2 < threshold 10). SCAN-005 does NOT fire (rule only matches IndexScan/IndexOnlyScan/CStoreIndexScan, not SeqScan). EST-004 does NOT fire (no Nested Loop node in plan)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "ScanEfficiency",
+      "detail_must_contain": ["rental", "16472", "10000"],
+      "detail_must_not_contain": ["Index", "Filter"],
+      "suggestion_must_contain": ["rental"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-004",
+      "must_not_fire": true,
+      "reason": "SCAN-004 requires a Filter property on the scan node. Q01's SeqScan is a pure full scan (parent Limit truncates output, not a Filter)."
+    },
+    {
+      "rule_id": "SCAN-005",
+      "must_not_fire": true,
+      "reason": "SCAN-005 (IndexScanPoorSelectivity) only matches IndexScan / IndexOnlyScan / CStoreIndexScan / PartitionedIndexScan. Q01 is a SeqScan."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Q01 depth = 2 (Limit -> SeqScan)."
+    },
+    {
+      "rule_id": "EST-004",
+      "must_not_fire": true,
+      "reason": "EST-004 (NestedLoopFromUnderestimation) requires a Nested Loop node. Q01 has Limit -> SeqScan, no join."
+    }
+  ]
+}
