@@ -3,8 +3,8 @@ use crate::model::{NodeType, PlanNode, StreamingType};
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
 use super::utils::{
-    any_property_contains, extract_innermost_parens, extract_target_table, first_identifier,
-    is_scan_node, table_name_match,
+    any_property_contains, extract_innermost_parens, extract_target_table,
+    find_first_scan_descendant, first_identifier, is_scan_node, table_name_match,
 };
 use super::{make_finding, DiagnosticRule};
 
@@ -24,14 +24,48 @@ impl DiagnosticRule for SubqueryNotPulledUp {
     fn category(&self) -> DiagnosticCategory {
         DiagnosticCategory::SubqueryStructure
     }
+    fn check_with_ancestors(
+        &self,
+        node: &PlanNode,
+        ctx: &PlanContext,
+        ancestors: &[&PlanNode],
+    ) -> Option<Finding> {
+        // SubqueryScan nodes: always fire (root of subquery tree)
+        if node.node_type == NodeType::SubqueryScan
+            || node.node_type == NodeType::VectorSubqueryScan
+        {
+            return self.check(node, ctx);
+        }
+
+        // SubPlan detection: fire only if NO SubqueryScan ancestor exists
+        // (otherwise the SubqueryScan ancestor already covers this subtree)
+        if any_property_contains(node, "SubPlan") {
+            let has_subquery_scan_ancestor = ancestors.iter().any(|a| {
+                a.node_type == NodeType::SubqueryScan || a.node_type == NodeType::VectorSubqueryScan
+            });
+            if has_subquery_scan_ancestor {
+                return None; // Suppress — let the SubqueryScan-level finding represent this subtree
+            }
+            // Standalone SubPlan — fire normally
+            return Some(make_finding(
+                self,
+                format!("检测到未提升的子查询(SubPlan in {})", node.node_type),
+                node,
+                Some(
+                    "/*+ EXPAND_SUBLINK */ 提升子链接; /*+ USE_MAGIC_SET */ 优化关联子查询"
+                        .to_string(),
+                ),
+            ));
+        }
+
+        None
+    }
+
     fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
         if node.node_type == NodeType::SubqueryScan
             || node.node_type == NodeType::VectorSubqueryScan
         {
-            let child_table = node
-                .children
-                .first()
-                .and_then(|c| c.relation.clone())
+            let child_table = find_first_scan_descendant(node)
                 .map(|r| first_identifier(&r))
                 .unwrap_or_else(|| "unknown".to_string());
 
@@ -262,4 +296,151 @@ fn build_rewrite_template(table: &str, correlation_col: &Option<String>) -> Stri
          方式一(UPDATE FROM): UPDATE {table} SET ... = t.new_val FROM (SELECT {col}, ... FROM {table}) t WHERE {table}.{col} = t.{col};\n\
          方式二(CTE): WITH new_vals AS (SELECT {col}, ... FROM {table}) UPDATE {table} SET ... = n.new_val FROM new_vals n WHERE {table}.{col} = n.{col};"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::ExplainPlan;
+
+    fn make_node(nt: NodeType, line: usize) -> PlanNode {
+        PlanNode {
+            node_type: nt,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: line,
+        }
+    }
+
+    fn test_check_subq001(node: &PlanNode) -> Option<Finding> {
+        let rule = SubqueryNotPulledUp;
+        let dummy_root = make_node(NodeType::Result, 0);
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    // ── Task 4.1: Recursive table name lookup ──────────────────────
+
+    #[test]
+    fn test_subq001_finds_table_name_in_nested_subquery() {
+        // SubqueryScan → HashJoin → SeqScan(table="orders")
+        // Currently returns "unknown" (direct child is HashJoin, no relation)
+        let mut subquery_scan = make_node(NodeType::SubqueryScan, 1);
+        let mut join = make_node(NodeType::HashJoin, 2);
+        let mut scan = make_node(NodeType::SeqScan, 3);
+        scan.relation = Some("orders".to_string());
+        join.children.push(scan);
+        subquery_scan.children.push(join);
+
+        let finding = test_check_subq001(&subquery_scan).expect("Should fire on SubqueryScan");
+        assert!(
+            finding.detail.contains("orders"),
+            "detail must mention real table 'orders', got: {}",
+            finding.detail
+        );
+    }
+
+    #[test]
+    fn test_subq001_unknown_when_no_scan_in_subtree() {
+        // SubqueryScan → Sort → Result (no scan)
+        // Should still fire but with "unknown"
+        let mut subquery_scan = make_node(NodeType::SubqueryScan, 1);
+        let mut sort = make_node(NodeType::Sort, 2);
+        let result = make_node(NodeType::Result, 3);
+        sort.children.push(result);
+        subquery_scan.children.push(sort);
+
+        let finding = test_check_subq001(&subquery_scan).expect("Should fire");
+        assert!(
+            finding.detail.contains("unknown"),
+            "should mention 'unknown' when no scan found, got: {}",
+            finding.detail
+        );
+    }
+
+    // ── Task 4.2: Aggregate SubPlan into SubqueryScan tree ─────────
+
+    #[test]
+    fn test_subq001_aggregates_subplan_into_subquery_scan() {
+        // Tree: SubqueryScan → BitmapHeapScan (has SubPlan) → BitmapIndexScan (has SubPlan)
+        // WITHOUT aggregation: 3 findings (SubqueryScan + 2 SubPlan nodes)
+        // WITH aggregation: 1 finding (only SubqueryScan level)
+        let mut subquery_scan = make_node(NodeType::SubqueryScan, 1);
+        let mut bitmap_heap = make_node(NodeType::BitmapHeapScan, 2);
+        bitmap_heap
+            .properties
+            .push(crate::model::buffer::NodeProperty {
+                label: "Filter".to_string(),
+                value: "SubPlan 1".to_string(),
+            });
+        let mut bitmap_idx = make_node(NodeType::BitmapIndexScan, 3);
+        bitmap_idx
+            .properties
+            .push(crate::model::buffer::NodeProperty {
+                label: "Index Cond".to_string(),
+                value: "(col = (SubPlan 2))".to_string(),
+            });
+        bitmap_heap.children.push(bitmap_idx);
+        subquery_scan.children.push(bitmap_heap);
+
+        let plan = ExplainPlan {
+            root: subquery_scan,
+            summary: None,
+        };
+        let report = crate::analyze(&plan);
+        let subq_findings: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == "SUBQ-001")
+            .collect();
+        assert_eq!(
+            subq_findings.len(),
+            1,
+            "expected 1 aggregated finding (SubqueryScan only), got {}: {:#?}",
+            subq_findings.len(),
+            subq_findings
+        );
+    }
+
+    #[test]
+    fn test_subq001_fires_on_standalone_subplan() {
+        // Standalone SubPlan with NO SubqueryScan ancestor
+        // Should still fire (not suppressed)
+        let mut result = make_node(NodeType::Result, 1);
+        result.properties.push(crate::model::buffer::NodeProperty {
+            label: "Filter".to_string(),
+            value: "(col = (SubPlan 1))".to_string(),
+        });
+
+        let plan = ExplainPlan {
+            root: result,
+            summary: None,
+        };
+        let report = crate::analyze(&plan);
+        let subq_findings: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| f.rule_id == "SUBQ-001")
+            .collect();
+        assert!(
+            !subq_findings.is_empty(),
+            "standalone SubPlan (no SubqueryScan ancestor) must still fire"
+        );
+    }
 }
