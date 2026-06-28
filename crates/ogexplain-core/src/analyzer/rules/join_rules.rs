@@ -196,3 +196,188 @@ fn parse_kb_value(s: &str) -> Option<i64> {
     }
     s.parse::<i64>().ok()
 }
+
+// ── JOIN-003: Expensive join filter ────────────────────────────────
+
+pub struct HashJoinExpensiveFilter {
+    threshold: f64,
+}
+
+impl HashJoinExpensiveFilter {
+    pub fn new(_config: DiagnosticConfig) -> Self {
+        Self { threshold: 10000.0 }
+    }
+}
+
+impl DiagnosticRule for HashJoinExpensiveFilter {
+    fn id(&self) -> &str {
+        "JOIN-003"
+    }
+    fn name(&self) -> &str {
+        "Expensive join filter"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Warning
+    }
+    fn category(&self) -> DiagnosticCategory {
+        DiagnosticCategory::JoinStrategy
+    }
+    fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
+        if node.node_type != NodeType::HashJoin && node.node_type != NodeType::MergeJoin {
+            return None;
+        }
+        let has_join_filter = node.properties.iter().any(|p| p.label == "Join Filter");
+        if !has_join_filter {
+            return None;
+        }
+        let rows_removed: f64 = node
+            .properties
+            .iter()
+            .find(|p| p.label == "Rows Removed by Join Filter")
+            .and_then(|p| p.value.trim().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        if rows_removed <= self.threshold {
+            return None;
+        }
+
+        let join_label = match node.node_type {
+            NodeType::HashJoin => "Hash Join",
+            _ => "Merge Join",
+        };
+        let detail = format!(
+            "{} Join Filter removed {} rows (threshold: {})",
+            join_label, rows_removed as i64, self.threshold as i64
+        );
+        let suggestion = format!(
+            "Consider pushing the join filter to the scan level (add to WHERE clause), or verify join column selectivity. Filter removing {} rows post-join.",
+            rows_removed as i64
+        );
+
+        Some(make_finding(self, detail, node, Some(suggestion)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::config::DiagnosticConfig;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::buffer::NodeProperty;
+    use crate::model::{ExplainPlan, NodeType, PlanNode};
+
+    fn test_check_join003(node: &PlanNode) -> Option<Finding> {
+        let rule = HashJoinExpensiveFilter::new(DiagnosticConfig::default());
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    fn make_join_node(
+        node_type: NodeType,
+        join_filter: Option<&str>,
+        rows_removed: f64,
+    ) -> PlanNode {
+        let mut props = Vec::new();
+        if let Some(filter) = join_filter {
+            props.push(NodeProperty {
+                label: "Join Filter".to_string(),
+                value: filter.to_string(),
+            });
+        }
+        if rows_removed > 0.0 {
+            props.push(NodeProperty {
+                label: "Rows Removed by Join Filter".to_string(),
+                value: rows_removed.to_string(),
+            });
+        }
+        PlanNode {
+            node_type,
+            relation: Some("test_table".to_string()),
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: props,
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    #[test]
+    fn test_join003_hash_join_with_expensive_filter() {
+        let node = make_join_node(NodeType::HashJoin, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_some(),
+            "JOIN-003 should fire on HashJoin with 50000 rows removed"
+        );
+        let f = finding.unwrap();
+        assert!(f.detail.contains("Hash Join"));
+        assert!(f.detail.contains("50000"));
+        assert!(f.suggestion.unwrap().contains("50000"));
+    }
+
+    #[test]
+    fn test_join003_merge_join_with_expensive_filter() {
+        let node = make_join_node(NodeType::MergeJoin, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_some(),
+            "JOIN-003 should fire on MergeJoin with 50000 rows removed"
+        );
+        let f = finding.unwrap();
+        assert!(f.detail.contains("Merge Join"));
+    }
+
+    #[test]
+    fn test_join003_no_join_filter_does_not_fire() {
+        let node = make_join_node(NodeType::HashJoin, None, 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire without Join Filter property"
+        );
+    }
+
+    #[test]
+    fn test_join003_below_threshold_does_not_fire() {
+        let node = make_join_node(NodeType::HashJoin, Some("(o.status = 'shipped')"), 100.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire when rows removed (100) ≤ threshold (10000)"
+        );
+    }
+
+    #[test]
+    fn test_join003_seqscan_does_not_fire() {
+        let node = make_join_node(NodeType::SeqScan, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire on SeqScan node"
+        );
+    }
+}
