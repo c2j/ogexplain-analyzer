@@ -112,6 +112,8 @@ impl DiagnosticRule for HighPeakMemory {
             suggestion: Some(suggestion),
             sql_rewrite: None,
             evidence: None,
+            table: None,
+            columns: Vec::new(),
         }]
     }
 }

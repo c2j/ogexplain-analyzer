@@ -97,5 +97,28 @@ fn make_finding(
         suggestion,
         sql_rewrite: None,
         evidence: None,
+        table: None,
+        columns: Vec::new(),
     }
+}
+
+/// Extended `make_finding` with structured table/columns metadata.
+///
+/// Rules that already extract table/column info (SCAN-001 via `node.relation`,
+/// SCAN-004/TYPE-001 via `extract_column_from_filter`, SUBQ-001 via
+/// `find_first_scan_descendant`, JOIN-001 via join-column detection) should
+/// call this instead of `make_finding` to populate the structured fields.
+/// Other rules continue using `make_finding` (defaults to `None`/empty).
+fn make_finding_ext(
+    rule: &dyn DiagnosticRule,
+    detail: String,
+    node: &PlanNode,
+    suggestion: Option<String>,
+    table: Option<String>,
+    columns: Vec<String>,
+) -> Finding {
+    let mut f = make_finding(rule, detail, node, suggestion);
+    f.table = table;
+    f.columns = columns;
+    f
 }

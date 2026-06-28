@@ -55,6 +55,8 @@ impl DiagnosticRule for PlanTooDeep {
             suggestion: Some(t!("finding.GEN-001.suggestion").to_string()),
             sql_rewrite: None,
             evidence: None,
+            table: None,
+            columns: Vec::new(),
         }]
     }
 }

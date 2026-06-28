@@ -83,6 +83,8 @@ impl AntiPatternRule {
                     .collect::<Vec<_>>(),
                 related_classic_rules: pattern.related_classic_rules(),
             }),
+            table: None,
+            columns: Vec::new(),
         }
     }
 }
