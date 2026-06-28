@@ -10,9 +10,7 @@ use std::hash::{Hash, Hasher};
 
 use anyhow::{Context, Result};
 
-use ogexplain_core::convergence::{
-    self, LoopConfig, LoopDecision, MetricsSnapshot, StopReason,
-};
+use ogexplain_core::convergence::{self, LoopConfig, LoopDecision, MetricsSnapshot, StopReason};
 use ogexplain_core::summary::SummaryRow;
 use ogexplain_core::{analyze, parse, DiagnosticHint};
 
@@ -48,7 +46,9 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
     if !args.skip_stats_check {
         eprintln!("⚠️  Warning: Phase 0 stats check not yet implemented.");
         eprintln!("   Stale statistics may produce misleading diagnostics.");
-        eprintln!("   Run ANALYZE manually on involved tables, or pass --skip-stats-check to silence.");
+        eprintln!(
+            "   Run ANALYZE manually on involved tables, or pass --skip-stats-check to silence."
+        );
     }
 
     let loop_config = LoopConfig {
@@ -95,12 +95,7 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
             if let LoopDecision::Stop(reason) = decision {
                 return finalize(&history, reason, &current_sql, &args);
             }
-            update_plateau(
-                prev,
-                &curr_snapshot,
-                &loop_config,
-                &mut plateau_count,
-            );
+            update_plateau(prev, &curr_snapshot, &loop_config, &mut plateau_count);
         }
 
         let rewritable = filter_rewritable(&report.findings);
@@ -148,12 +143,7 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
 
         let rewritten_hash = hash_sql(&rewritten);
         if sql_history.contains(&rewritten_hash) {
-            return finalize(
-                &history,
-                StopReason::FixedPoint,
-                &current_sql,
-                &args,
-            );
+            return finalize(&history, StopReason::FixedPoint, &current_sql, &args);
         }
         sql_history.insert(rewritten_hash);
 
@@ -171,12 +161,7 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
         current_sql = rewritten;
     }
 
-    finalize(
-        &history,
-        StopReason::MaxIterations,
-        &current_sql,
-        &args,
-    )
+    finalize(&history, StopReason::MaxIterations, &current_sql, &args)
 }
 
 fn finalize(
@@ -227,11 +212,7 @@ fn finalize(
     Ok(())
 }
 
-fn render_report(
-    history: &[IterationRecord],
-    reason: &StopReason,
-    final_sql: &str,
-) -> String {
+fn render_report(history: &[IterationRecord], reason: &StopReason, final_sql: &str) -> String {
     let mut out = String::new();
     out.push_str("=== Optimization Report ===\n");
     out.push_str(&format!("Stop reason: {:?}\n", reason));
@@ -245,11 +226,7 @@ fn render_report(
         if let Some(before) = &record.snapshot_before {
             let after = &record.snapshot_after;
             if let (Some(b), Some(a)) = (before.total_cost, after.total_cost) {
-                let delta = if b > 0.0 {
-                    ((a - b) / b) * 100.0
-                } else {
-                    0.0
-                };
+                let delta = if b > 0.0 { ((a - b) / b) * 100.0 } else { 0.0 };
                 out.push_str(&format!("Cost: {:.2} → {:.2} ({:+.1}%)\n", b, a, delta));
             }
             out.push_str(&format!(
@@ -353,9 +330,7 @@ fn call_metamorphosis_rewrite(
         .lines()
         .filter(|line| {
             let trimmed = line.trim_start();
-            !trimmed.starts_with("--")
-                && !trimmed.starts_with('#')
-                && !trimmed.is_empty()
+            !trimmed.starts_with("--") && !trimmed.starts_with('#') && !trimmed.is_empty()
         })
         .collect();
     let cleaned = sql_lines.join("\n").trim().to_string();

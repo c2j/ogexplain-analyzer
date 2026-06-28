@@ -70,7 +70,11 @@ impl DiagnosticRule for SubqueryNotPulledUp {
 
             return Some(make_finding_ext(
                 self,
-                t!("finding.SUBQ-001.detail_subquery_scan", table = child_table_display).to_string(),
+                t!(
+                    "finding.SUBQ-001.detail_subquery_scan",
+                    table = child_table_display
+                )
+                .to_string(),
                 node,
                 Some(t!("finding.SUBQ-001.suggestion_subquery_scan").to_string()),
                 child_table_opt,

@@ -129,8 +129,7 @@ pub fn should_continue(
     if let (Some(p), Some(c)) = (prev.total_cost, curr.total_cost) {
         if p > 0.0 {
             let improvement = (p - c) / p;
-            if improvement < config.min_improvement_pct
-                && plateau_count >= config.max_plateau_count
+            if improvement < config.min_improvement_pct && plateau_count >= config.max_plateau_count
             {
                 return LoopDecision::Stop(StopReason::Plateau);
             }
@@ -174,7 +173,10 @@ mod tests {
         let prev = snap(100.0, 2);
         let curr = snap(120.0, 2);
         let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, false);
-        assert!(matches!(decision, LoopDecision::Stop(StopReason::Regression)));
+        assert!(matches!(
+            decision,
+            LoopDecision::Stop(StopReason::Regression)
+        ));
     }
 
     #[test]
@@ -220,7 +222,10 @@ mod tests {
         let prev = snap(100.0, 2);
         let curr = snap(95.0, 2);
         let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, true);
-        assert!(matches!(decision, LoopDecision::Stop(StopReason::FixedPoint)));
+        assert!(matches!(
+            decision,
+            LoopDecision::Stop(StopReason::FixedPoint)
+        ));
     }
 
     #[test]
