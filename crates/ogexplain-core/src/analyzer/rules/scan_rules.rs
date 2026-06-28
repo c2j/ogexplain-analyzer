@@ -228,6 +228,61 @@ impl DiagnosticRule for FilterWithoutIndex {
     }
 }
 
+pub struct IndexScanPoorSelectivity {
+    threshold: f64,
+}
+
+impl IndexScanPoorSelectivity {
+    pub fn new(config: DiagnosticConfig) -> Self {
+        Self {
+            threshold: config.large_table_rows,
+        }
+    }
+}
+
+impl DiagnosticRule for IndexScanPoorSelectivity {
+    fn id(&self) -> &str {
+        "SCAN-005"
+    }
+    fn name(&self) -> &str {
+        "Index scan with poor selectivity"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Warning
+    }
+    fn category(&self) -> DiagnosticCategory {
+        DiagnosticCategory::ScanEfficiency
+    }
+    fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
+        if node.node_type != NodeType::IndexScan && node.node_type != NodeType::IndexOnlyScan {
+            return None;
+        }
+        let actual = node.actual.as_ref()?;
+        let total_rows = actual.rows * actual.loops;
+        if total_rows <= self.threshold {
+            return None;
+        }
+        let index_name = get_property_value(node, "Index Name").unwrap_or("unknown");
+        let relation = node.relation.as_deref().unwrap_or("unknown");
+
+        let detail = format!(
+            "Index Scan on {} using {} returned {} rows (×{} loops) — total {} rows read (threshold: {})",
+            relation,
+            index_name,
+            actual.rows as i64,
+            actual.loops as i64,
+            total_rows as i64,
+            self.threshold as i64
+        );
+        let suggestion = format!(
+            "Index scan returned {} rows (×{} loops) — low selectivity. Consider: (1) composite index covering more columns; (2) ANALYZE to update statistics; (3) try SET enable_indexscan = off to compare with full scan.",
+            actual.rows as i64, actual.loops as i64
+        );
+
+        Some(make_finding(self, detail, node, Some(suggestion)))
+    }
+}
+
 fn extract_filter_columns(node: &PlanNode) -> Option<Vec<String>> {
     let filter_raw = get_property_value(node, "Filter")?;
     let filter = strip_cast_annotations(filter_raw);
@@ -383,11 +438,8 @@ mod tests {
         assert!(!s.contains("(text)"), "must NOT contain literal '(text)'");
     }
 
-    // ── Task 3.2: BitmapHeapScan tests ────────────────────────────
-
     #[test]
     fn test_scan004_fires_on_bitmap_heap_scan_with_filter() {
-        // KEY regression: 38-case case 22 pattern — was not firing at all
         let node = make_seqscan_with_filter(
             NodeType::BitmapHeapScan,
             "(to_char(now(), 'yyyymmdd'::text) >= (inure_begin_date)::text)",
@@ -399,6 +451,126 @@ mod tests {
         assert!(
             finding.is_some(),
             "SCAN-004 MUST fire on BitmapHeapScan with Filter"
+        );
+    }
+
+    fn make_index_scan_node(
+        node_type: NodeType,
+        rows: f64,
+        loops: f64,
+        index_name: &str,
+        relation: &str,
+    ) -> PlanNode {
+        PlanNode {
+            node_type,
+            relation: Some(relation.to_string()),
+            join_type: None,
+            estimated: None,
+            actual: Some(ActualStats {
+                startup_time_ms: 0.0,
+                total_time_ms: 100.0,
+                rows,
+                loops,
+                executed: true,
+            }),
+            properties: vec![
+                NodeProperty {
+                    label: "Index Name".to_string(),
+                    value: index_name.to_string(),
+                },
+                NodeProperty {
+                    label: "Index Cond".to_string(),
+                    value: "(accnt_no = '2'::bpchar)".to_string(),
+                },
+            ],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    fn test_check_scan005(node: &PlanNode) -> Option<Finding> {
+        let rule = IndexScanPoorSelectivity::new(DiagnosticConfig::default());
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    #[test]
+    fn test_scan005_index_scan_high_rows_fires() {
+        let node = make_index_scan_node(NodeType::IndexScan, 50000.0, 1.0, "idx_accnt", "orders");
+        let finding = test_check_scan005(&node);
+        assert!(
+            finding.is_some(),
+            "SCAN-005 should fire on IndexScan with 50000 rows"
+        );
+    }
+
+    #[test]
+    fn test_scan005_index_scan_many_loops_fires() {
+        let node = make_index_scan_node(NodeType::IndexScan, 100.0, 200.0, "idx_accnt", "orders");
+        let finding = test_check_scan005(&node);
+        assert!(
+            finding.is_some(),
+            "SCAN-005 should fire on IndexScan with 100 rows × 200 loops = 20000 total"
+        );
+    }
+
+    #[test]
+    fn test_scan005_index_only_scan_fires() {
+        let node = make_index_scan_node(
+            NodeType::IndexOnlyScan,
+            50000.0,
+            1.0,
+            "idx_accnt_only",
+            "orders",
+        );
+        let finding = test_check_scan005(&node);
+        assert!(
+            finding.is_some(),
+            "SCAN-005 should fire on IndexOnlyScan with 50000 rows"
+        );
+    }
+
+    #[test]
+    fn test_scan005_below_threshold_does_not_fire() {
+        let node = make_index_scan_node(NodeType::IndexScan, 100.0, 1.0, "idx_accnt", "orders");
+        let finding = test_check_scan005(&node);
+        assert!(
+            finding.is_none(),
+            "SCAN-005 should NOT fire when total rows (100) ≤ threshold (10000)"
+        );
+    }
+
+    #[test]
+    fn test_scan005_seqscan_does_not_fire() {
+        let node = make_index_scan_node(NodeType::SeqScan, 50000.0, 1.0, "idx_accnt", "orders");
+        let finding = test_check_scan005(&node);
+        assert!(
+            finding.is_none(),
+            "SCAN-005 should NOT fire on SeqScan node"
         );
     }
 }

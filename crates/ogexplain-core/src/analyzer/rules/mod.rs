@@ -47,8 +47,10 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
     vec![
         Box::new(scan_rules::LargeTableFullScan::new(config.clone())),
         Box::new(scan_rules::FilterWithoutIndex::new(config.clone())),
+        Box::new(scan_rules::IndexScanPoorSelectivity::new(config.clone())),
         Box::new(join_rules::NestedLoopLargeDataset::new(config.clone())),
         Box::new(join_rules::HashSpillToDisk),
+        Box::new(join_rules::HashJoinExpensiveFilter::new(config.clone())),
         Box::new(memory_rules::SortSpillToDisk),
         Box::new(memory_rules::HighPeakMemory::new(config.clone())),
         Box::new(sort_rules::DuplicateSort),
