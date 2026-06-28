@@ -5,7 +5,7 @@ use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
 use super::utils::{extract_innermost_parens, get_property_value};
-use super::{make_finding, DiagnosticRule};
+use super::{make_finding, make_finding_ext, DiagnosticRule};
 
 pub struct NestedLoopLargeDataset {
     threshold: f64,
@@ -103,7 +103,14 @@ impl DiagnosticRule for NestedLoopLargeDataset {
             t!("finding.JOIN-001.suggestion_no_index_no_col").to_string()
         };
 
-        Some(make_finding(self, detail, node, Some(suggestion)))
+        Some(make_finding_ext(
+            self,
+            detail,
+            node,
+            Some(suggestion),
+            None,
+            join_column.into_iter().collect(),
+        ))
     }
 }
 

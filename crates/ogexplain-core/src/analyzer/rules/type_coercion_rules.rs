@@ -5,7 +5,7 @@ use crate::model::PlanNode;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
-use super::{make_finding, DiagnosticRule};
+use super::{make_finding, make_finding_ext, DiagnosticRule};
 
 pub struct SuspectedImplicitTypeCast;
 
@@ -68,7 +68,14 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
 
         let suggestion = mismatch.fix_suggestion();
 
-        Some(make_finding(self, detail, node, Some(suggestion)))
+        Some(make_finding_ext(
+            self,
+            detail,
+            node,
+            Some(suggestion),
+            node.relation.clone(),
+            vec![column.clone()],
+        ))
     }
 }
 
