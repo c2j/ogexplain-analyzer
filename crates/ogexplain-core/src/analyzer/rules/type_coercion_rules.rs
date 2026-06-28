@@ -73,8 +73,6 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
 /// Describes the type of asymmetric cast pattern detected.
 #[derive(Debug, Clone, PartialEq)]
 enum MismatchPattern {
-    /// `col = 42` — bare column compared to bare integer (e.g., varchar_col compared to int)
-    BareColumnBareInteger,
     /// `col = '1002'` — bare column with numeric-looking string literal
     BareColumnStringLiteral,
     /// `(col)::numeric = '1002'` — column cast to numeric vs uncast string
@@ -91,9 +89,6 @@ struct TypeMismatch {
 impl TypeMismatch {
     fn description(&self) -> String {
         match self.pattern {
-            MismatchPattern::BareColumnBareInteger => {
-                format!("{} = {} (列vs整数值)", self.column, self.literal_value)
-            }
             MismatchPattern::BareColumnStringLiteral => {
                 format!("{} = '{}' (列vs字符串值)", self.column, self.literal_value)
             }
@@ -108,12 +103,6 @@ impl TypeMismatch {
 
     fn fix_suggestion(&self) -> String {
         match self.pattern {
-            MismatchPattern::BareColumnBareInteger => {
-                format!(
-                    "WHERE {} = '{}' — 疑似 varchar 列用 int 值比较, 建议在等号右侧加引号避免隐式转换",
-                    self.column, self.literal_value
-                )
-            }
             MismatchPattern::BareColumnStringLiteral => {
                 format!(
                     "WHERE {} = {} — 疑似 numeric 列用 string 值比较, 建议去掉引号或添加显式类型转换",
@@ -144,17 +133,7 @@ fn detect_asymmetric_cast(filter: &str, column: &str) -> Option<TypeMismatch> {
     // to handle e.g. `(amount) = '1002'` after ::cast stripping.
     let col_paren = format!(r"{}\)*", escaped_col);
 
-    // Pattern 1: bare column compared to bare integer (e.g., `status = 42`)
-    let re_bare_int = Regex::new(&format!(r"(?i){}\s*=\s*(\d+)\b", col_paren)).ok()?;
-    if let Some(cap) = re_bare_int.captures(filter) {
-        return Some(TypeMismatch {
-            column: column.to_string(),
-            literal_value: cap.get(1)?.as_str().to_string(),
-            pattern: MismatchPattern::BareColumnBareInteger,
-        });
-    }
-
-    // Pattern 2: bare column = 'numeric-looking literal' (e.g., `amount = '1002'`)
+    // Pattern 1: bare column = 'numeric-looking literal' (e.g., `amount = '1002'`)
     let re_str_lit = Regex::new(&format!(r"(?i){}\s*=\s*'([^']+)'", col_paren)).ok()?;
     if let Some(cap) = re_str_lit.captures(filter) {
         let val = cap.get(1)?.as_str();

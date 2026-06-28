@@ -1,6 +1,6 @@
 QUERY PLAN
 ----------------------------------------------------
 Seq Scan on orders  (cost=0.00..25000.00 rows=100000 width=68) (actual time=0.034..234.567 rows=500 loops=1)
-  Filter: (status = 42)
+  Filter: (status = '42')
   Rows Removed by Filter: 500000
 Total runtime: 235.089 ms
