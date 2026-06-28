@@ -59,6 +59,8 @@ impl DiagnosticRule for NestedLoopLargeDataset {
                             | NodeType::IndexOnlyScan
                             | NodeType::BitmapHeapScan
                             | NodeType::PartitionedIndexScan
+                            | NodeType::PartitionedBitmapHeapScan
+                            | NodeType::CStoreIndexScan
                     );
                     join_column = child
                         .properties
@@ -83,7 +85,12 @@ impl DiagnosticRule for NestedLoopLargeDataset {
             return None;
         }
 
-        let mut detail = format!("{} (threshold: {})", detail_child, self.threshold);
+        let mut detail = t!(
+            "finding.JOIN-001.detail_threshold",
+            child = detail_child,
+            threshold = self.threshold
+        )
+        .to_string();
         if inner_has_index {
             detail.push_str(&t!("finding.JOIN-001.detail_has_index"));
         }

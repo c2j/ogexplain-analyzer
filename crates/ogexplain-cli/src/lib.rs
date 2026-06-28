@@ -474,7 +474,7 @@ tables,joins,subqueries,where_conditions,aggregates,cases,set_ops,ctes,windows,\
 has_group_by,has_order_by,has_distinct,subquery_depth,hints,\
 score,level,gauss_score,gauss_level,\
 gauss_sql_structure,gauss_pl_logic,gauss_advanced_feature,gauss_extension,\
-gauss_tags,\
+gauss_tags,template_id,\
 root_op,total_cost,total_time_ms,actual_rows,estimated_rows,\
 plan_depth,node_count,total_loops,\
 worst_est_ratio,spill_kb,peak_memory_kb,pushdown,\
@@ -512,6 +512,7 @@ critical_count,warning_count,info_count";
             fmt_csv_opt_i64(row.gauss_advanced_feature),
             fmt_csv_opt_i64(row.gauss_extension),
             csv_escape(&row.gauss_tags.join(";")),
+            fmt_csv_opt_str(&row.template_id),
             csv_escape(&row.root_op),
             format!("{}", row.total_cost),
             format!("{}", row.total_time_ms),

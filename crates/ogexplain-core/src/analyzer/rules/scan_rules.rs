@@ -65,35 +65,16 @@ impl DiagnosticRule for LargeTableFullScan {
         }
 
         let relation = node.relation.as_deref().unwrap_or("unknown");
-        let filter_cols = extract_filter_columns(node);
 
-        let mut detail = t!(
+        let detail = t!(
             "finding.SCAN-001.detail",
             relation = relation,
             rows = rows_examined,
             threshold = self.threshold
         )
         .to_string();
-        if let Some(filter) = get_property_value(node, "Filter") {
-            detail.push_str(&format!(", Filter: {}", filter));
-        }
-        if let Some(removed) = node
-            .properties
-            .iter()
-            .find(|p| p.label == "Rows Removed by Filter")
-        {
-            detail.push_str(&format!(", Rows Removed by Filter: {}", removed.value));
-        }
 
-        let suggestion = match filter_cols {
-            Some(cols) if !cols.is_empty() => t!(
-                "finding.SCAN-001.suggestion_with_cols",
-                relation = relation,
-                cols = cols.join(", ")
-            )
-            .to_string(),
-            _ => t!("finding.SCAN-001.suggestion_no_cols", relation = relation).to_string(),
-        };
+        let suggestion = t!("finding.SCAN-001.suggestion_no_cols", relation = relation).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -256,7 +237,11 @@ impl DiagnosticRule for IndexScanPoorSelectivity {
         DiagnosticCategory::ScanEfficiency
     }
     fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
-        if node.node_type != NodeType::IndexScan && node.node_type != NodeType::IndexOnlyScan {
+        if node.node_type != NodeType::IndexScan
+            && node.node_type != NodeType::IndexOnlyScan
+            && node.node_type != NodeType::PartitionedIndexScan
+            && node.node_type != NodeType::CStoreIndexScan
+        {
             return None;
         }
         let actual = node.actual.as_ref()?;

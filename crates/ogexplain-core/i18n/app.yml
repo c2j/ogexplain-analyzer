@@ -1245,6 +1245,9 @@ finding.JOIN-001.name:
 finding.JOIN-001.detail:
   en: "Inner side processed %{rows} rows × %{loops} loops = %{total} total rows (threshold: %{threshold})"
   zh-CN: "内表处理了 %{rows} 行 × %{loops} 循环 = %{total} 总行数 (阈值: %{threshold})"
+finding.JOIN-001.detail_threshold:
+  en: "%{child} (threshold: %{threshold})"
+  zh-CN: "%{child} (阈值: %{threshold})"
 finding.JOIN-001.detail_has_index:
   en: ", inner table has index"
   zh-CN: ", 内表已有索引"
