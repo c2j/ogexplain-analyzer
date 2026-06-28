@@ -187,8 +187,17 @@ impl DiagnosticRule for FilterWithoutIndex {
         let relation = node.relation.as_deref().unwrap_or("unknown");
         let filter_cols = extract_filter_columns(node);
 
+        // EXPLAIN uses "Bitmap Heap Scan" (with space); NodeType enum name doesn't.
+        let node_label = match node.node_type {
+            NodeType::BitmapHeapScan => "Bitmap Heap Scan",
+            NodeType::PartitionedBitmapHeapScan => "Partitioned Bitmap Heap Scan",
+            NodeType::CStoreScan => "CStore Scan",
+            NodeType::PartitionedSeqScan => "Partitioned Seq Scan",
+            _ => "Seq Scan",
+        };
         let mut detail = format!(
-            "Seq Scan on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
+            "{} on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
+            node_label,
             relation,
             estimated.plan_rows,
             actual.rows as i64,
