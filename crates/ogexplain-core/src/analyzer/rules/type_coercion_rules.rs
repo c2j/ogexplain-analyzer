@@ -28,27 +28,25 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
         let filter_prop = node.properties.iter().find(|p| p.label == "Filter")?;
         let filter_value = &filter_prop.value;
 
-        // Match both bare numeric AND quoted string literal comparisons
-        // Pattern 1: col = 123 (bare int, possible varchar col compared to int)
-        // Pattern 2: col = '123' (quoted string that looks numeric, possible int col compared to string)
-        let re_bare = Regex::new(r"\w+\s*=\s*\d+(\.\d+)?\b").ok()?;
-        let re_quoted = Regex::new(r"\w+\s*=\s*'[^']*'").ok()?;
+        // Use the shared utility for column extraction (fixes Bug B1).
+        // extract_column_from_filter strips ::cast annotations and handles
+        // parenthesized expressions, returning the real column name.
+        let column = super::utils::extract_column_from_filter(filter_value)?;
 
-        if !re_bare.is_match(filter_value) && !re_quoted.is_match(filter_value) {
-            return None;
-        }
+        // Detect asymmetric cast (fixes Bug B2) — only fire on genuine
+        // type mismatch suspects, not symmetric ::text = 'val'::text.
+        let mismatch = detect_asymmetric_cast(filter_value, &column)?;
 
-        // Use RELATIVE threshold instead of absolute: filter must remove >50% of scanned rows
+        // Row removal thresholds (unchanged from original)
         let rows_removed = node
             .properties
             .iter()
             .find(|p| p.label == "Rows Removed by Filter")
-            .and_then(|p| p.value.trim().parse::<f64>().ok());
+            .and_then(|p| p.value.trim().parse::<f64>().ok())?;
 
         let actual_rows = node.actual.as_ref().map(|a| a.rows).unwrap_or(0.0);
-        let total_scanned = rows_removed.unwrap_or(0.0) + actual_rows;
+        let total_scanned = rows_removed + actual_rows;
 
-        let rows_removed = rows_removed?;
         // Minimum absolute threshold to avoid noise
         if rows_removed <= 10.0 {
             return None;
@@ -57,10 +55,6 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
         if total_scanned > 0.0 && rows_removed / total_scanned <= 0.5 {
             return None;
         }
-
-        // Require a detected type mismatch — harmless string comparisons (e.g., status = 'pending')
-        // should not fire. Only flag when actual type coercion is suspected.
-        let mismatch = detect_type_mismatch(filter_value)?;
 
         let detail = format!(
             "Seq Scan 含过滤条件 '{}' ({}), 过滤掉 {} 行 (共 {} 行) — 疑似隐式类型转换导致无法使用索引",
@@ -76,69 +70,122 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
     }
 }
 
+/// Describes the type of asymmetric cast pattern detected.
+#[derive(Debug, Clone, PartialEq)]
+enum MismatchPattern {
+    /// `col = '1002'` — bare column with numeric-looking string literal
+    BareColumnStringLiteral,
+    /// `(col)::numeric = '1002'` — column cast to numeric vs uncast string
+    ColumnToNumeric,
+}
+
+/// Result of asymmetric cast detection.
 struct TypeMismatch {
     column: String,
-    value_type: String,
-    expected_type: String,
     literal_value: String,
+    pattern: MismatchPattern,
 }
 
 impl TypeMismatch {
     fn description(&self) -> String {
-        format!(
-            "{}({}) = {}值",
-            self.expected_type, self.column, self.value_type
-        )
+        match self.pattern {
+            MismatchPattern::BareColumnStringLiteral => {
+                format!("{} = '{}' (列vs字符串值)", self.column, self.literal_value)
+            }
+            MismatchPattern::ColumnToNumeric => {
+                format!(
+                    "({})::numeric = '{}' (列被转为numeric)",
+                    self.column, self.literal_value
+                )
+            }
+        }
     }
 
     fn fix_suggestion(&self) -> String {
-        match self.value_type.as_str() {
-            "int" => format!(
-                "WHERE {} = {} — 疑似 varchar 列用 int 值比较, 改为 WHERE {} = '{}'",
-                self.column, self.literal_value, self.column, self.literal_value
-            ),
-            "string_literal" => format!(
-                "WHERE {} = '{}' — 疑似 numeric 列用 string 值比较, 改为 WHERE {} = {}",
-                self.column, self.literal_value, self.column, self.literal_value
-            ),
-            _ => format!(
-                "添加显式类型转换: WHERE {} = value::{}",
-                self.column, self.expected_type
-            ),
+        match self.pattern {
+            MismatchPattern::BareColumnStringLiteral => {
+                format!(
+                    "WHERE {} = {} — 疑似 numeric 列用 string 值比较, 建议去掉引号或添加显式类型转换",
+                    self.column, self.literal_value
+                )
+            }
+            MismatchPattern::ColumnToNumeric => {
+                format!(
+                    "WHERE {} = '{}' — 列被强制转为 numeric 类型, 建议统一列和值的数据类型",
+                    self.column, self.literal_value
+                )
+            }
         }
     }
 }
 
-fn detect_type_mismatch(filter: &str) -> Option<TypeMismatch> {
-    // Direction 1: string literal compared to column (e.g., int_col = '42')
-    let re_str = Regex::new(r"(\w+)\s*=\s*'([^']*)'").ok()?;
-    if let Some(cap) = re_str.captures(filter) {
-        let col = cap.get(1)?.as_str().to_string();
-        let val = cap.get(2)?.as_str().to_string();
-        // If the string literal is a numeric string, likely an int column compared to string
+/// Detect an asymmetric cast pattern. Returns `None` when:
+/// - Both sides share the same `::type` cast (symmetric — valid comparison)
+/// - No cast mismatch is detectable
+fn detect_asymmetric_cast(filter: &str, column: &str) -> Option<TypeMismatch> {
+    // If both sides of `=` have the same ::type annotation, it's symmetric — skip.
+    if has_symmetric_cast(filter) {
+        return None;
+    }
+
+    let escaped_col = regex::escape(column);
+    // Allow zero or more closing parens between column name and `=`
+    // to handle e.g. `(amount) = '1002'` after ::cast stripping.
+    let col_paren = format!(r"{}\)*", escaped_col);
+
+    // Pattern 1: bare column = 'numeric-looking literal' (e.g., `amount = '1002'`)
+    let re_str_lit = Regex::new(&format!(r"(?i){}\s*=\s*'([^']+)'", col_paren)).ok()?;
+    if let Some(cap) = re_str_lit.captures(filter) {
+        let val = cap.get(1)?.as_str();
         if val.parse::<f64>().is_ok() {
             return Some(TypeMismatch {
-                column: col,
-                value_type: "string_literal".to_string(),
-                expected_type: "numeric".to_string(),
-                literal_value: val,
+                column: column.to_string(),
+                literal_value: val.to_string(),
+                pattern: MismatchPattern::BareColumnStringLiteral,
             });
         }
     }
 
-    // Direction 2: bare numeric compared to column (e.g., varchar_col = 42)
-    let re_int = Regex::new(r"(\w+)\s*=\s*(\d+)\b").ok()?;
-    if let Some(cap) = re_int.captures(filter) {
-        let col = cap.get(1)?.as_str().to_string();
-        let val = cap.get(2)?.as_str().to_string();
+    // Pattern 3: `(col)::numeric = 'literal'` — column forced to numeric
+    let re_col_numeric = Regex::new(&format!(
+        r"(?i)\(\s*{}\s*\)\s*::\s*numeric\s*=\s*'([^']+)'",
+        escaped_col
+    ))
+    .ok()?;
+    if let Some(cap) = re_col_numeric.captures(filter) {
         return Some(TypeMismatch {
-            column: col,
-            value_type: "int".to_string(),
-            expected_type: "varchar".to_string(),
-            literal_value: val,
+            column: column.to_string(),
+            literal_value: cap.get(1)?.as_str().to_string(),
+            pattern: MismatchPattern::ColumnToNumeric,
         });
     }
+
     None
+}
+
+/// Check if both sides of `=` have the same `::type` cast annotation.
+/// Symmetric casts like `(col)::text = 'val'::text` are valid comparisons
+/// and should not fire TYPE-001.
+fn has_symmetric_cast(filter: &str) -> bool {
+    if let Some(eq_pos) = filter.find('=') {
+        let left = &filter[..eq_pos];
+        let right = &filter[eq_pos + 1..];
+
+        if let (Some(lt), Some(rt)) = (extract_cast_type(left), extract_cast_type(right)) {
+            return lt == rt;
+        }
+    }
+    false
+}
+
+/// Extract the rightmost `::type` from a string, e.g. `(col)::text` → `"text"`.
+fn extract_cast_type(s: &str) -> Option<String> {
+    let re = Regex::new(r"::([a-zA-Z_]\w*)").ok()?;
+    let caps: Vec<String> = re
+        .captures_iter(s)
+        .map(|c| c.get(1).unwrap().as_str().to_lowercase())
+        .collect();
+    caps.last().cloned()
 }
 
 pub struct LikeWithLeadingWildcard;
@@ -196,4 +243,168 @@ fn extract_like_pattern(value: &str) -> Option<String> {
     let re = Regex::new(r#"(?:LIKE|like|~~)\s+'([^']+)'"#).ok()?;
     re.captures(value)
         .map(|cap| cap.get(1).unwrap().as_str().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::buffer::NodeProperty;
+    use crate::model::cost::{ActualStats, EstimatedCost};
+    use crate::model::{ExplainPlan, NodeType, PlanNode};
+
+    /// Helper: call `SuspectedImplicitTypeCast::check` with a minimal PlanContext.
+    fn test_check(node: &PlanNode) -> Option<Finding> {
+        let rule = SuspectedImplicitTypeCast;
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    fn make_seqscan_with_filter(filter: &str, rows_removed: f64, actual_rows: f64) -> PlanNode {
+        let total = rows_removed + actual_rows;
+        PlanNode {
+            node_type: NodeType::SeqScan,
+            relation: Some("test_table".to_string()),
+            join_type: None,
+            estimated: Some(EstimatedCost {
+                startup_cost: 0.0,
+                total_cost: total * 0.1,
+                plan_rows: total,
+                plan_width: 8,
+                pred_time: None,
+                pred_rows: None,
+                distinct: None,
+            }),
+            actual: Some(ActualStats {
+                startup_time_ms: 0.0,
+                total_time_ms: 100.0,
+                rows: actual_rows,
+                loops: 1.0,
+                executed: true,
+            }),
+            properties: vec![
+                NodeProperty {
+                    label: "Filter".to_string(),
+                    value: filter.to_string(),
+                },
+                NodeProperty {
+                    label: "Rows Removed by Filter".to_string(),
+                    value: rows_removed.to_string(),
+                },
+            ],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    // ── Positive: should fire ────────────────────────────────────
+
+    #[test]
+    fn test_type001_fires_on_bare_column_with_numeric_literal() {
+        // amount = '1002' — no cast, numeric-looking string literal
+        let node = make_seqscan_with_filter("amount = '1002'", 100_000.0, 1_000.0);
+        let finding = test_check(&node);
+        assert!(
+            finding.is_some(),
+            "Should fire on bare col with numeric-looking literal"
+        );
+        let f = finding.unwrap();
+        assert!(
+            f.suggestion
+                .as_ref()
+                .unwrap_or(&"".to_string())
+                .contains("amount"),
+            "suggestion must contain real column name 'amount', got: {:?}",
+            f.suggestion
+        );
+    }
+
+    #[test]
+    fn test_type001_fires_on_column_cast_to_numeric() {
+        // (code)::numeric = '1002' — column cast to numeric, literal is string
+        let node = make_seqscan_with_filter("(code)::numeric = '1002'", 100_000.0, 1_000.0);
+        let finding = test_check(&node);
+        assert!(
+            finding.is_some(),
+            "Should fire on column cast to ::numeric with string literal"
+        );
+    }
+
+    // ── Guard: must NOT fire ─────────────────────────────────────
+
+    #[test]
+    fn test_type001_does_not_fire_on_symmetric_text_cast() {
+        // KEY regression: 38-case had 15 false positives of this pattern
+        // ((facctcode)::text = '1002'::text) — both sides ::text, valid text=text comparison
+        let node =
+            make_seqscan_with_filter("((facctcode)::text = '1002'::text)", 1_000_000.0, 50_000.0);
+        let finding = test_check(&node);
+        assert!(
+            finding.is_none(),
+            "Must NOT fire on symmetric ::text cast — this was the false positive pattern"
+        );
+    }
+
+    #[test]
+    fn test_type001_does_not_fire_on_non_numeric_string_literal() {
+        // status = 'ready' — literal is not numeric-looking, no suspicion
+        let node = make_seqscan_with_filter("status = 'ready'", 100.0, 50.0);
+        let finding = test_check(&node);
+        assert!(
+            finding.is_none(),
+            "Must NOT fire on non-numeric-looking string literal"
+        );
+    }
+
+    #[test]
+    fn test_type001_does_not_fire_on_low_row_removal() {
+        // Only 5 rows removed out of 1005 — below 50% threshold
+        let node = make_seqscan_with_filter("amount = '100'", 5.0, 1000.0);
+        let finding = test_check(&node);
+        assert!(
+            finding.is_none(),
+            "Must NOT fire when row removal ratio is below 50%"
+        );
+    }
+
+    #[test]
+    fn test_type001_suggestion_uses_real_column_name() {
+        // Critical regression: ensure suggestion uses real column name (was 'text')
+        let node = make_seqscan_with_filter("amount = '1002'", 1_000_000.0, 50_000.0);
+        let finding = test_check(&node).expect("Should fire on bare col with numeric literal");
+        let s = finding.suggestion.unwrap();
+        assert!(
+            s.contains("amount"),
+            "suggestion must use real column 'amount', got: {}",
+            s
+        );
+        assert!(
+            !s.contains("WHERE text"),
+            "suggestion must NOT contain literal 'WHERE text'"
+        );
+    }
 }

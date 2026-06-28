@@ -155,8 +155,8 @@ async fn test_fetch_explain_system_catalog() {
 async fn test_fetch_explain_full_pipeline() {
     let (_container, host, port) = start_opengauss().await;
 
-    let explain_text = fetch!(&host, port, "SELECT count(*) FROM pg_class", false)
-        .expect("fetch_explain failed");
+    let explain_text =
+        fetch!(&host, port, "SELECT count(*) FROM pg_class", false).expect("fetch_explain failed");
 
     let plan = ogexplain_core::parse(&explain_text).expect("parse failed");
     let _diag = ogexplain_core::analyze(&plan);

@@ -303,7 +303,7 @@ fn type_001_triggers_on_implicit_cast() {
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::TypeMismatch);
     assert!(
-        finding.detail.contains("status = 42") || finding.detail.contains("隐式类型转换"),
+        finding.detail.contains("status = '42'") || finding.detail.contains("隐式类型转换"),
         "detail should mention filter condition or implicit cast"
     );
 }
@@ -647,7 +647,7 @@ fn implicit_cast_finding_contains_filter_and_rows_removed() {
     let report = analyze_fixture("17_implicit_cast.txt");
     let finding = get_finding(&report, "TYPE-001").expect("TYPE-001 should be present");
     assert!(
-        finding.detail.contains("status = 42"),
+        finding.detail.contains("status = '42'"),
         "detail should show filter condition"
     );
     assert!(

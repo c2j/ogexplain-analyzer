@@ -3,7 +3,9 @@ use crate::model::{NodeType, PlanNode};
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
-use super::utils::{any_property_contains, effective_scan_size, get_property_value};
+use super::utils::{
+    any_property_contains, effective_scan_size, get_property_value, strip_cast_annotations,
+};
 use super::{make_finding, DiagnosticRule};
 
 pub struct LargeTableFullScan {
@@ -146,6 +148,8 @@ impl DiagnosticRule for FilterWithoutIndex {
         if node.node_type != NodeType::SeqScan
             && node.node_type != NodeType::PartitionedSeqScan
             && node.node_type != NodeType::CStoreScan
+            && node.node_type != NodeType::BitmapHeapScan
+            && node.node_type != NodeType::PartitionedBitmapHeapScan
         {
             return None;
         }
@@ -183,8 +187,17 @@ impl DiagnosticRule for FilterWithoutIndex {
         let relation = node.relation.as_deref().unwrap_or("unknown");
         let filter_cols = extract_filter_columns(node);
 
+        // EXPLAIN uses "Bitmap Heap Scan" (with space); NodeType enum name doesn't.
+        let node_label = match node.node_type {
+            NodeType::BitmapHeapScan => "Bitmap Heap Scan",
+            NodeType::PartitionedBitmapHeapScan => "Partitioned Bitmap Heap Scan",
+            NodeType::CStoreScan => "CStore Scan",
+            NodeType::PartitionedSeqScan => "Partitioned Seq Scan",
+            _ => "Seq Scan",
+        };
         let mut detail = format!(
-            "Seq Scan on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
+            "{} on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
+            node_label,
             relation,
             estimated.plan_rows,
             actual.rows as i64,
@@ -216,14 +229,17 @@ impl DiagnosticRule for FilterWithoutIndex {
 }
 
 fn extract_filter_columns(node: &PlanNode) -> Option<Vec<String>> {
-    let filter = get_property_value(node, "Filter")?;
+    let filter_raw = get_property_value(node, "Filter")?;
+    let filter = strip_cast_annotations(filter_raw);
     // Match: col = value, col != value, col > value, col IS NULL, col BETWEEN
-    // Also match col = 'value' with optional parentheses around the expression
+    // Also match col = 'value' with optional parentheses around the expression.
+    // After strip_cast_annotations, closing parens may remain between column
+    // name and operator, so we allow \) *zero or more before \s*.
     let re = regex::Regex::new(
-        r"\(?(\w+)\s*(?:=|!=|<>|<|>|<=|>=|~~|!~~)\s*(?:'[^']*'|\d+(?:\.\d+)?)|\(?(\w+)\s+IS\s+NULL|\(?(\w+)\s+BETWEEN"
+        r"\(?(\w+)\)*\s*(?:=|!=|<>|<|>|<=|>=|~~|!~~)\s*(?:'[^']*'|\d+(?:\.\d+)?)|\(?(\w+)\)*\s+IS\s+NULL|\(?(\w+)\)*\s+BETWEEN"
     ).ok()?;
     let cols: Vec<String> = re
-        .captures_iter(filter)
+        .captures_iter(&filter)
         .filter_map(|cap| {
             cap.get(1)
                 .or_else(|| cap.get(2))
@@ -235,5 +251,154 @@ fn extract_filter_columns(node: &PlanNode) -> Option<Vec<String>> {
         None
     } else {
         Some(cols)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::config::DiagnosticConfig;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::buffer::NodeProperty;
+    use crate::model::cost::{ActualStats, EstimatedCost};
+    use crate::model::{ExplainPlan, NodeType, PlanNode};
+
+    /// Helper: call FilterWithoutIndex::check with a minimal PlanContext.
+    fn test_check_scan004(node: &PlanNode) -> Option<Finding> {
+        let rule = FilterWithoutIndex::new(DiagnosticConfig::default());
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    fn make_seqscan_with_filter(
+        node_type: NodeType,
+        filter: &str,
+        rows_removed: f64,
+        actual_rows: f64,
+        relation: &str,
+    ) -> PlanNode {
+        let total = rows_removed + actual_rows;
+        PlanNode {
+            node_type,
+            relation: Some(relation.to_string()),
+            join_type: None,
+            estimated: Some(EstimatedCost {
+                startup_cost: 0.0,
+                total_cost: total * 0.1,
+                plan_rows: total,
+                plan_width: 8,
+                pred_time: None,
+                pred_rows: None,
+                distinct: None,
+            }),
+            actual: Some(ActualStats {
+                startup_time_ms: 0.0,
+                total_time_ms: 100.0,
+                rows: actual_rows,
+                loops: 1.0,
+                executed: true,
+            }),
+            properties: vec![
+                NodeProperty {
+                    label: "Filter".to_string(),
+                    value: filter.to_string(),
+                },
+                NodeProperty {
+                    label: "Rows Removed by Filter".to_string(),
+                    value: rows_removed.to_string(),
+                },
+            ],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    // ── Task 3.1: Column extraction tests ─────────────────────────
+
+    #[test]
+    fn test_extract_filter_columns_strips_cast_annotations() {
+        // KEY regression: was returning ["text"], should return ["facctcode"]
+        let node = make_seqscan_with_filter(
+            NodeType::SeqScan,
+            "((facctcode)::text = '1002'::text)",
+            1_222_944.0,
+            44_696.0,
+            "dat_zl_accountinfo",
+        );
+        let cols = extract_filter_columns(&node).unwrap();
+        assert!(
+            cols.contains(&"facctcode".to_string()),
+            "should contain 'facctcode', got: {:?}",
+            cols
+        );
+        assert!(
+            !cols.contains(&"text".to_string()),
+            "should NOT contain 'text' (cast type name), got: {:?}",
+            cols
+        );
+    }
+
+    #[test]
+    fn test_scan004_suggestion_uses_real_column_name() {
+        // Integration test at the rule level
+        let node = make_seqscan_with_filter(
+            NodeType::SeqScan,
+            "((facctcode)::text = '1002'::text)",
+            1_222_944.0,
+            44_696.0,
+            "dat_zl_accountinfo",
+        );
+        let finding = test_check_scan004(&node)
+            .expect("SCAN-004 should fire on filter with many rows removed");
+        let s = finding.suggestion.unwrap();
+        assert!(
+            s.contains("facctcode"),
+            "suggestion must use real column 'facctcode', got: {}",
+            s
+        );
+        assert!(!s.contains("(text)"), "must NOT contain literal '(text)'");
+    }
+
+    // ── Task 3.2: BitmapHeapScan tests ────────────────────────────
+
+    #[test]
+    fn test_scan004_fires_on_bitmap_heap_scan_with_filter() {
+        // KEY regression: 38-case case 22 pattern — was not firing at all
+        let node = make_seqscan_with_filter(
+            NodeType::BitmapHeapScan,
+            "(to_char(now(), 'yyyymmdd'::text) >= (inure_begin_date)::text)",
+            1_184_895.0,
+            1_184_900.0,
+            "par_sys_securities",
+        );
+        let finding = test_check_scan004(&node);
+        assert!(
+            finding.is_some(),
+            "SCAN-004 MUST fire on BitmapHeapScan with Filter"
+        );
     }
 }

@@ -301,7 +301,7 @@ fn fixture_17_implicit_cast_has_type_001_and_scan_004() {
     let report = analyze(&plan);
     assert!(
         has_rule(&report, "TYPE-001"),
-        "Expected TYPE-001 for suspected implicit type cast (status = 42 with 500000 rows removed)"
+        "Expected TYPE-001 for suspected implicit type cast (status = '42' with 500000 rows removed)"
     );
     let type_finding = report
         .findings

@@ -133,7 +133,7 @@ def get_tool_output_live(case: dict, ogexplain_binary: str) -> dict:
 
     try:
         result = subprocess.run(
-            [ogexplain_binary, 'analyze', str(tmp_path), '-o', 'json'],
+            [ogexplain_binary, 'analyze', str(tmp_path), '--format', 'json'],
             capture_output=True, text=True, timeout=30,
         )
         if result.returncode != 0:

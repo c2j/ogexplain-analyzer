@@ -217,7 +217,7 @@ fn severity_counts_match_report_fixture_10() {
         report.findings.len()
     );
     assert_eq!(summary.critical_count, 1);
-    assert_eq!(summary.warning_count, 1);
+    assert_eq!(summary.warning_count, 2);
     assert_eq!(summary.info_count, 0);
 }
 

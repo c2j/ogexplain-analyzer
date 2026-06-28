@@ -27,8 +27,12 @@ struct Cli {
 enum Commands {
     Analyze {
         file: String,
-        #[arg(short, long, default_value = "text")]
-        output: String,
+        #[arg(long, default_value = "txt")]
+        input_format: String,
+        #[arg(long, default_value = "text")]
+        format: String,
+        #[arg(short, long)]
+        output: Option<String>,
         #[arg(long, default_value = "info")]
         threshold: String,
         #[arg(short, long)]
@@ -37,8 +41,8 @@ enum Commands {
         verbose: bool,
         #[arg(long)]
         multi: bool,
-        #[arg(long)]
-        csv: Option<String>,
+        #[arg(long, default_value = "minimal")]
+        output_columns: String,
         #[arg(long, default_value = "auto")]
         lang: String,
         #[arg(long)]
@@ -51,12 +55,6 @@ enum Commands {
         estimation_skew_factor: Option<f64>,
         #[arg(long)]
         dedup_per_node: bool,
-        /// CSV input file path (expects columns: sql,explain)
-        #[arg(long)]
-        csv_input: Option<String>,
-        /// Output columns for CSV mode: minimal, focused, full (default: minimal)
-        #[arg(long, default_value = "minimal")]
-        csv_columns: String,
     },
     Explain {
         /// Database connection string
@@ -72,17 +70,17 @@ enum Commands {
         #[arg(long)]
         analyze: bool,
         /// Output format
-        #[arg(short, long, default_value = "text")]
-        output: String,
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Output file path
+        #[arg(short, long)]
+        output: Option<String>,
         /// Minimum severity threshold
         #[arg(long, default_value = "info")]
         threshold: String,
         /// Only show findings, no summary
         #[arg(short, long)]
         quiet: bool,
-        /// Export summary to CSV
-        #[arg(long)]
-        csv: Option<String>,
         /// Language
         #[arg(long, default_value = "auto")]
         lang: String,
@@ -568,7 +566,7 @@ impl CsvColumnsMode {
             "focused" => Ok(Self::Focused),
             "full" => Ok(Self::Full),
             _ => anyhow::bail!(
-                "Invalid --csv-columns '{}': expected minimal, focused, or full",
+                "Invalid --output-columns '{}': expected minimal, focused, or full",
                 s
             ),
         }
@@ -635,8 +633,15 @@ fn process_csv_input(
 
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
-        .from_path(Path::new(input_path))
-        .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+        .from_reader(
+            if input_path == "-" {
+                Box::new(std::io::stdin()) as Box<dyn std::io::Read>
+            } else {
+                let file = std::fs::File::open(Path::new(input_path))
+                    .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+                Box::new(file) as Box<dyn std::io::Read>
+            },
+        );
 
     let headers = reader
         .headers()
@@ -658,7 +663,15 @@ fn process_csv_input(
         let record = match result {
             Ok(r) => r,
             Err(e) => {
-                results.push(CsvRowResult::error("", "", &format!("CSV parse error: {}", e)));
+                let position = e
+                    .position()
+                    .map(|p| format!("line {}", p.line()))
+                    .unwrap_or_else(|| "unknown line".to_string());
+                results.push(CsvRowResult::error(
+                    "",
+                    "",
+                    &format!("CSV parse error at {}: {}", position, e),
+                ));
                 continue;
             }
         };
@@ -696,15 +709,12 @@ fn process_csv_row(
     explain_text: &str,
     diag_config: &ogexplain_core::analyzer::config::DiagnosticConfig,
 ) -> Result<CsvRowResult> {
-    let plan =
-        ogexplain_core::parse(explain_text).context("Failed to parse EXPLAIN text")?;
+    let plan = ogexplain_core::parse(explain_text).context("Failed to parse EXPLAIN text")?;
 
     let complexity = ogsql_complexity::analyze(sql_text).ok();
-    let gauss_complexity = ogsql_complexity::gauss_analyze(
-        sql_text,
-        &ogsql_complexity::ComplexityConfig::default(),
-    )
-    .ok();
+    let gauss_complexity =
+        ogsql_complexity::gauss_analyze(sql_text, &ogsql_complexity::ComplexityConfig::default())
+            .ok();
     let complexity_input = complexity
         .as_ref()
         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
@@ -980,11 +990,17 @@ pub fn run() -> Result<()> {
                         .help(t!("cli.analyze.help_file").to_string()),
                 )
                 .arg(
+                    clap::Arg::new("format")
+                        .long("format")
+                        .default_value("text")
+                        .value_parser(["text", "json", "heatmap", "waterfall"])
+                        .help(t!("cli.analyze.help_output").to_string()),
+                )
+                .arg(
                     clap::Arg::new("output")
                         .short('o')
                         .long("output")
-                        .default_value("text")
-                        .help(t!("cli.analyze.help_output").to_string()),
+                        .help("Output file path"),
                 )
                 .arg(
                     clap::Arg::new("threshold")
@@ -1011,11 +1027,6 @@ pub fn run() -> Result<()> {
                         .long("multi")
                         .action(clap::ArgAction::SetTrue)
                         .help(t!("cli.analyze.help_multi").to_string()),
-                )
-                .arg(
-                    clap::Arg::new("csv")
-                        .long("csv")
-                        .help(t!("cli.analyze.help_csv").to_string()),
                 )
                 .arg(
                     clap::Arg::new("lang")
@@ -1053,15 +1064,17 @@ pub fn run() -> Result<()> {
                         .help("Deduplicate findings per node (keep highest severity)"),
                 )
                 .arg(
-                    clap::Arg::new("csv_input")
-                        .long("csv-input")
-                        .help("CSV input file path (expects columns: sql, explain)"),
+                    clap::Arg::new("input_format")
+                        .long("input-format")
+                        .default_value("txt")
+                        .value_parser(["csv", "txt"])
+                        .help("Input format: csv (batch) or txt (single EXPLAIN text)"),
                 )
                 .arg(
-                    clap::Arg::new("csv_columns")
-                        .long("csv-columns")
+                    clap::Arg::new("output_columns")
+                        .long("output-columns")
                         .default_value("minimal")
-                        .help("Output columns for CSV mode: minimal, focused, full"),
+                        .help("Output columns for CSV batch mode: minimal, focused, full"),
                 ),
         )
         .subcommand(
@@ -1096,11 +1109,17 @@ pub fn run() -> Result<()> {
                         .help(t!("cli.explain.help_analyze").to_string()),
                 )
                 .arg(
+                    clap::Arg::new("format")
+                        .long("format")
+                        .default_value("text")
+                        .value_parser(["text", "json", "heatmap", "waterfall"])
+                        .help(t!("cli.explain.help_output").to_string()),
+                )
+                .arg(
                     clap::Arg::new("output")
                         .short('o')
                         .long("output")
-                        .default_value("text")
-                        .help(t!("cli.explain.help_output").to_string()),
+                        .help("Output file path"),
                 )
                 .arg(
                     clap::Arg::new("threshold")
@@ -1114,11 +1133,6 @@ pub fn run() -> Result<()> {
                         .long("quiet")
                         .action(clap::ArgAction::SetTrue)
                         .help(t!("cli.explain.help_quiet").to_string()),
-                )
-                .arg(
-                    clap::Arg::new("csv")
-                        .long("csv")
-                        .help(t!("cli.explain.help_csv").to_string()),
                 )
                 .arg(
                     clap::Arg::new("lang")
@@ -1143,16 +1157,16 @@ pub fn run() -> Result<()> {
                 let sql: Option<String> = args.get_one::<String>("sql").cloned();
                 let sql_file: Option<String> = args.get_one::<String>("sql_file").cloned();
                 let analyze = args.get_flag("analyze");
-                let output = args
-                    .get_one::<String>("output")
+                let format = args
+                    .get_one::<String>("format")
                     .map(|s| s.as_str())
                     .unwrap_or("text");
+                let output: Option<String> = args.get_one::<String>("output").cloned();
                 let threshold = args
                     .get_one::<String>("threshold")
                     .map(|s| s.as_str())
                     .unwrap_or("info");
                 let quiet = args.get_flag("quiet");
-                let csv: Option<String> = args.get_one::<String>("csv").cloned();
 
                 return run_explain(
                     config_opt,
@@ -1160,10 +1174,10 @@ pub fn run() -> Result<()> {
                     sql.as_deref(),
                     sql_file.as_deref(),
                     analyze,
-                    output,
+                    format,
                     threshold,
                     quiet,
-                    csv.as_deref(),
+                    output.as_deref(),
                 );
             }
             #[cfg(not(feature = "db"))]
@@ -1194,10 +1208,19 @@ pub fn run() -> Result<()> {
                 .get_one::<String>("file")
                 .map(|s: &String| s.as_str())
                 .unwrap_or("-");
-            let output = args
-                .get_one::<String>("output")
+            let input_format = args
+                .get_one::<String>("input_format")
+                .map(|s: &String| s.as_str())
+                .unwrap_or("txt");
+            let format = args
+                .get_one::<String>("format")
                 .map(|s: &String| s.as_str())
                 .unwrap_or("text");
+            let output_path: Option<String> = args.get_one::<String>("output").cloned();
+            let output_columns: String = args
+                .get_one::<String>("output_columns")
+                .cloned()
+                .unwrap_or_else(|| "minimal".to_string());
             let threshold = args
                 .get_one::<String>("threshold")
                 .map(|s: &String| s.as_str())
@@ -1205,13 +1228,6 @@ pub fn run() -> Result<()> {
             let quiet = args.get_flag("quiet");
             let _verbose = args.get_flag("verbose");
             let _multi = args.get_flag("multi");
-            let csv: Option<String> = args.get_one::<String>("csv").cloned();
-            let csv_input: Option<String> =
-                args.get_one::<String>("csv_input").cloned();
-            let csv_columns: String = args
-                .get_one::<String>("csv_columns")
-                .cloned()
-                .unwrap_or_else(|| "minimal".to_string());
 
             let diag_config = {
                 let mut cfg = match args.get_one::<String>("config_file") {
@@ -1236,11 +1252,17 @@ pub fn run() -> Result<()> {
                 cfg
             };
 
-            if let Some(ref csv_input_path) = csv_input {
+            if input_format == "csv" {
+                if format != "text" {
+                    eprintln!(
+                        "Warning: --format {} is ignored in CSV input mode (output is always CSV)",
+                        format
+                    );
+                }
                 return process_csv_input(
-                    csv_input_path,
-                    csv.as_deref(),
-                    &csv_columns,
+                    file,
+                    output_path.as_deref(),
+                    &output_columns,
                     &diag_config,
                 );
             }
@@ -1264,7 +1286,7 @@ pub fn run() -> Result<()> {
                     output_block_with_diag(
                         &plan,
                         &diag,
-                        output,
+                        format,
                         threshold,
                         quiet,
                         complexity.as_ref(),
@@ -1301,7 +1323,7 @@ pub fn run() -> Result<()> {
                     output_block_with_diag(
                         &plan,
                         &diag,
-                        output,
+                        format,
                         threshold,
                         quiet,
                         complexity.as_ref(),
@@ -1339,7 +1361,7 @@ pub fn run() -> Result<()> {
                             output_block_with_diag(
                                 &plan,
                                 &diag,
-                                output,
+                                format,
                                 threshold,
                                 quiet,
                                 complexity.as_ref(),
@@ -1350,16 +1372,16 @@ pub fn run() -> Result<()> {
                             )?;
                             summary_rows.push(row);
                         } else if let Some(sql) = &block.sql_text {
-                            output_sql_only(sql, output, num, total)?;
+                            output_sql_only(sql, format, num, total)?;
                         }
                     }
                 }
 
-                if let Some(ref csv_path) = csv {
-                    export_csv(&summary_rows, csv_path)?;
+                if let Some(ref out_path) = output_path {
+                    export_csv(&summary_rows, out_path)?;
                 }
 
-                if output != "json" && !summary_rows.is_empty() {
+                if format != "json" && !summary_rows.is_empty() {
                     print_summary_table(&summary_rows);
                 }
             }
@@ -1400,12 +1422,7 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let explain_text = db::fetch_explain(
-        config_opt.map(Path::new),
-        name_opt,
-        &sql_text,
-        analyze,
-    )?;
+    let explain_text = db::fetch_explain(config_opt.map(Path::new), name_opt, &sql_text, analyze)?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);
@@ -2603,4 +2620,138 @@ fn output_json(
     let json = serde_json::to_string_pretty(&output)?;
     println!("{}", json);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_csv_columns_mode_from_str_valid() {
+        assert!(matches!(
+            CsvColumnsMode::from_str("minimal").unwrap(),
+            CsvColumnsMode::Minimal
+        ));
+        assert!(matches!(
+            CsvColumnsMode::from_str("focused").unwrap(),
+            CsvColumnsMode::Focused
+        ));
+        assert!(matches!(
+            CsvColumnsMode::from_str("full").unwrap(),
+            CsvColumnsMode::Full
+        ));
+    }
+
+    #[test]
+    fn test_csv_columns_mode_from_str_case_insensitive() {
+        assert!(CsvColumnsMode::from_str("MINIMAL").is_ok());
+        assert!(CsvColumnsMode::from_str("Focused").is_ok());
+        assert!(CsvColumnsMode::from_str("  full  ").is_ok());
+    }
+
+    #[test]
+    fn test_csv_columns_mode_from_str_invalid() {
+        let err = CsvColumnsMode::from_str("verbose").unwrap_err();
+        assert!(
+            err.to_string().contains("--output-columns"),
+            "error should mention --output-columns, got: {}",
+            err
+        );
+    }
+
+    fn write_header_to_vec(mode: CsvColumnsMode) -> Vec<String> {
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_header(&mut writer, mode).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        text.trim().split(',').map(|s| s.trim_matches('"').to_string()).collect()
+    }
+
+    #[test]
+    fn test_csv_header_minimal_has_9_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Minimal);
+        assert_eq!(cols.len(), 9, "minimal mode should have 9 columns");
+        assert_eq!(cols[0], "sql");
+        assert_eq!(cols[2], "parse_status");
+        assert_eq!(cols[8], "suggestions");
+    }
+
+    #[test]
+    fn test_csv_header_focused_has_19_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Focused);
+        assert_eq!(cols.len(), 19, "focused mode should have 19 columns");
+        assert_eq!(cols[9], "root_op");
+        assert_eq!(cols[18], "complexity_level");
+    }
+
+    #[test]
+    fn test_csv_header_full_has_52_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Full);
+        assert_eq!(cols.len(), 52, "full mode should have 52 columns");
+        assert_eq!(cols[19], "total_cost");
+        assert_eq!(cols[51], "gauss_tags");
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_minimal() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Minimal);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Minimal).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "row field count must match header column count"
+        );
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_focused() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Focused);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Focused).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "focused row must have same field count as header"
+        );
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_full() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Full);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Full).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "full row must have same field count as header even without summary data"
+        );
+    }
 }
