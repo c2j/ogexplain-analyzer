@@ -22,7 +22,7 @@ use crate::model::{ExplainPlan, PlanNode};
 
 pub trait DiagnosticRule: Send + Sync {
     fn id(&self) -> &str;
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
     fn severity(&self) -> Severity;
     fn category(&self) -> DiagnosticCategory;
     fn check(&self, node: &PlanNode, ctx: &super::context::PlanContext) -> Option<Finding>;
@@ -90,7 +90,7 @@ fn make_finding(
         rule_id: rule.id().to_string(),
         severity: rule.severity(),
         category: rule.category(),
-        title: rule.name().to_string(),
+        title: rule.name(),
         detail,
         node_line: Some(node.line_number),
         node_type: Some(node.node_type.to_string()),

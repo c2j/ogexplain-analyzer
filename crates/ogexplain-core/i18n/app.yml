@@ -1198,3 +1198,402 @@ tui.help.color_dml:
 tui.help.color_stream:
   en: "  Red=Streaming"
   zh-CN: "  红色=Streaming"
+
+# ═══════════════════════════════════════════════════════════════
+# Analyzer Rule Finding Strings
+# ═══════════════════════════════════════════════════════════════
+
+finding.SCAN-001.name:
+  en: "Large table full scan"
+  zh-CN: "大表全扫描"
+finding.SCAN-001.detail:
+  en: "Seq Scan on %{relation} scanned ~%{rows} rows (threshold: %{threshold})"
+  zh-CN: "Seq Scan on %{relation} 扫描了 ~%{rows} 行（阈值: %{threshold}）"
+finding.SCAN-001.suggestion_with_cols:
+  en: "CREATE INDEX ON %{relation} (%{cols}); Full scan scanned many rows, consider indexing filtered columns"
+  zh-CN: "CREATE INDEX ON %{relation} (%{cols}); 全扫描大量行, 过滤列适合建索引"
+finding.SCAN-001.suggestion_no_cols:
+  en: "Consider creating an index on the filtered columns of %{relation}"
+  zh-CN: "考虑在过滤列上创建索引: %{relation}"
+
+finding.SCAN-004.name:
+  en: "Filter without index"
+  zh-CN: "无索引过滤"
+finding.SCAN-004.detail:
+  en: "%{node_label} on %{relation} with Filter: estimated %{estimated} rows but got %{actual} (ratio: %{ratio}x)"
+  zh-CN: "%{node_label} on %{relation} 含过滤条件: 估算 %{estimated} 行, 实际 %{actual} 行 (偏差: %{ratio}x)"
+finding.SCAN-004.suggestion_with_cols:
+  en: "ANALYZE %{relation}; also consider CREATE INDEX ON %{relation} (%{cols})"
+  zh-CN: "ANALYZE %{relation}; 同时考虑 CREATE INDEX ON %{relation} (%{cols})"
+finding.SCAN-004.suggestion_no_cols:
+  en: "Filter removed many rows, consider creating an index on the filtered columns"
+  zh-CN: "过滤条件移除大量行, 考虑在过滤列上创建索引"
+
+finding.SCAN-005.name:
+  en: "Index scan with poor selectivity"
+  zh-CN: "索引扫描选择性差"
+finding.SCAN-005.detail:
+  en: "Index Scan on %{relation} using %{index} returned %{actual_rows} rows (×%{loops} loops) — total %{total_rows} rows read (threshold: %{threshold})"
+  zh-CN: "Index Scan on %{relation} using %{index} 返回 %{actual_rows} 行 (×%{loops} 循环) — 总计 %{total_rows} 行 (阈值: %{threshold})"
+finding.SCAN-005.suggestion:
+  en: "Index scan returned %{actual_rows} rows (×%{loops} loops) — low selectivity. Consider: (1) composite index covering more columns; (2) ANALYZE to update statistics; (3) try SET enable_indexscan = off to compare with full scan."
+  zh-CN: "索引扫描返回 %{actual_rows} 行 (×%{loops} 循环) — 选择性差。建议: (1) 创建复合索引覆盖更多列; (2) ANALYZE 更新统计信息; (3) SET enable_indexscan = off 对比全扫描性能。"
+
+finding.JOIN-001.name:
+  en: "Nested Loop with large dataset"
+  zh-CN: "大数据集嵌套循环"
+finding.JOIN-001.detail:
+  en: "Inner side processed %{rows} rows × %{loops} loops = %{total} total rows (threshold: %{threshold})"
+  zh-CN: "内表处理了 %{rows} 行 × %{loops} 循环 = %{total} 总行数 (阈值: %{threshold})"
+finding.JOIN-001.detail_has_index:
+  en: ", inner table has index"
+  zh-CN: ", 内表已有索引"
+finding.JOIN-001.suggestion_has_index:
+  en: "Nested Loop inner table already has an index but workload is still high; consider ANALYZE to update statistics or SET enable_nestloop = off"
+  zh-CN: "Nested Loop 内表已有索引但工作量仍然很大; 考虑 ANALYZE 更新统计信息或 SET enable_nestloop = off"
+finding.JOIN-001.suggestion_no_index_with_col:
+  en: "CREATE INDEX ON inner_table(%{col}) to accelerate Nested Loop; or SET enable_nestloop = off"
+  zh-CN: "CREATE INDEX ON inner_table(%{col}) 以加速 Nested Loop; 或 SET enable_nestloop = off"
+finding.JOIN-001.suggestion_no_index_no_col:
+  en: "SET enable_nestloop = off; or create index on join column"
+  zh-CN: "SET enable_nestloop = off; 或在连接列上创建索引"
+
+finding.JOIN-002.name:
+  en: "Hash spill to disk"
+  zh-CN: "Hash 溢出到磁盘"
+finding.JOIN-002.detail:
+  en: "Hash used %{batches} batches (spilled to disk). Memory Usage: %{mem_usage}"
+  zh-CN: "Hash 使用了 %{batches} 个批次（溢出到磁盘）。内存使用: %{mem_usage}"
+finding.JOIN-002.detail_disk:
+  en: ", Disk: %{disk}"
+  zh-CN: ", 磁盘: %{disk}"
+finding.JOIN-002.suggestion_recommended:
+  en: "SET work_mem = '%{recommended}MB'; currently using %{mem_usage} with disk spill, recommend at least %{recommended}MB"
+  zh-CN: "SET work_mem = '%{recommended}MB'; 当前使用 %{mem_usage} 已溢出到磁盘, 建议至少 %{recommended}MB"
+finding.JOIN-002.suggestion_default:
+  en: "Increase work_mem (current usage: %{mem_usage})"
+  zh-CN: "增大 work_mem（当前使用: %{mem_usage}）"
+
+finding.JOIN-003.name:
+  en: "Expensive join filter"
+  zh-CN: "代价高昂的连接过滤"
+finding.JOIN-003.detail:
+  en: "%{join_label} Join Filter removed %{rows} rows (threshold: %{threshold})"
+  zh-CN: "%{join_label} Join Filter 过滤掉 %{rows} 行 (阈值: %{threshold})"
+finding.JOIN-003.suggestion:
+  en: "Consider pushing the join filter to the scan level (add to WHERE clause), or verify join column selectivity. Filter removing %{rows} rows post-join."
+  zh-CN: "考虑将 Join Filter 下推到扫描层（加到 WHERE 子句），或检查连接列选择性。连接后过滤了 %{rows} 行。"
+
+finding.MEM-001.name:
+  en: "Sort spilled to disk"
+  zh-CN: "排序溢出到磁盘"
+finding.MEM-001.detail:
+  en: "Sort Method: %{value}"
+  zh-CN: "排序方式: %{value}"
+finding.MEM-001.suggestion:
+  en: "SET work_mem to a higher value; sort spilled to disk (%{disk}), consider creating an index on the sort key to eliminate sorting"
+  zh-CN: "SET work_mem = '更高值'; 排序溢出到磁盘(%{disk}), 考虑在排序列创建索引以消除排序"
+
+finding.MEM-004.name:
+  en: "High peak memory"
+  zh-CN: "峰值内存过高"
+finding.MEM-004.detail:
+  en: "Peak memory: %{peak}kB (threshold: %{threshold}kB)"
+  zh-CN: "峰值内存: %{peak}kB (阈值: %{threshold}kB)"
+finding.MEM-004.detail_top_node:
+  en: ", highest memory node: %{node_type} on %{relation} (%{mem_kb}kB)"
+  zh-CN: ", 最高内存节点: %{node_type} on %{relation} (%{mem_kb}kB)"
+finding.MEM-004.suggestion:
+  en: "Analyze high memory node; Sort/Hash → increase work_mem; Materialize → optimize query to reduce intermediate result sets"
+  zh-CN: "分析高内存节点; Sort/Hash → 增加 work_mem; Materialize → 优化查询减少中间结果集"
+
+finding.SORT-003.name:
+  en: "Duplicate sort"
+  zh-CN: "重复排序"
+finding.SORT-003.detail_duplicate:
+  en: "Sort node has child Sort with identical Sort Key: %{key} (duplicate nodes: %{duplicates})"
+  zh-CN: "Sort 节点有子节点 Sort 使用相同的 Sort Key: %{key} (重复节点: %{duplicates})"
+finding.SORT-003.detail_redundant:
+  en: "Sort node has a Sort child — redundant sorting detected"
+  zh-CN: "Sort 节点有 Sort 子节点 — 检测到冗余排序"
+finding.SORT-003.suggestion_with_key:
+  en: "Eliminate duplicate sort: create an index on column(s) %{key}, or use /*+ REDUCE_ORDER_BY */ to remove redundant sorting"
+  zh-CN: "消除重复排序: 在列(%{key})上创建索引, 或使用 /*+ REDUCE_ORDER_BY */ 消除冗余排序"
+finding.SORT-003.suggestion_no_key:
+  en: "Remove the inner Sort by adjusting ORDER BY or adding appropriate indexes"
+  zh-CN: "调整 ORDER BY 或创建合适的索引来移除内部的 Sort"
+
+finding.NET-001.name:
+  en: "Broadcast large table"
+  zh-CN: "广播大表数据"
+finding.NET-001.detail:
+  en: "Streaming(Broadcast) broadcasting table %{table} with %{rows} rows (threshold: %{threshold})"
+  zh-CN: "Streaming(Broadcast) 广播表 %{table} 的 %{rows} 行（阈值: %{threshold}）"
+finding.NET-001.suggestion:
+  en: "Use /*+ redistribute(%{table}) */ instead of broadcast; or /*+ no broadcast(%{table}) */ to disable broadcast; adjust distribution columns for local data"
+  zh-CN: "使用 /*+ redistribute(%{table}) */ 替代广播; 或 /*+ no broadcast(%{table}) */ 禁止广播; 调整分布列使数据本地化"
+
+finding.EST-001.name:
+  en: "Severe row underestimation"
+  zh-CN: "严重行数低估"
+finding.EST-001.detail:
+  en: "%{relation}: actual %{actual} rows vs estimated %{estimated} rows (%{ratio}x %{direction})"
+  zh-CN: "%{relation}: 实际 %{actual} 行 vs 估算 %{estimated} 行 (%{ratio}x %{direction})"
+finding.EST-001.suggestion:
+  en: "ANALYZE %{relation}; estimation skew %{ratio}x (%{direction}), update statistics to improve plan selection"
+  zh-CN: "ANALYZE %{relation}; 估算偏差 %{ratio}x (%{direction}), 更新统计信息以改善查询计划选择"
+finding.EST-001.direction_under:
+  en: "underestimation"
+  zh-CN: "低估"
+finding.EST-001.direction_over:
+  en: "overestimation"
+  zh-CN: "高估"
+
+finding.EST-004.name:
+  en: "Nested Loop from underestimation"
+  zh-CN: "低估导致 Nest Loop"
+finding.EST-004.detail:
+  en: "Nested Loop chosen due to severe underestimation: actual %{actual} vs estimated %{estimated} (%{ratio}x), inner side total work: %{inner_work} rows"
+  zh-CN: "Nested Loop 因严重低估而选择: actual %{actual} vs estimated %{estimated} (%{ratio}x), 内表总工作量: %{inner_work} rows"
+finding.EST-004.suggestion:
+  en: "ANALYZE to update statistics; consider SET enable_nestloop = off; inner side work: %{inner_work} rows"
+  zh-CN: "ANALYZE 更新统计信息; 考虑 SET enable_nestloop = off; 内表工作量: %{inner_work} rows"
+
+finding.PUSH-001.name:
+  en: "Query not pushed down"
+  zh-CN: "查询未下推"
+finding.PUSH-001.detail:
+  en: "Query not fully pushed down — found Streaming(%{streaming_type}) node"
+  zh-CN: "查询未完全下推 — 发现 Streaming(%{streaming_type}) 节点"
+finding.PUSH-001.detail_reasons:
+  en: ", possible reasons: %{reasons}"
+  zh-CN: ", 可能原因: %{reasons}"
+finding.PUSH-001.blocker_subquery:
+  en: "Subquery not pulled up"
+  zh-CN: "子查询未提升"
+finding.PUSH-001.blocker_subplan:
+  en: "Correlated sublink (SubPlan)"
+  zh-CN: "关联子链接(SubPlan)"
+finding.PUSH-001.blocker_volatile:
+  en: "Volatile function call"
+  zh-CN: "易变函数调用"
+finding.PUSH-001.suggestion_subquery:
+  en: "Use /*+ EXPAND_SUBLINK */ to pull up sublink; /*+ EXPAND_SUBQUERY */ to pull up subquery"
+  zh-CN: "使用 /*+ EXPAND_SUBLINK */ 提升子链接; /*+ EXPAND_SUBQUERY */ 提升子查询"
+finding.PUSH-001.suggestion_volatile:
+  en: "Query contains volatile functions, cannot be pushed down; consider rewriting to a pushable form or using PL/pgSQL"
+  zh-CN: "查询含易变函数, 不可下推; 考虑改写为可下推形式或使用 PL/pgSQL"
+finding.PUSH-001.suggestion_default:
+  en: "Check for non-pushable constructs; use hints: EXPAND_SUBLINK/EXPAND_SUBQUERY; SET rewrite_rule=partialpush"
+  zh-CN: "检查不可下推构造; 使用 hint: EXPAND_SUBLINK/EXPAND_SUBQUERY; SET rewrite_rule=partialpush"
+
+finding.PUSH-002.name:
+  en: "Multi-layer streaming"
+  zh-CN: "多层流式传输"
+finding.PUSH-002.detail:
+  en: "Streaming node has %{layers} streaming layers underneath — excessive data redistribution: %{current} → %{chain}"
+  zh-CN: "Streaming 节点下存在 %{layers} 层 Streaming — 数据重分布过多: %{current} → %{chain}"
+finding.PUSH-002.suggestion_deep:
+  en: "Multiple redistribution layers severely impact performance; /*+ redistribute(t1) */ to specify explicitly; /*+ broadcast(small) */ to broadcast small table; /*+ leading(t1 t2 t3) */ to adjust join order"
+  zh-CN: "多层重分布严重影响性能; /*+ redistribute(t1) */ 显式指定; /*+ broadcast(small) */ 广播小表; /*+ leading(t1 t2 t3) */ 调整连接顺序"
+finding.PUSH-002.suggestion_shallow:
+  en: "Use hints to reduce redistribution layers: /*+ redistribute(t1) */ or /*+ broadcast(small) */"
+  zh-CN: "使用 hint 减少重分布层数: /*+ redistribute(t1) */ 或 /*+ broadcast(small) */"
+
+finding.TYPE-001.name:
+  en: "Suspected implicit type cast"
+  zh-CN: "疑似隐式类型转换"
+finding.TYPE-001.detail:
+  en: "Seq Scan with filter '%{filter}' (%{desc}), filtered out %{removed} rows (total %{total}) — suspected implicit type cast preventing index usage"
+  zh-CN: "Seq Scan 含过滤条件 '%{filter}' (%{desc}), 过滤掉 %{removed} 行 (共 %{total} 行) — 疑似隐式类型转换导致无法使用索引"
+finding.TYPE-001.desc_bare_col:
+  en: "%{col} = '%{val}' (column vs string value)"
+  zh-CN: "%{col} = '%{val}' (列vs字符串值)"
+finding.TYPE-001.desc_col_to_numeric:
+  en: "(%{col})::numeric = '%{val}' (column cast to numeric)"
+  zh-CN: "(%{col})::numeric = '%{val}' (列被转为numeric)"
+finding.TYPE-001.suggestion_bare_col:
+  en: "WHERE %{col} = %{val} — suspected numeric column compared with string literal, consider removing quotes or adding explicit cast"
+  zh-CN: "WHERE %{col} = %{val} — 疑似 numeric 列用 string 值比较, 建议去掉引号或添加显式类型转换"
+finding.TYPE-001.suggestion_col_to_numeric:
+  en: "WHERE %{col} = '%{val}' — column is forced to numeric type, consider unifying the data types of column and value"
+  zh-CN: "WHERE %{col} = '%{val}' — 列被强制转为 numeric 类型, 建议统一列和值的数据类型"
+
+finding.TYPE-004.name:
+  en: "LIKE with leading wildcard"
+  zh-CN: "LIKE 使用前导通配符"
+finding.TYPE-004.detail:
+  en: "Filter condition contains leading wildcard LIKE '%{pattern}', cannot use B-tree index"
+  zh-CN: "过滤条件含前导通配符 LIKE '%{pattern}', 无法使用 B-tree 索引"
+finding.TYPE-004.detail_double_sided:
+  en: " (wildcards on both sides)"
+  zh-CN: " (前后均有通配符)"
+finding.TYPE-004.suggestion_double:
+  en: "Double-sided wildcard LIKE cannot use any index; suggestions: (1) pg_trgm extension + GIN index: CREATE EXTENSION pg_trgm; CREATE INDEX idx USING gin(col gin_trgm_ops); (2) full text search: to_tsvector + to_tsquery"
+  zh-CN: "前后通配符 LIKE 无法使用任何索引; 建议: (1) pg_trgm 扩展 + GIN 索引: CREATE EXTENSION pg_trgm; CREATE INDEX idx USING gin(col gin_trgm_ops); (2) 全文搜索: to_tsvector + to_tsquery"
+finding.TYPE-004.suggestion_single:
+  en: "Leading wildcard LIKE cannot use B-tree index; suggestions: pg_trgm extension; or reverse index (reverse(col))"
+  zh-CN: "前导通配符 LIKE 无法使用 B-tree 索引; 建议: pg_trgm 扩展; 或反向索引(reverse(col))"
+
+finding.VEC-001.name:
+  en: "Mixed vector/row engines"
+  zh-CN: "混合向量化/行存引擎"
+finding.VEC-001.detail:
+  en: "Plan has %{count} engine switches (requires %{count} adapter conversions): %{points}"
+  zh-CN: "执行计划含 %{count} 处引擎切换 (需要 %{count} 次适配器转换): %{points}"
+finding.VEC-001.suggestion:
+  en: "Use a single engine to eliminate adapter overhead; SET try_vector_engine_strategy=force to attempt full vectorization; row-store point queries: SET enable_vector_engine=off"
+  zh-CN: "统一使用同一引擎以消除适配器开销; SET try_vector_engine_strategy=force 尝试全向量化; 行存点查: SET enable_vector_engine=off"
+
+finding.GEN-001.name:
+  en: "Plan too deep"
+  zh-CN: "执行计划层级过深"
+finding.GEN-001.detail:
+  en: "Plan depth is %{depth} (threshold: %{max_depth}); excessive depth usually indicates unpulled subqueries or deep nesting"
+  zh-CN: "执行计划深度为 %{depth}（阈值: %{max_depth}）; 深度过高通常表示子查询未提升或多层嵌套"
+finding.GEN-001.suggestion:
+  en: "Simplify query: /*+ EXPAND_SUBQUERY */; /*+ EXPAND_SUBLINK */; /*+ LAZY_AGG */; /*+ REDUCE_ORDER_BY */; consider splitting into multiple simple queries"
+  zh-CN: "简化查询: /*+ EXPAND_SUBQUERY */; /*+ EXPAND_SUBLINK */; /*+ LAZY_AGG */; /*+ REDUCE_ORDER_BY */; 考虑拆分为多个简单查询"
+
+finding.SUBQ-001.name:
+  en: "Correlated subquery not pulled up"
+  zh-CN: "关联子查询未提升"
+finding.SUBQ-001.detail_subquery_scan:
+  en: "Detected unpulled subquery (SubqueryScan), involving table: %{table}"
+  zh-CN: "检测到未提升的子查询(SubqueryScan), 涉及表: %{table}"
+finding.SUBQ-001.detail_subplan:
+  en: "Detected unpulled subquery (SubPlan in %{nt})"
+  zh-CN: "检测到未提升的子查询(SubPlan in %{nt})"
+finding.SUBQ-001.suggestion_subquery_scan:
+  en: "Rewrite as JOIN: /*+ EXPAND_SUBQUERY */; if correlated subquery: /*+ EXPAND_SUBLINK */; consider /*+ USE_MAGIC_SET */ optimization"
+  zh-CN: "改写为JOIN: /*+ EXPAND_SUBQUERY */; 若为关联子查询: /*+ EXPAND_SUBLINK */; 考虑 /*+ USE_MAGIC_SET */ 优化"
+finding.SUBQ-001.suggestion_subplan:
+  en: "/*+ EXPAND_SUBLINK */ to pull up sublink; /*+ USE_MAGIC_SET */ for correlated subquery optimization"
+  zh-CN: "/*+ EXPAND_SUBLINK */ 提升子链接; /*+ USE_MAGIC_SET */ 优化关联子查询"
+
+finding.REW-001.name:
+  en: "Large IN list not converted"
+  zh-CN: "大IN列表未转换"
+finding.REW-001.detail:
+  en: "Filter condition contains long IN list (%{count} values), column: %{column}, table: %{relation}"
+  zh-CN: "过滤条件含长IN列表(%{count}个值), 列: %{column}, 表: %{relation}"
+finding.REW-001.suggestion:
+  en: "/*+ INLIST_TO_JOIN */; or rewrite: SELECT * FROM %{relation} WHERE %{relation}.%{column} IN (SELECT val FROM temp_in_list)"
+  zh-CN: "/*+ INLIST_TO_JOIN */; 或改写: SELECT * FROM %{relation} WHERE %{relation}.%{column} IN (SELECT val FROM temp_in_list)"
+
+finding.SUBQ-006.name:
+  en: "Correlated subquery self-update"
+  zh-CN: "关联子查询自引用UPDATE"
+finding.SUBQ-006.detail:
+  en: "Detected correlated subquery self-referencing UPDATE (table: %{table}), SubPlan exists: %{subplan}, same table scan: %{scan}"
+  zh-CN: "检测到关联子查询自引用UPDATE (表: %{table}), SubPlan存在: %{subplan}, 同表扫描: %{scan}"
+finding.SUBQ-006.detail_streaming:
+  en: ", distributed scenario: Streaming redistribution present, may cause cross-DN data transfer"
+  zh-CN: ", 分布式场景: 存在Streaming重分布, 可能导致跨DN数据传输"
+finding.SUBQ-006.suggestion:
+  en: "Correlated subquery self-referencing UPDATE has O(n²) risk from row-by-row execution; suggestions:\n  Method 1 (UPDATE FROM): UPDATE %{table} SET ... = t.new_val FROM (SELECT %{col}, ... FROM %{table}) t WHERE %{table}.%{col} = t.%{col};\n  Method 2 (CTE): WITH new_vals AS (SELECT %{col}, ... FROM %{table}) UPDATE %{table} SET ... = n.new_val FROM new_vals n WHERE %{table}.%{col} = n.%{col};"
+  zh-CN: "关联子查询自引用UPDATE存在逐行执行O(n²)风险; 建议改写:\n  方式一(UPDATE FROM): UPDATE %{table} SET ... = t.new_val FROM (SELECT %{col}, ... FROM %{table}) t WHERE %{table}.%{col} = t.%{col};\n  方式二(CTE): WITH new_vals AS (SELECT %{col}, ... FROM %{table}) UPDATE %{table} SET ... = n.new_val FROM new_vals n WHERE %{table}.%{col} = n.%{col};"
+
+finding.AGG-001.name:
+  en: "Group aggregate should be hash"
+  zh-CN: "聚合策略不当 — 应使用HashAggregate"
+finding.AGG-001.detail:
+  en: "GroupAggregate using sorted aggregation (has Sort child) on %{rows} rows"
+  zh-CN: "GroupAggregate在%{rows}行数据上使用排序聚合(含Sort子节点)"
+finding.AGG-001.suggestion:
+  en: "Increase work_mem to switch to HashAggregate: /*+ set(work_mem '256MB') */; or use hint: /*+ use_hash_agg */"
+  zh-CN: "增大work_mem可切换为HashAggregate: /*+ set(work_mem '256MB') */; 或使用Hint: /*+ use_hash_agg */"
+
+finding.AGG-002.name:
+  en: "Hash aggregate spill to disk"
+  zh-CN: "HashAggregate磁盘溢出"
+finding.AGG-002.detail:
+  en: "HashAggregate spilled to disk (%{batches} batches)"
+  zh-CN: "HashAggregate溢出到磁盘(%{batches}个批次)"
+finding.AGG-002.suggestion:
+  en: "Increase work_mem: /*+ set(work_mem '256MB') */; if data is sorted, consider /*+ use_sort_agg */"
+  zh-CN: "增大work_mem: /*+ set(work_mem '256MB') */; 若数据已排序, 考虑 /*+ use_sort_agg */"
+
+finding.SKEW-001.name:
+  en: "Data skew detected"
+  zh-CN: "数据倾斜"
+finding.SKEW-001.detail:
+  en: "Streaming(Redistribute) redistributing %{rows} rows, actual vs estimated skew %{ratio}x — suspected data skew"
+  zh-CN: "Streaming(Redistribute)重分布%{rows}行, 实际与估算偏差%{ratio}x — 疑似数据倾斜"
+finding.SKEW-001.suggestion:
+  en: "Adjust distribution column: ALTER TABLE %{relation} DISTRIBUTE BY HASH(new_col); use /*+ skew(t1(c1)) */ hint; check skew: SELECT * FROM pgxc_get_table_skewness('%{relation}')"
+  zh-CN: "调整分布列: ALTER TABLE %{relation} DISTRIBUTE BY HASH(new_col); 使用 /*+ skew(t1(c1)) */ Hint; 查询倾斜: SELECT * FROM pgxc_get_table_skewness('%{relation}')"
+
+finding.DIST-001.name:
+  en: "Distribution column mismatch"
+  zh-CN: "分布列不当导致重分布"
+finding.DIST-001.detail:
+  en: "Streaming(Redistribute) redistributing %{rows} rows, join columns do not match distribution columns"
+  zh-CN: "Streaming(Redistribute)重分布%{rows}行, 连接列与分布列不匹配"
+finding.DIST-001.suggestion:
+  en: "Streaming(Redistribute) redistributing %{rows} rows, join columns do not match distribution columns; align distribution column with JOIN column: ALTER TABLE %{relation} DISTRIBUTE BY HASH(join_col); use /*+ redistribute(t1) */ to specify redistribution strategy explicitly"
+  zh-CN: "Streaming(Redistribute)重分布%{rows}行, 连接列与分布列不匹配; 对齐分布列与JOIN列: ALTER TABLE %{relation} DISTRIBUTE BY HASH(join_col); 使用 /*+ redistribute(t1) */ 显式指定重分布策略"
+
+finding.STATS-001.name:
+  en: "Stats not collected"
+  zh-CN: "统计信息未收集"
+finding.STATS-001.detail:
+  en: "Table %{relation} estimated rows = 10 (system default), actual returned %{actual} rows — statistics may not have been collected"
+  zh-CN: "表 %{relation} 估算行数为10(系统默认值), 实际返回 %{actual} 行 — 疑似统计信息未收集"
+finding.STATS-001.suggestion:
+  en: "Table %{relation} statistics may not be collected (estimated=10 is system default); run ANALYZE %{relation} to collect statistics; large tables (>1.6M rows): SET default_statistics_target=-2 (2% sampling)"
+  zh-CN: "表 %{relation} 的统计信息可能未收集(估算行数=10为系统默认值); 执行 ANALYZE %{relation} 收集统计信息; 大表(>160万行): SET default_statistics_target=-2 (2%采样)"
+
+finding.PART-001.name:
+  en: "Partition pruning failure"
+  zh-CN: "分区剪枝失效"
+finding.PART-001.detail_function:
+  en: "Partition table has filter condition but scanned all %{count} partitions (%{range}), partition key may be wrapped in function/expression preventing pruning"
+  zh-CN: "分区表有过滤条件但扫描了全部 %{count} 个分区 (%{range}), 分区键可能被函数/表达式包装导致无法裁剪"
+finding.PART-001.detail_range_large:
+  en: "Scanned partition range too large: %{range} (%{count} partitions)"
+  zh-CN: "扫描分区范围过大: %{range} (%{count} 个分区)"
+finding.PART-001.detail_non_range:
+  en: "Partition table has function filter condition but scanned partitions: %{range}"
+  zh-CN: "分区表有函数过滤条件但扫描分区: %{range}"
+finding.PART-001.suggestion:
+  en: "Partition table scanned too many partitions; ensure partition key uses constant expression filter; avoid functions on partition key (e.g. EXTRACT, to_date, to_char); check if partition key filter condition is missing"
+  zh-CN: "分区表扫描了过多分区; 确保分区键使用常量表达式过滤; 避免在分区键上使用函数(如 EXTRACT, to_date, to_char); 检查是否缺少分区键的过滤条件"
+
+# ═══════════════════════════════════════════════════════════════
+# Suggester Messages
+# ═══════════════════════════════════════════════════════════════
+
+finding.suggester.multi_estimation:
+  en: "Multiple estimation skews indicate statistics may be stale, consider running ANALYZE on all involved tables"
+  zh-CN: "多个估算偏差表明统计信息可能过期，建议对所有涉及的表执行 ANALYZE"
+finding.suggester.multi_spill:
+  en: "Detected %{count} memory spills to disk, consider increasing work_mem to avoid disk I/O"
+  zh-CN: "检测到 %{count} 处内存溢出到磁盘，建议增大 work_mem 以避免磁盘 I/O"
+finding.suggester.scan_and_join:
+  en: "Both scan and join issues detected, creating a composite index on join columns and filter columns may improve performance"
+  zh-CN: "同时检测到扫描和连接问题，在连接列和过滤列上创建复合索引可能有助于提升性能"
+finding.suggester.pushdown_issues:
+  en: "Detected pushdown issues, check for non-pushable constructs in the query and consider data redistribution"
+  zh-CN: "检测到下推问题，检查查询中的不可下推构造并考虑数据重分布"
+finding.suggester.subquery_self_update:
+  en: "Detected correlated subquery self-referencing UPDATE, recommend rewriting to UPDATE ... FROM or CTE form to avoid row-by-row execution"
+  zh-CN: "检测到关联子查询自引用UPDATE，建议改写为 UPDATE ... FROM 或 CTE 形式以避免逐行执行"
+finding.suggester.type_inconsistencies:
+  en: "Multiple type inconsistency issues detected, recommend reviewing data type matching in WHERE/JOIN conditions"
+  zh-CN: "多处类型不一致问题, 建议全面审查 WHERE/JOIN 条件中的数据类型匹配"
+finding.suggester.engine_switches:
+  en: "Detected engine switches, recommend using a single row engine or vector engine to eliminate Adapter overhead"
+  zh-CN: "检测到引擎切换, 建议统一使用行引擎或向量化引擎以消除 Adapter 开销"
+
+# ═══════════════════════════════════════════════════════════════
+# Rewriter Messages
+# ═══════════════════════════════════════════════════════════════
+
+finding.ANTI.name:
+  en: "Anti-pattern Subtree Detection"
+  zh-CN: "反模式子树检测"
+
+finding.rewriter.update_from_explanation:
+  en: "Rewrite correlated subquery UPDATE to UPDATE ... FROM form to avoid row-by-row subquery execution on %{table}"
+  zh-CN: "将关联子查询 UPDATE 改写为 UPDATE ... FROM 形式，避免对 %{table} 的逐行子查询执行"

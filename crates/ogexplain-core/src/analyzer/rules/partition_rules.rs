@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -23,8 +24,8 @@ impl DiagnosticRule for PartitionPruningFailure {
     fn id(&self) -> &str {
         "PART-001"
     }
-    fn name(&self) -> &str {
-        "分区剪枝失效"
+    fn name(&self) -> String {
+        t!("finding.PART-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -70,19 +71,26 @@ impl DiagnosticRule for PartitionPruningFailure {
             // — pruning should have reduced this to fewer partitions
             if has_filter && start <= 1 && n_scanned >= end && filter_has_function {
                 pruning_failed = true;
-                reason = format!(
-                    "分区表有过滤条件但扫描了全部 {} 个分区 ({}), 分区键可能被函数/表达式包装导致无法裁剪",
-                    n_scanned, sel
-                );
+                reason = t!(
+                    "finding.PART-001.detail_function",
+                    count = n_scanned,
+                    range = sel
+                )
+                .to_string();
             // Case 2: Very large partition range (existing logic, keep as fallback)
             } else if n_scanned > MAX_PARTITION_RANGE {
                 pruning_failed = true;
-                reason = format!("扫描分区范围过大: {} ({} 个分区)", sel, n_scanned);
+                reason = t!(
+                    "finding.PART-001.detail_range_large",
+                    range = sel,
+                    count = n_scanned
+                )
+                .to_string();
             }
         } else if has_filter && filter_has_function {
             // Non-range format with function-based filter
             pruning_failed = true;
-            reason = format!("分区表有函数过滤条件但扫描分区: {}", sel);
+            reason = t!("finding.PART-001.detail_non_range", range = sel).to_string();
         }
 
         if !pruning_failed {
@@ -93,7 +101,7 @@ impl DiagnosticRule for PartitionPruningFailure {
             self,
             reason,
             node,
-            Some("分区表扫描了过多分区; 确保分区键使用常量表达式过滤; 避免在分区键上使用函数(如 EXTRACT, to_date, to_char); 检查是否缺少分区键的过滤条件".to_string()),
+            Some(t!("finding.PART-001.suggestion").to_string()),
         ))
     }
 }

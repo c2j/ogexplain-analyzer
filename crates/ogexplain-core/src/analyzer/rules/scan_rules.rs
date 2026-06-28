@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
@@ -24,8 +25,8 @@ impl DiagnosticRule for LargeTableFullScan {
     fn id(&self) -> &str {
         "SCAN-001"
     }
-    fn name(&self) -> &str {
-        "Large table full scan"
+    fn name(&self) -> String {
+        t!("finding.SCAN-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -66,10 +67,13 @@ impl DiagnosticRule for LargeTableFullScan {
         let relation = node.relation.as_deref().unwrap_or("unknown");
         let filter_cols = extract_filter_columns(node);
 
-        let mut detail = format!(
-            "Seq Scan on {} scanned ~{:.0} rows (threshold: {:.0})",
-            relation, rows_examined, self.threshold
-        );
+        let mut detail = t!(
+            "finding.SCAN-001.detail",
+            relation = relation,
+            rows = rows_examined,
+            threshold = self.threshold
+        )
+        .to_string();
         if let Some(filter) = get_property_value(node, "Filter") {
             detail.push_str(&format!(", Filter: {}", filter));
         }
@@ -82,17 +86,13 @@ impl DiagnosticRule for LargeTableFullScan {
         }
 
         let suggestion = match filter_cols {
-            Some(cols) if !cols.is_empty() => {
-                format!(
-                    "CREATE INDEX ON {} ({}); 全扫描大量行, 过滤列适合建索引",
-                    relation,
-                    cols.join(", ")
-                )
-            }
-            _ => format!(
-                "Consider creating an index on the filtered columns of {}",
-                relation
-            ),
+            Some(cols) if !cols.is_empty() => t!(
+                "finding.SCAN-001.suggestion_with_cols",
+                relation = relation,
+                cols = cols.join(", ")
+            )
+            .to_string(),
+            _ => t!("finding.SCAN-001.suggestion_no_cols", relation = relation).to_string(),
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -135,8 +135,8 @@ impl DiagnosticRule for FilterWithoutIndex {
     fn id(&self) -> &str {
         "SCAN-004"
     }
-    fn name(&self) -> &str {
-        "Filter without index"
+    fn name(&self) -> String {
+        t!("finding.SCAN-004.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -195,18 +195,20 @@ impl DiagnosticRule for FilterWithoutIndex {
             NodeType::PartitionedSeqScan => "Partitioned Seq Scan",
             _ => "Seq Scan",
         };
-        let mut detail = format!(
-            "{} on {} with Filter: estimated {} rows but got {} (ratio: {:.1}x)",
-            node_label,
-            relation,
-            estimated.plan_rows,
-            actual.rows as i64,
-            if actual.rows > 0.0 {
-                estimated.plan_rows / actual.rows
-            } else {
-                f64::INFINITY
-            }
-        );
+        let ratio_str = if actual.rows > 0.0 {
+            estimated.plan_rows / actual.rows
+        } else {
+            f64::INFINITY
+        };
+        let mut detail = t!(
+            "finding.SCAN-004.detail",
+            node_label = node_label,
+            relation = relation,
+            estimated = estimated.plan_rows,
+            actual = actual.rows as i64,
+            ratio = ratio_str
+        )
+        .to_string();
         if rows_removed > 0.0 {
             detail.push_str(&format!(
                 ", Rows Removed by Filter: {}",
@@ -215,13 +217,13 @@ impl DiagnosticRule for FilterWithoutIndex {
         }
 
         let suggestion = match filter_cols {
-            Some(cols) if !cols.is_empty() => format!(
-                "ANALYZE {}; 同时考虑 CREATE INDEX ON {} ({})",
-                relation,
-                relation,
-                cols.join(", ")
-            ),
-            _ => "过滤条件移除大量行, 考虑在过滤列上创建索引".to_string(),
+            Some(cols) if !cols.is_empty() => t!(
+                "finding.SCAN-004.suggestion_with_cols",
+                relation = relation,
+                cols = cols.join(", ")
+            )
+            .to_string(),
+            _ => t!("finding.SCAN-004.suggestion_no_cols").to_string(),
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -244,8 +246,8 @@ impl DiagnosticRule for IndexScanPoorSelectivity {
     fn id(&self) -> &str {
         "SCAN-005"
     }
-    fn name(&self) -> &str {
-        "Index scan with poor selectivity"
+    fn name(&self) -> String {
+        t!("finding.SCAN-005.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -265,19 +267,22 @@ impl DiagnosticRule for IndexScanPoorSelectivity {
         let index_name = get_property_value(node, "Index Name").unwrap_or("unknown");
         let relation = node.relation.as_deref().unwrap_or("unknown");
 
-        let detail = format!(
-            "Index Scan on {} using {} returned {} rows (×{} loops) — total {} rows read (threshold: {})",
-            relation,
-            index_name,
-            actual.rows as i64,
-            actual.loops as i64,
-            total_rows as i64,
-            self.threshold as i64
-        );
-        let suggestion = format!(
-            "Index scan returned {} rows (×{} loops) — low selectivity. Consider: (1) composite index covering more columns; (2) ANALYZE to update statistics; (3) try SET enable_indexscan = off to compare with full scan.",
-            actual.rows as i64, actual.loops as i64
-        );
+        let detail = t!(
+            "finding.SCAN-005.detail",
+            relation = relation,
+            index = index_name,
+            actual_rows = actual.rows as i64,
+            loops = actual.loops as i64,
+            total_rows = total_rows as i64,
+            threshold = self.threshold as i64
+        )
+        .to_string();
+        let suggestion = t!(
+            "finding.SCAN-005.suggestion",
+            actual_rows = actual.rows as i64,
+            loops = actual.loops as i64
+        )
+        .to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }

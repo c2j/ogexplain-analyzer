@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
@@ -22,8 +23,8 @@ impl DiagnosticRule for NestedLoopLargeDataset {
     fn id(&self) -> &str {
         "JOIN-001"
     }
-    fn name(&self) -> &str {
-        "Nested Loop with large dataset"
+    fn name(&self) -> String {
+        t!("finding.JOIN-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -45,10 +46,13 @@ impl DiagnosticRule for NestedLoopLargeDataset {
                 let work = actual.rows * actual.loops;
                 if work > max_inner_work {
                     max_inner_work = work;
-                    detail_child = format!(
-                        "Inner side processed {} rows × {} loops = {} total rows",
-                        actual.rows, actual.loops, work
-                    );
+                    detail_child = t!(
+                        "finding.JOIN-001.detail",
+                        rows = actual.rows,
+                        loops = actual.loops,
+                        total = work
+                    )
+                    .to_string();
                     inner_has_index = matches!(
                         child.node_type,
                         NodeType::IndexScan
@@ -81,19 +85,15 @@ impl DiagnosticRule for NestedLoopLargeDataset {
 
         let mut detail = format!("{} (threshold: {})", detail_child, self.threshold);
         if inner_has_index {
-            detail.push_str(", 内表已有索引");
+            detail.push_str(&t!("finding.JOIN-001.detail_has_index"));
         }
 
         let suggestion = if inner_has_index {
-            "Nested Loop 内表已有索引但工作量仍然很大; 考虑 ANALYZE 更新统计信息或 SET enable_nestloop = off"
-                .to_string()
+            t!("finding.JOIN-001.suggestion_has_index").to_string()
         } else if let Some(ref col) = join_column {
-            format!(
-                "CREATE INDEX ON inner_table({}) 以加速 Nested Loop; 或 SET enable_nestloop = off",
-                col
-            )
+            t!("finding.JOIN-001.suggestion_no_index_with_col", col = col).to_string()
         } else {
-            "SET enable_nestloop = off; or create index on join column".to_string()
+            t!("finding.JOIN-001.suggestion_no_index_no_col").to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -106,8 +106,8 @@ impl DiagnosticRule for HashSpillToDisk {
     fn id(&self) -> &str {
         "JOIN-002"
     }
-    fn name(&self) -> &str {
-        "Hash spill to disk"
+    fn name(&self) -> String {
+        t!("finding.JOIN-002.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -128,23 +128,31 @@ impl DiagnosticRule for HashSpillToDisk {
         let mem_usage_str = get_property_value(node, "Memory Usage").unwrap_or("unknown");
         let disk_size = extract_disk_size_from_buckets(value);
 
-        let mut detail = format!(
-            "Hash used {} batches (spilled to disk). Memory Usage: {}",
-            batches, mem_usage_str
-        );
+        let mut detail = t!(
+            "finding.JOIN-002.detail",
+            batches = batches,
+            mem_usage = mem_usage_str
+        )
+        .to_string();
         if let Some(ref disk) = disk_size {
-            detail.push_str(&format!(", Disk: {}", disk));
+            detail.push_str(&t!("finding.JOIN-002.detail_disk", disk = disk));
         }
 
         let suggestion = if let Some(disk_kb) = disk_size.as_ref().and_then(|s| parse_kb_value(s)) {
             let mem_kb: i64 = parse_kb_value(mem_usage_str).unwrap_or(0);
             let recommended_mb: i64 = ((disk_kb + mem_kb) / 1024 + 1).max(4);
-            format!(
-                "SET work_mem = '{}MB'; 当前使用 {} 已溢出到磁盘, 建议至少 {}MB",
-                recommended_mb, mem_usage_str, recommended_mb
+            t!(
+                "finding.JOIN-002.suggestion_recommended",
+                recommended = recommended_mb,
+                mem_usage = mem_usage_str
             )
+            .to_string()
         } else {
-            format!("Increase work_mem (current usage: {})", mem_usage_str)
+            t!(
+                "finding.JOIN-002.suggestion_default",
+                mem_usage = mem_usage_str
+            )
+            .to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -213,8 +221,8 @@ impl DiagnosticRule for HashJoinExpensiveFilter {
     fn id(&self) -> &str {
         "JOIN-003"
     }
-    fn name(&self) -> &str {
-        "Expensive join filter"
+    fn name(&self) -> String {
+        t!("finding.JOIN-003.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -244,14 +252,14 @@ impl DiagnosticRule for HashJoinExpensiveFilter {
             NodeType::HashJoin => "Hash Join",
             _ => "Merge Join",
         };
-        let detail = format!(
-            "{} Join Filter removed {} rows (threshold: {})",
-            join_label, rows_removed as i64, self.threshold as i64
-        );
-        let suggestion = format!(
-            "Consider pushing the join filter to the scan level (add to WHERE clause), or verify join column selectivity. Filter removing {} rows post-join.",
-            rows_removed as i64
-        );
+        let detail = t!(
+            "finding.JOIN-003.detail",
+            join_label = join_label,
+            rows = rows_removed as i64,
+            threshold = self.threshold as i64
+        )
+        .to_string();
+        let suggestion = t!("finding.JOIN-003.suggestion", rows = rows_removed as i64).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }

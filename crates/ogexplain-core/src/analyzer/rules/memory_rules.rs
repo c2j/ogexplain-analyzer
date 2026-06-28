@@ -1,4 +1,5 @@
 use crate::model::PlanNode;
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::{GlobalStats, PlanContext};
@@ -12,8 +13,8 @@ impl DiagnosticRule for SortSpillToDisk {
     fn id(&self) -> &str {
         "MEM-001"
     }
-    fn name(&self) -> &str {
-        "Sort spilled to disk"
+    fn name(&self) -> String {
+        t!("finding.MEM-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -33,15 +34,12 @@ impl DiagnosticRule for SortSpillToDisk {
         let disk_used = extract_disk_size(value).unwrap_or_else(|| "unknown".to_string());
         let sort_key = get_property_value(node, "Sort Key").map(|s| s.to_string());
 
-        let mut detail = format!("Sort Method: {}", value);
+        let mut detail = t!("finding.MEM-001.detail", value = value).to_string();
         if let Some(ref key) = sort_key {
             detail.push_str(&format!(", Sort Key: {}", key));
         }
 
-        let suggestion = format!(
-            "SET work_mem = '更高值'; 排序溢出到磁盘({}), 考虑在排序列创建索引以消除排序",
-            disk_used
-        );
+        let suggestion = t!("finding.MEM-001.suggestion", disk = disk_used).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -63,8 +61,8 @@ impl DiagnosticRule for HighPeakMemory {
     fn id(&self) -> &str {
         "MEM-004"
     }
-    fn name(&self) -> &str {
-        "High peak memory"
+    fn name(&self) -> String {
+        t!("finding.MEM-004.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -86,19 +84,22 @@ impl DiagnosticRule for HighPeakMemory {
         }
 
         let top_node = find_highest_memory_node(&plan.root);
-        let mut detail = format!("Peak memory: {}kB (threshold: {}kB)", peak, self.threshold);
+        let mut detail = t!(
+            "finding.MEM-004.detail",
+            peak = peak,
+            threshold = self.threshold
+        )
+        .to_string();
         if let Some((node_type, mem_kb, relation)) = top_node {
-            detail.push_str(&format!(
-                ", 最高内存节点: {} on {} ({}kB)",
-                node_type,
-                relation.as_deref().unwrap_or("unknown"),
-                mem_kb
+            detail.push_str(&t!(
+                "finding.MEM-004.detail_top_node",
+                node_type = node_type,
+                relation = relation.as_deref().unwrap_or("unknown"),
+                mem_kb = mem_kb
             ));
         }
 
-        let suggestion =
-            "分析高内存节点; Sort/Hash → 增加 work_mem; Materialize → 优化查询减少中间结果集"
-                .to_string();
+        let suggestion = t!("finding.MEM-004.suggestion").to_string().to_string();
 
         vec![Finding {
             rule_id: self.id().to_string(),

@@ -1,4 +1,5 @@
 use regex::Regex;
+use rust_i18n::t;
 
 use crate::model::PlanNode;
 
@@ -12,8 +13,8 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
     fn id(&self) -> &str {
         "TYPE-001"
     }
-    fn name(&self) -> &str {
-        "疑似隐式类型转换"
+    fn name(&self) -> String {
+        t!("finding.TYPE-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -56,13 +57,14 @@ impl DiagnosticRule for SuspectedImplicitTypeCast {
             return None;
         }
 
-        let detail = format!(
-            "Seq Scan 含过滤条件 '{}' ({}), 过滤掉 {} 行 (共 {} 行) — 疑似隐式类型转换导致无法使用索引",
-            filter_value,
-            mismatch.description(),
-            rows_removed as i64,
-            total_scanned as i64
-        );
+        let detail = t!(
+            "finding.TYPE-001.detail",
+            filter = filter_value,
+            desc = mismatch.description(),
+            removed = rows_removed as i64,
+            total = total_scanned as i64
+        )
+        .to_string();
 
         let suggestion = mismatch.fix_suggestion();
 
@@ -89,32 +91,35 @@ struct TypeMismatch {
 impl TypeMismatch {
     fn description(&self) -> String {
         match self.pattern {
-            MismatchPattern::BareColumnStringLiteral => {
-                format!("{} = '{}' (列vs字符串值)", self.column, self.literal_value)
-            }
-            MismatchPattern::ColumnToNumeric => {
-                format!(
-                    "({})::numeric = '{}' (列被转为numeric)",
-                    self.column, self.literal_value
-                )
-            }
+            MismatchPattern::BareColumnStringLiteral => t!(
+                "finding.TYPE-001.desc_bare_col",
+                col = self.column,
+                val = self.literal_value
+            )
+            .to_string(),
+            MismatchPattern::ColumnToNumeric => t!(
+                "finding.TYPE-001.desc_col_to_numeric",
+                col = self.column,
+                val = self.literal_value
+            )
+            .to_string(),
         }
     }
 
     fn fix_suggestion(&self) -> String {
         match self.pattern {
-            MismatchPattern::BareColumnStringLiteral => {
-                format!(
-                    "WHERE {} = {} — 疑似 numeric 列用 string 值比较, 建议去掉引号或添加显式类型转换",
-                    self.column, self.literal_value
-                )
-            }
-            MismatchPattern::ColumnToNumeric => {
-                format!(
-                    "WHERE {} = '{}' — 列被强制转为 numeric 类型, 建议统一列和值的数据类型",
-                    self.column, self.literal_value
-                )
-            }
+            MismatchPattern::BareColumnStringLiteral => t!(
+                "finding.TYPE-001.suggestion_bare_col",
+                col = self.column,
+                val = self.literal_value
+            )
+            .to_string(),
+            MismatchPattern::ColumnToNumeric => t!(
+                "finding.TYPE-001.suggestion_col_to_numeric",
+                col = self.column,
+                val = self.literal_value
+            )
+            .to_string(),
         }
     }
 }
@@ -194,8 +199,8 @@ impl DiagnosticRule for LikeWithLeadingWildcard {
     fn id(&self) -> &str {
         "TYPE-004"
     }
-    fn name(&self) -> &str {
-        "LIKE 使用前导通配符"
+    fn name(&self) -> String {
+        t!("finding.TYPE-004.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -216,20 +221,20 @@ impl DiagnosticRule for LikeWithLeadingWildcard {
                 let is_double_sided =
                     pattern.starts_with('%') && pattern.ends_with('%') && pattern.len() > 1;
 
-                let detail = format!(
-                    "过滤条件含前导通配符 LIKE '{}', 无法使用 B-tree 索引{}",
-                    pattern,
-                    if is_double_sided {
-                        " (前后均有通配符)"
-                    } else {
-                        ""
-                    }
-                );
+                let detail = if is_double_sided {
+                    format!(
+                        "{}{}",
+                        t!("finding.TYPE-004.detail", pattern = pattern),
+                        t!("finding.TYPE-004.detail_double_sided")
+                    )
+                } else {
+                    t!("finding.TYPE-004.detail", pattern = pattern).to_string()
+                };
 
                 let suggestion = if is_double_sided {
-                    "前后通配符 LIKE 无法使用任何索引; 建议: (1) pg_trgm 扩展 + GIN 索引: CREATE EXTENSION pg_trgm; CREATE INDEX idx USING gin(col gin_trgm_ops); (2) 全文搜索: to_tsvector + to_tsquery".to_string()
+                    t!("finding.TYPE-004.suggestion_double").to_string()
                 } else {
-                    "前导通配符 LIKE 无法使用 B-tree 索引; 建议: pg_trgm 扩展; 或反向索引(reverse(col))".to_string()
+                    t!("finding.TYPE-004.suggestion_single").to_string()
                 };
 
                 return Some(make_finding(self, detail, node, Some(suggestion)));

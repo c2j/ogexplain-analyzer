@@ -1,4 +1,5 @@
 use crate::model::PlanNode;
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -11,8 +12,8 @@ impl DiagnosticRule for DuplicateSort {
     fn id(&self) -> &str {
         "SORT-003"
     }
-    fn name(&self) -> &str {
-        "Duplicate sort"
+    fn name(&self) -> String {
+        t!("finding.SORT-003.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -45,22 +46,20 @@ impl DiagnosticRule for DuplicateSort {
             .collect();
 
         let detail = if !duplicates.is_empty() && !current_key.is_empty() {
-            format!(
-                "Sort node has child Sort with identical Sort Key: {} (重复节点: {})",
-                current_key,
-                duplicates.join(", ")
+            t!(
+                "finding.SORT-003.detail_duplicate",
+                key = current_key,
+                duplicates = duplicates.join(", ")
             )
+            .to_string()
         } else {
-            "Sort node has a Sort child — redundant sorting detected".to_string()
+            t!("finding.SORT-003.detail_redundant").to_string()
         };
 
         let suggestion = if !current_key.is_empty() {
-            format!(
-                "消除重复排序: 在列({})上创建索引, 或使用 /*+ REDUCE_ORDER_BY */ 消除冗余排序",
-                current_key
-            )
+            t!("finding.SORT-003.suggestion_with_key", key = current_key).to_string()
         } else {
-            "Remove the inner Sort by adjusting ORDER BY or adding appropriate indexes".to_string()
+            t!("finding.SORT-003.suggestion_no_key").to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))

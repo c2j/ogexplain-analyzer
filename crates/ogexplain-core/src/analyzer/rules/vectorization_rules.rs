@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::context::{GlobalStats, PlanContext};
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -10,8 +11,8 @@ impl DiagnosticRule for MixedVectorRowEngines {
     fn id(&self) -> &str {
         "VEC-001"
     }
-    fn name(&self) -> &str {
-        "混合向量化/行存引擎"
+    fn name(&self) -> String {
+        t!("finding.VEC-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -40,14 +41,13 @@ impl DiagnosticRule for MixedVectorRowEngines {
             })
             .collect();
 
-        let detail = format!(
-            "执行计划含 {} 处引擎切换 (需要 {} 次适配器转换): {}",
-            adapters.len(),
-            adapters.len(),
-            switch_points.join("; ")
-        );
-
-        let suggestion = "统一使用同一引擎以消除适配器开销; SET try_vector_engine_strategy=force 尝试全向量化; 行存点查: SET enable_vector_engine=off".to_string();
+        let detail = t!(
+            "finding.VEC-001.detail",
+            count = adapters.len(),
+            points = switch_points.join("; ")
+        )
+        .to_string();
+        let suggestion = t!("finding.VEC-001.suggestion").to_string();
 
         vec![Finding {
             rule_id: self.id().to_string(),

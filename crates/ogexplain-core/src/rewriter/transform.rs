@@ -2,6 +2,7 @@ use ogsql_parser::ast::{
     Expr, Ident, SelectStatement, SelectTarget, Statement, TableRef, UpdateStatement,
 };
 use ogsql_parser::formatter::SqlFormatter;
+use rust_i18n::t;
 
 use super::detector;
 use super::types::{AntiPatternInfo, RewriteError, RewriteResult, RewriteStrategy};
@@ -26,10 +27,11 @@ pub fn rewrite_update_from(stmt: &Statement) -> Result<RewriteResult, RewriteErr
     Ok(RewriteResult {
         strategy: RewriteStrategy::UpdateFrom,
         rewritten_sql,
-        explanation: format!(
-            "将关联子查询 UPDATE 改写为 UPDATE ... FROM 形式，避免对 {} 的逐行子查询执行",
-            info.target_table
-        ),
+        explanation: t!(
+            "finding.rewriter.update_from_explanation",
+            table = info.target_table
+        )
+        .to_string(),
         pattern_info: info,
     })
 }
