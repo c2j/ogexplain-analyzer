@@ -123,7 +123,10 @@ mod tests {
 
     #[test]
     fn map_unknown_rule_to_log() {
-        assert!(matches!(map_diagnostic("UNKNOWN-999"), RemediationAction::Log));
+        assert!(matches!(
+            map_diagnostic("UNKNOWN-999"),
+            RemediationAction::Log
+        ));
     }
 
     #[test]

@@ -1287,9 +1287,9 @@ pub fn run() -> Result<()> {
                 let sql_from_file: Option<String> = args
                     .get_one::<String>("sql_file")
                     .and_then(|p| std::fs::read_to_string(p).ok());
-                let sql = sql.or(sql_from_file).ok_or_else(|| {
-                    anyhow::anyhow!("Either --sql or --sql-file is required")
-                })?;
+                let sql = sql
+                    .or(sql_from_file)
+                    .ok_or_else(|| anyhow::anyhow!("Either --sql or --sql-file is required"))?;
                 let config_path = args
                     .get_one::<String>("config")
                     .map(std::path::PathBuf::from);
