@@ -148,6 +148,8 @@ impl DiagnosticRule for FilterWithoutIndex {
         if node.node_type != NodeType::SeqScan
             && node.node_type != NodeType::PartitionedSeqScan
             && node.node_type != NodeType::CStoreScan
+            && node.node_type != NodeType::BitmapHeapScan
+            && node.node_type != NodeType::PartitionedBitmapHeapScan
         {
             return None;
         }
@@ -240,5 +242,154 @@ fn extract_filter_columns(node: &PlanNode) -> Option<Vec<String>> {
         None
     } else {
         Some(cols)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::config::DiagnosticConfig;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::buffer::NodeProperty;
+    use crate::model::cost::{ActualStats, EstimatedCost};
+    use crate::model::{ExplainPlan, NodeType, PlanNode};
+
+    /// Helper: call FilterWithoutIndex::check with a minimal PlanContext.
+    fn test_check_scan004(node: &PlanNode) -> Option<Finding> {
+        let rule = FilterWithoutIndex::new(DiagnosticConfig::default());
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    fn make_seqscan_with_filter(
+        node_type: NodeType,
+        filter: &str,
+        rows_removed: f64,
+        actual_rows: f64,
+        relation: &str,
+    ) -> PlanNode {
+        let total = rows_removed + actual_rows;
+        PlanNode {
+            node_type,
+            relation: Some(relation.to_string()),
+            join_type: None,
+            estimated: Some(EstimatedCost {
+                startup_cost: 0.0,
+                total_cost: total * 0.1,
+                plan_rows: total,
+                plan_width: 8,
+                pred_time: None,
+                pred_rows: None,
+                distinct: None,
+            }),
+            actual: Some(ActualStats {
+                startup_time_ms: 0.0,
+                total_time_ms: 100.0,
+                rows: actual_rows,
+                loops: 1.0,
+                executed: true,
+            }),
+            properties: vec![
+                NodeProperty {
+                    label: "Filter".to_string(),
+                    value: filter.to_string(),
+                },
+                NodeProperty {
+                    label: "Rows Removed by Filter".to_string(),
+                    value: rows_removed.to_string(),
+                },
+            ],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    // ── Task 3.1: Column extraction tests ─────────────────────────
+
+    #[test]
+    fn test_extract_filter_columns_strips_cast_annotations() {
+        // KEY regression: was returning ["text"], should return ["facctcode"]
+        let node = make_seqscan_with_filter(
+            NodeType::SeqScan,
+            "((facctcode)::text = '1002'::text)",
+            1_222_944.0,
+            44_696.0,
+            "dat_zl_accountinfo",
+        );
+        let cols = extract_filter_columns(&node).unwrap();
+        assert!(
+            cols.contains(&"facctcode".to_string()),
+            "should contain 'facctcode', got: {:?}",
+            cols
+        );
+        assert!(
+            !cols.contains(&"text".to_string()),
+            "should NOT contain 'text' (cast type name), got: {:?}",
+            cols
+        );
+    }
+
+    #[test]
+    fn test_scan004_suggestion_uses_real_column_name() {
+        // Integration test at the rule level
+        let node = make_seqscan_with_filter(
+            NodeType::SeqScan,
+            "((facctcode)::text = '1002'::text)",
+            1_222_944.0,
+            44_696.0,
+            "dat_zl_accountinfo",
+        );
+        let finding = test_check_scan004(&node)
+            .expect("SCAN-004 should fire on filter with many rows removed");
+        let s = finding.suggestion.unwrap();
+        assert!(
+            s.contains("facctcode"),
+            "suggestion must use real column 'facctcode', got: {}",
+            s
+        );
+        assert!(!s.contains("(text)"), "must NOT contain literal '(text)'");
+    }
+
+    // ── Task 3.2: BitmapHeapScan tests ────────────────────────────
+
+    #[test]
+    fn test_scan004_fires_on_bitmap_heap_scan_with_filter() {
+        // KEY regression: 38-case case 22 pattern — was not firing at all
+        let node = make_seqscan_with_filter(
+            NodeType::BitmapHeapScan,
+            "(to_char(now(), 'yyyymmdd'::text) >= (inure_begin_date)::text)",
+            1_184_895.0,
+            1_184_900.0,
+            "par_sys_securities",
+        );
+        let finding = test_check_scan004(&node);
+        assert!(
+            finding.is_some(),
+            "SCAN-004 MUST fire on BitmapHeapScan with Filter"
+        );
     }
 }
