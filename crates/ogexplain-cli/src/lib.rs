@@ -2621,3 +2621,137 @@ fn output_json(
     println!("{}", json);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_csv_columns_mode_from_str_valid() {
+        assert!(matches!(
+            CsvColumnsMode::from_str("minimal").unwrap(),
+            CsvColumnsMode::Minimal
+        ));
+        assert!(matches!(
+            CsvColumnsMode::from_str("focused").unwrap(),
+            CsvColumnsMode::Focused
+        ));
+        assert!(matches!(
+            CsvColumnsMode::from_str("full").unwrap(),
+            CsvColumnsMode::Full
+        ));
+    }
+
+    #[test]
+    fn test_csv_columns_mode_from_str_case_insensitive() {
+        assert!(CsvColumnsMode::from_str("MINIMAL").is_ok());
+        assert!(CsvColumnsMode::from_str("Focused").is_ok());
+        assert!(CsvColumnsMode::from_str("  full  ").is_ok());
+    }
+
+    #[test]
+    fn test_csv_columns_mode_from_str_invalid() {
+        let err = CsvColumnsMode::from_str("verbose").unwrap_err();
+        assert!(
+            err.to_string().contains("--output-columns"),
+            "error should mention --output-columns, got: {}",
+            err
+        );
+    }
+
+    fn write_header_to_vec(mode: CsvColumnsMode) -> Vec<String> {
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_header(&mut writer, mode).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        text.trim().split(',').map(|s| s.trim_matches('"').to_string()).collect()
+    }
+
+    #[test]
+    fn test_csv_header_minimal_has_9_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Minimal);
+        assert_eq!(cols.len(), 9, "minimal mode should have 9 columns");
+        assert_eq!(cols[0], "sql");
+        assert_eq!(cols[2], "parse_status");
+        assert_eq!(cols[8], "suggestions");
+    }
+
+    #[test]
+    fn test_csv_header_focused_has_19_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Focused);
+        assert_eq!(cols.len(), 19, "focused mode should have 19 columns");
+        assert_eq!(cols[9], "root_op");
+        assert_eq!(cols[18], "complexity_level");
+    }
+
+    #[test]
+    fn test_csv_header_full_has_52_columns() {
+        let cols = write_header_to_vec(CsvColumnsMode::Full);
+        assert_eq!(cols.len(), 52, "full mode should have 52 columns");
+        assert_eq!(cols[19], "total_cost");
+        assert_eq!(cols[51], "gauss_tags");
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_minimal() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Minimal);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Minimal).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "row field count must match header column count"
+        );
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_focused() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Focused);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Focused).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "focused row must have same field count as header"
+        );
+    }
+
+    #[test]
+    fn test_csv_row_matches_header_full() {
+        let row = CsvRowResult::error("SELECT 1", "Seq Scan", "ok");
+        let header_cols = write_header_to_vec(CsvColumnsMode::Full);
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut buf);
+            write_csv_row(&mut writer, &row, CsvColumnsMode::Full).unwrap();
+            writer.flush().unwrap();
+        }
+        let text = String::from_utf8(buf).unwrap();
+        let row_data: Vec<&str> = text.trim().split(',').collect();
+        assert_eq!(
+            row_data.len(),
+            header_cols.len(),
+            "full row must have same field count as header even without summary data"
+        );
+    }
+}
