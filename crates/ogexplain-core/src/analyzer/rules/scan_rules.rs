@@ -7,7 +7,7 @@ use super::super::report::{DiagnosticCategory, Finding, Severity};
 use super::utils::{
     any_property_contains, effective_scan_size, get_property_value, strip_cast_annotations,
 };
-use super::{make_finding, DiagnosticRule};
+use super::{make_finding, make_finding_ext, DiagnosticRule};
 
 pub struct LargeTableFullScan {
     threshold: f64,
@@ -76,7 +76,14 @@ impl DiagnosticRule for LargeTableFullScan {
 
         let suggestion = t!("finding.SCAN-001.suggestion_no_cols", relation = relation).to_string();
 
-        Some(make_finding(self, detail, node, Some(suggestion)))
+        Some(make_finding_ext(
+            self,
+            detail,
+            node,
+            Some(suggestion),
+            node.relation.clone(),
+            Vec::new(),
+        ))
     }
 }
 
@@ -197,7 +204,7 @@ impl DiagnosticRule for FilterWithoutIndex {
             ));
         }
 
-        let suggestion = match filter_cols {
+        let suggestion = match filter_cols.as_ref() {
             Some(cols) if !cols.is_empty() => t!(
                 "finding.SCAN-004.suggestion_with_cols",
                 relation = relation,
@@ -207,7 +214,14 @@ impl DiagnosticRule for FilterWithoutIndex {
             _ => t!("finding.SCAN-004.suggestion_no_cols").to_string(),
         };
 
-        Some(make_finding(self, detail, node, Some(suggestion)))
+        Some(make_finding_ext(
+            self,
+            detail,
+            node,
+            Some(suggestion),
+            node.relation.clone(),
+            filter_cols.unwrap_or_default(),
+        ))
     }
 }
 

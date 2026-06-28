@@ -7,7 +7,7 @@ use super::utils::{
     any_property_contains, extract_innermost_parens, extract_target_table,
     find_first_scan_descendant, first_identifier, is_scan_node, table_name_match,
 };
-use super::{make_finding, DiagnosticRule};
+use super::{make_finding, make_finding_ext, DiagnosticRule};
 
 // SUBQ-001: Correlated subquery not pulled up
 pub struct SubqueryNotPulledUp;
@@ -63,15 +63,18 @@ impl DiagnosticRule for SubqueryNotPulledUp {
         if node.node_type == NodeType::SubqueryScan
             || node.node_type == NodeType::VectorSubqueryScan
         {
-            let child_table = find_first_scan_descendant(node)
-                .map(|r| first_identifier(&r))
+            let child_table_opt = find_first_scan_descendant(node).map(|r| first_identifier(&r));
+            let child_table_display = child_table_opt
+                .clone()
                 .unwrap_or_else(|| "unknown".to_string());
 
-            return Some(make_finding(
+            return Some(make_finding_ext(
                 self,
-                t!("finding.SUBQ-001.detail_subquery_scan", table = child_table).to_string(),
+                t!("finding.SUBQ-001.detail_subquery_scan", table = child_table_display).to_string(),
                 node,
                 Some(t!("finding.SUBQ-001.suggestion_subquery_scan").to_string()),
+                child_table_opt,
+                Vec::new(),
             ));
         }
 
