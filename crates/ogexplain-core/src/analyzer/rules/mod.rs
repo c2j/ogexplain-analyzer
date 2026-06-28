@@ -22,7 +22,7 @@ use crate::model::{ExplainPlan, PlanNode};
 
 pub trait DiagnosticRule: Send + Sync {
     fn id(&self) -> &str;
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
     fn severity(&self) -> Severity;
     fn category(&self) -> DiagnosticCategory;
     fn check(&self, node: &PlanNode, ctx: &super::context::PlanContext) -> Option<Finding>;
@@ -47,8 +47,10 @@ pub fn all_rules(config: &DiagnosticConfig) -> Vec<Box<dyn DiagnosticRule>> {
     vec![
         Box::new(scan_rules::LargeTableFullScan::new(config.clone())),
         Box::new(scan_rules::FilterWithoutIndex::new(config.clone())),
+        Box::new(scan_rules::IndexScanPoorSelectivity::new(config.clone())),
         Box::new(join_rules::NestedLoopLargeDataset::new(config.clone())),
         Box::new(join_rules::HashSpillToDisk),
+        Box::new(join_rules::HashJoinExpensiveFilter::new(config.clone())),
         Box::new(memory_rules::SortSpillToDisk),
         Box::new(memory_rules::HighPeakMemory::new(config.clone())),
         Box::new(sort_rules::DuplicateSort),
@@ -88,7 +90,7 @@ fn make_finding(
         rule_id: rule.id().to_string(),
         severity: rule.severity(),
         category: rule.category(),
-        title: rule.name().to_string(),
+        title: rule.name(),
         detail,
         node_line: Some(node.line_number),
         node_type: Some(node.node_type.to_string()),

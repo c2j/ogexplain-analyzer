@@ -1,5 +1,6 @@
 pub mod engine;
 pub mod model;
+pub mod normalize;
 mod pl_visitor;
 mod visitor;
 
@@ -9,3 +10,4 @@ pub use model::{
     GaussDbComplexityReport, GaussDbScoreBreakdown, InputKind, PackageMetrics, ScoreDimensions,
     SqlCategory,
 };
+pub use normalize::{normalize_sql, template_id};

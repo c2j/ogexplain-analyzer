@@ -13,6 +13,7 @@ pub enum PushdownStatus {
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ComplexityInput {
     pub sql_preview: Option<String>,
+    pub template_id: Option<String>,
     pub tables: usize,
     pub joins: usize,
     pub subqueries: usize,
@@ -68,6 +69,7 @@ pub struct SummaryRow {
     pub gauss_advanced_feature: Option<i64>,
     pub gauss_extension: Option<i64>,
     pub gauss_tags: Vec<String>,
+    pub template_id: Option<String>,
 
     pub root_op: String,
     pub total_cost: f64,
@@ -104,6 +106,7 @@ impl SummaryRow {
         let root = &plan.root;
 
         let sql_preview = complexity.and_then(|c| c.sql_preview.clone());
+        let template_id = complexity.and_then(|c| c.template_id.clone());
         let tables = complexity.map(|c| c.tables).unwrap_or(0);
         let joins = complexity.map(|c| c.joins).unwrap_or(0);
         let subqueries = complexity.map(|c| c.subqueries).unwrap_or(0);
@@ -198,6 +201,7 @@ impl SummaryRow {
             gauss_advanced_feature,
             gauss_extension,
             gauss_tags,
+            template_id,
             root_op,
             total_cost,
             total_time_ms,

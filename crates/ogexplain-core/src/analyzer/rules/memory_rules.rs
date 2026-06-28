@@ -1,4 +1,5 @@
 use crate::model::PlanNode;
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::{GlobalStats, PlanContext};
@@ -12,8 +13,8 @@ impl DiagnosticRule for SortSpillToDisk {
     fn id(&self) -> &str {
         "MEM-001"
     }
-    fn name(&self) -> &str {
-        "Sort spilled to disk"
+    fn name(&self) -> String {
+        t!("finding.MEM-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -33,15 +34,12 @@ impl DiagnosticRule for SortSpillToDisk {
         let disk_used = extract_disk_size(value).unwrap_or_else(|| "unknown".to_string());
         let sort_key = get_property_value(node, "Sort Key").map(|s| s.to_string());
 
-        let mut detail = format!("Sort Method: {}", value);
+        let mut detail = t!("finding.MEM-001.detail", value = value).to_string();
         if let Some(ref key) = sort_key {
             detail.push_str(&format!(", Sort Key: {}", key));
         }
 
-        let suggestion = format!(
-            "SET work_mem = '更高值'; 排序溢出到磁盘({}), 考虑在排序列创建索引以消除排序",
-            disk_used
-        );
+        let suggestion = t!("finding.MEM-001.suggestion", disk = disk_used).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -63,8 +61,8 @@ impl DiagnosticRule for HighPeakMemory {
     fn id(&self) -> &str {
         "MEM-004"
     }
-    fn name(&self) -> &str {
-        "High peak memory"
+    fn name(&self) -> String {
+        t!("finding.MEM-004.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -76,32 +74,32 @@ impl DiagnosticRule for HighPeakMemory {
         None
     }
     fn check_global(&self, plan: &crate::model::ExplainPlan, _stats: &GlobalStats) -> Vec<Finding> {
-        let summary = match &plan.summary {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        let peak = match summary.peak_memory_kb {
-            Some(v) => v as f64,
-            None => return Vec::new(),
-        };
-        if peak <= self.threshold {
+        let peak = match &plan.summary {
+            Some(s) => s.peak_memory_kb.map(|v| v as f64),
+            None => None,
+        }
+        .unwrap_or_else(|| find_peak_memory_in_tree(&plan.root));
+        if peak <= 0.0 || peak <= self.threshold {
             return Vec::new();
         }
 
         let top_node = find_highest_memory_node(&plan.root);
-        let mut detail = format!("Peak memory: {}kB (threshold: {}kB)", peak, self.threshold);
+        let mut detail = t!(
+            "finding.MEM-004.detail",
+            peak = peak,
+            threshold = self.threshold
+        )
+        .to_string();
         if let Some((node_type, mem_kb, relation)) = top_node {
-            detail.push_str(&format!(
-                ", 最高内存节点: {} on {} ({}kB)",
-                node_type,
-                relation.as_deref().unwrap_or("unknown"),
-                mem_kb
+            detail.push_str(&t!(
+                "finding.MEM-004.detail_top_node",
+                node_type = node_type,
+                relation = relation.as_deref().unwrap_or("unknown"),
+                mem_kb = mem_kb
             ));
         }
 
-        let suggestion =
-            "分析高内存节点; Sort/Hash → 增加 work_mem; Materialize → 优化查询减少中间结果集"
-                .to_string();
+        let suggestion = t!("finding.MEM-004.suggestion").to_string().to_string();
 
         vec![Finding {
             rule_id: self.id().to_string(),
@@ -116,6 +114,21 @@ impl DiagnosticRule for HighPeakMemory {
             evidence: None,
         }]
     }
+}
+
+fn find_peak_memory_in_tree(node: &PlanNode) -> f64 {
+    let mut max = node
+        .structured_props
+        .as_ref()
+        .and_then(|p| p.peak_memory_kb)
+        .unwrap_or(0.0);
+    for child in &node.children {
+        let child_max = find_peak_memory_in_tree(child);
+        if child_max > max {
+            max = child_max;
+        }
+    }
+    max
 }
 
 fn find_highest_memory_node(node: &PlanNode) -> Option<(String, i64, Option<String>)> {

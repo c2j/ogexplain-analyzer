@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
@@ -21,8 +22,8 @@ impl DiagnosticRule for SevereRowUnderestimation {
     fn id(&self) -> &str {
         "EST-001"
     }
-    fn name(&self) -> &str {
-        "Severe row underestimation"
+    fn name(&self) -> String {
+        t!("finding.EST-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -44,20 +45,28 @@ impl DiagnosticRule for SevereRowUnderestimation {
         let relation = node.relation.as_deref().unwrap_or(&type_str);
 
         let direction = if actual.rows > estimated.plan_rows {
-            "低估"
+            t!("finding.EST-001.direction_under")
         } else {
-            "高估"
+            t!("finding.EST-001.direction_over")
         };
 
-        let detail = format!(
-            "{}: actual {} rows vs estimated {} rows ({:.1}x {})",
-            relation, actual.rows, estimated.plan_rows, ratio, direction
-        );
+        let detail = t!(
+            "finding.EST-001.detail",
+            relation = relation,
+            actual = actual.rows,
+            estimated = estimated.plan_rows,
+            ratio = ratio,
+            direction = direction
+        )
+        .to_string();
 
-        let suggestion = format!(
-            "ANALYZE {}; 估算偏差 {:.1}x ({}), 更新统计信息以改善查询计划选择",
-            relation, ratio, direction
-        );
+        let suggestion = t!(
+            "finding.EST-001.suggestion",
+            relation = relation,
+            ratio = ratio,
+            direction = direction
+        )
+        .to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -79,8 +88,8 @@ impl DiagnosticRule for NestedLoopFromUnderestimation {
     fn id(&self) -> &str {
         "EST-004"
     }
-    fn name(&self) -> &str {
-        "Nested Loop from underestimation"
+    fn name(&self) -> String {
+        t!("finding.EST-004.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -108,15 +117,15 @@ impl DiagnosticRule for NestedLoopFromUnderestimation {
             .filter_map(|c| c.actual.as_ref().map(|a| a.rows * a.loops))
             .sum();
 
-        let detail = format!(
-            "Nested Loop 因严重低估而选择: actual {} vs estimated {} ({:.1}x), 内表总工作量: {} rows",
-            actual.rows, estimated.plan_rows, ratio, inner_work
-        );
-
-        let suggestion = format!(
-            "ANALYZE 更新统计信息; 考虑 SET enable_nestloop = off; 内表工作量: {} rows",
-            inner_work
-        );
+        let detail = t!(
+            "finding.EST-004.detail",
+            actual = actual.rows,
+            estimated = estimated.plan_rows,
+            ratio = ratio,
+            inner_work = inner_work
+        )
+        .to_string();
+        let suggestion = t!("finding.EST-004.suggestion", inner_work = inner_work).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }

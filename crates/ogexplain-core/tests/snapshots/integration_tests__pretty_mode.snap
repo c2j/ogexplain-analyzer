@@ -1,6 +1,5 @@
 ---
 source: crates/ogexplain-core/tests/integration_tests.rs
-assertion_line: 82
 expression: plan
 ---
 root:
@@ -60,6 +59,7 @@ root:
         hash_buckets: 1024
         hash_batches: 1
         hash_memory_usage: 28kB
+        peak_memory_kb: 28
       children:
         - node_type:
             type: SeqScan

@@ -2438,12 +2438,16 @@ version = "0.4.5"
 dependencies = [
  "anyhow",
  "color-eyre",
+ "gaussdb",
  "ogexplain-cli",
  "ogexplain-core",
  "ogexplain-mcp",
  "ogexplain-tui",
+ "serde",
+ "serde_json",
  "testcontainers",
  "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -2516,6 +2520,7 @@ version = "0.4.5"
 dependencies = [
  "insta",
  "ogsql-parser",
+ "regex",
  "serde",
  "thiserror 2.0.18",
 ]

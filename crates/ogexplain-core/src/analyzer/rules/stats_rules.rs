@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -13,8 +14,8 @@ impl DiagnosticRule for StatsNotCollected {
         "STATS-001"
     }
 
-    fn name(&self) -> &str {
-        "统计信息未收集"
+    fn name(&self) -> String {
+        t!("finding.STATS-001.name").to_string()
     }
 
     fn severity(&self) -> Severity {
@@ -42,15 +43,14 @@ impl DiagnosticRule for StatsNotCollected {
         let relation = node.relation.as_deref().unwrap_or("unknown");
         Some(make_finding(
             self,
-            format!(
-                "表 {} 估算行数为10(系统默认值), 实际返回 {} 行 — 疑似统计信息未收集",
-                relation, actual.rows
-            ),
+            t!(
+                "finding.STATS-001.detail",
+                relation = relation,
+                actual = actual.rows
+            )
+            .to_string(),
             node,
-            Some(format!(
-                "表 {} 的统计信息可能未收集(估算行数=10为系统默认值); 执行 ANALYZE {} 收集统计信息; 大表(>160万行): SET default_statistics_target=-2 (2%采样)",
-                relation, relation
-            )),
+            Some(t!("finding.STATS-001.suggestion", relation = relation).to_string()),
         ))
     }
 }

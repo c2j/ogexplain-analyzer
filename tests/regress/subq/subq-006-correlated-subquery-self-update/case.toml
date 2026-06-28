@@ -1,0 +1,18 @@
+rule_id             = "SUBQ-006"
+case_name           = "subq-006-correlated-subquery-self-update"
+expect_fired        = true
+expect_min_severity = "warning"
+
+[dataset]
+source            = "supplemental"
+supplemental_file = "tests/fixtures/23_correlated_subquery_update.txt"
+
+[side_effects]
+requires_set         = {}
+modifies_data        = true
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = false
+weak_signal      = false
+skip_live_reason = "supplemental EXPLAIN is hand-written; not replayable without original DDL"

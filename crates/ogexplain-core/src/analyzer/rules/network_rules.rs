@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode, StreamingType};
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
@@ -22,8 +23,8 @@ impl DiagnosticRule for BroadcastLargeTable {
     fn id(&self) -> &str {
         "NET-001"
     }
-    fn name(&self) -> &str {
-        "广播大表数据"
+    fn name(&self) -> String {
+        t!("finding.NET-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -51,15 +52,14 @@ impl DiagnosticRule for BroadcastLargeTable {
 
         let table = find_child_table_name(node).unwrap_or_else(|| "unknown".to_string());
 
-        let detail = format!(
-            "Streaming(Broadcast) 广播表 {} 的 {} 行（阈值: {}）",
-            table, actual.rows, self.threshold
-        );
-
-        let suggestion = format!(
-            "使用 /*+ redistribute({}) */ 替代广播; 或 /*+ no broadcast({}) */ 禁止广播; 调整分布列使数据本地化",
-            table, table
-        );
+        let detail = t!(
+            "finding.NET-001.detail",
+            table = table,
+            rows = actual.rows,
+            threshold = self.threshold
+        )
+        .to_string();
+        let suggestion = t!("finding.NET-001.suggestion", table = table).to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }

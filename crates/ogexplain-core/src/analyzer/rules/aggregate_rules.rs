@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -13,8 +14,8 @@ impl DiagnosticRule for GroupAggregateShouldBeHash {
         "AGG-001"
     }
 
-    fn name(&self) -> &str {
-        "聚合策略不当 — 应使用HashAggregate"
+    fn name(&self) -> String {
+        t!("finding.AGG-001.name").to_string()
     }
 
     fn severity(&self) -> Severity {
@@ -40,14 +41,9 @@ impl DiagnosticRule for GroupAggregateShouldBeHash {
 
         Some(make_finding(
             self,
-            format!(
-                "GroupAggregate在{}行数据上使用排序聚合(含Sort子节点)",
-                actual.rows as u64
-            ),
+            t!("finding.AGG-001.detail", rows = actual.rows as u64).to_string(),
             node,
-            Some(
-                "增大work_mem可切换为HashAggregate: /*+ set(work_mem '256MB') */; 或使用Hint: /*+ use_hash_agg */".to_string(),
-            ),
+            Some(t!("finding.AGG-001.suggestion").to_string()),
         ))
     }
 }
@@ -60,8 +56,8 @@ impl DiagnosticRule for HashAggregateSpillToDisk {
         "AGG-002"
     }
 
-    fn name(&self) -> &str {
-        "HashAggregate磁盘溢出"
+    fn name(&self) -> String {
+        t!("finding.AGG-002.name").to_string()
     }
 
     fn severity(&self) -> Severity {
@@ -84,14 +80,9 @@ impl DiagnosticRule for HashAggregateSpillToDisk {
 
         Some(make_finding(
             self,
-            format!(
-                "HashAggregate溢出到磁盘({}个批次)",
-                batches
-            ),
+            t!("finding.AGG-002.detail", batches = batches).to_string(),
             node,
-            Some(
-                "增大work_mem: /*+ set(work_mem '256MB') */; 若数据已排序, 考虑 /*+ use_sort_agg */".to_string(),
-            ),
+            Some(t!("finding.AGG-002.suggestion").to_string()),
         ))
     }
 }

@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q57"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q57 (SELECT COUNT(*) FROM payment WHERE EXTRACT(MONTH FROM payment_date) = 3) -> Aggregate -> Partition Iterator (Iterations: 7) -> Partitioned Seq Scan on payment with Filter '(date_part('month'::text, payment_date) = 3::double precision)', Rows Removed by Filter: 13336, Selected Partitions: 1..7. The payment table is range-partitioned by month into 7 partitions (2022-01..2022-07). PART-001 fires via Case 1 ('detail_function' branch): node is PartitionedSeqScan, has Filter, filter_contains_function is true (filter value contains 'date_part'), parse_partition_range('1..7') = (1,7), n_scanned = 7-1+1 = 7, start(1) <= 1 AND n_scanned(7) >= end(7) AND filter_has_function -> pruning_failed. detail template 'detail_function' with count=7, range='1..7'. SCAN-001 does NOT fire (Q57 has Filter property -> SCAN-001 short-circuits on has_filter). SCAN-005 does NOT fire (rule only matches IndexScan/IndexOnlyScan/CStoreIndexScan/PartitionedIndexScan, not PartitionedSeqScan). GEN-001 does NOT fire (plan depth = 3 < threshold 10). PUSH-001 does NOT fire (no Streaming node; query is trivially shipped / locally executed). NOTE: SCAN-004 also co-fires (rows_removed=13336 > min_rows_removed=500) but is intentionally not declared here because the case targets PART-001 contract; undeclared co-firings are allowed by the harness."
+  },
+
+  "findings": [
+    {
+      "rule_id": "PART-001",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "DistributionIssue",
+      "detail_must_contain": ["7 partitions", "1..7", "wrapped in function"],
+      "detail_must_not_contain": ["Index"],
+      "suggestion_must_contain": ["EXTRACT", "constant expression filter"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "SCAN-001 (LargeTableFullScan) short-circuits on has_filter=true; Q57's Partitioned Seq Scan has a Filter property (Filtered scans belong to SCAN-004)."
+    },
+    {
+      "rule_id": "SCAN-005",
+      "must_not_fire": true,
+      "reason": "SCAN-005 (IndexScanPoorSelectivity) only matches IndexScan / IndexOnlyScan / CStoreIndexScan / PartitionedIndexScan. Q57 is a Partitioned Seq Scan."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Q57 depth = 3 (Aggregate -> Partition Iterator -> Partitioned Seq Scan)."
+    },
+    {
+      "rule_id": "PUSH-001",
+      "must_not_fire": true,
+      "reason": "PUSH-001 (QueryNotPushedDown) requires a Streaming(...) node to signal FQS failure. Q57's plan has no Streaming node (single-node centralized plan, no redistribution)."
+    }
+  ]
+}

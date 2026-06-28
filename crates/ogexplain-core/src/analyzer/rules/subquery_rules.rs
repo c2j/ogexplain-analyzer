@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode, StreamingType};
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -15,8 +16,8 @@ impl DiagnosticRule for SubqueryNotPulledUp {
     fn id(&self) -> &str {
         "SUBQ-001"
     }
-    fn name(&self) -> &str {
-        "关联子查询未提升"
+    fn name(&self) -> String {
+        t!("finding.SUBQ-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -49,12 +50,9 @@ impl DiagnosticRule for SubqueryNotPulledUp {
             // Standalone SubPlan — fire normally
             return Some(make_finding(
                 self,
-                format!("检测到未提升的子查询(SubPlan in {})", node.node_type),
+                t!("finding.SUBQ-001.detail_subplan", nt = node.node_type).to_string(),
                 node,
-                Some(
-                    "/*+ EXPAND_SUBLINK */ 提升子链接; /*+ USE_MAGIC_SET */ 优化关联子查询"
-                        .to_string(),
-                ),
+                Some(t!("finding.SUBQ-001.suggestion_subplan").to_string()),
             ));
         }
 
@@ -71,24 +69,18 @@ impl DiagnosticRule for SubqueryNotPulledUp {
 
             return Some(make_finding(
                 self,
-                format!(
-                    "检测到未提升的子查询(SubqueryScan), 涉及表: {}",
-                    child_table
-                ),
+                t!("finding.SUBQ-001.detail_subquery_scan", table = child_table).to_string(),
                 node,
-                Some("改写为JOIN: /*+ EXPAND_SUBQUERY */; 若为关联子查询: /*+ EXPAND_SUBLINK */; 考虑 /*+ USE_MAGIC_SET */ 优化".to_string()),
+                Some(t!("finding.SUBQ-001.suggestion_subquery_scan").to_string()),
             ));
         }
 
         if any_property_contains(node, "SubPlan") {
             return Some(make_finding(
                 self,
-                format!("检测到未提升的子查询(SubPlan in {})", node.node_type),
+                t!("finding.SUBQ-001.detail_subplan", nt = node.node_type).to_string(),
                 node,
-                Some(
-                    "/*+ EXPAND_SUBLINK */ 提升子链接; /*+ USE_MAGIC_SET */ 优化关联子查询"
-                        .to_string(),
-                ),
+                Some(t!("finding.SUBQ-001.suggestion_subplan").to_string()),
             ));
         }
 
@@ -113,8 +105,8 @@ impl DiagnosticRule for LargeInListNotConverted {
     fn id(&self) -> &str {
         "REW-001"
     }
-    fn name(&self) -> &str {
-        "大IN列表未转换"
+    fn name(&self) -> String {
+        t!("finding.REW-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -137,17 +129,19 @@ impl DiagnosticRule for LargeInListNotConverted {
             extract_in_list_column(&filter_prop.value).unwrap_or_else(|| "col".to_string());
         let relation = node.relation.as_deref().unwrap_or("unknown");
 
-        let detail = format!(
-            "过滤条件含长IN列表({}个值), 列: {}, 表: {}",
-            comma_count + 1,
-            column,
-            relation
-        );
-
-        let suggestion = format!(
-            "/*+ INLIST_TO_JOIN */; 或改写: SELECT * FROM {} WHERE {}.{} IN (SELECT val FROM temp_in_list)",
-            relation, relation, column
-        );
+        let detail = t!(
+            "finding.REW-001.detail",
+            count = comma_count + 1,
+            column = column,
+            relation = relation
+        )
+        .to_string();
+        let suggestion = t!(
+            "finding.REW-001.suggestion",
+            relation = relation,
+            column = column
+        )
+        .to_string();
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
@@ -166,8 +160,8 @@ impl DiagnosticRule for CorrelatedSubquerySelfUpdate {
         "SUBQ-006"
     }
 
-    fn name(&self) -> &str {
-        "关联子查询自引用UPDATE"
+    fn name(&self) -> String {
+        t!("finding.SUBQ-006.name").to_string()
     }
 
     fn severity(&self) -> Severity {
@@ -194,13 +188,16 @@ impl DiagnosticRule for CorrelatedSubquerySelfUpdate {
             return None;
         }
 
-        let mut detail = format!(
-            "检测到关联子查询自引用UPDATE (表: {}), SubPlan存在: {}, 同表扫描: {}",
-            target_table, signals.has_subplan, signals.same_table_scan
-        );
+        let mut detail = t!(
+            "finding.SUBQ-006.detail",
+            table = target_table,
+            subplan = signals.has_subplan,
+            scan = signals.same_table_scan
+        )
+        .to_string();
 
         if signals.has_streaming {
-            detail.push_str(", 分布式场景: 存在Streaming重分布, 可能导致跨DN数据传输");
+            detail.push_str(&t!("finding.SUBQ-006.detail_streaming"));
         }
 
         let suggestion = build_rewrite_template(&target_table, &signals.correlation_column);
@@ -290,12 +287,8 @@ fn extract_correlation_column(node: &PlanNode) -> Option<String> {
 }
 
 fn build_rewrite_template(table: &str, correlation_col: &Option<String>) -> String {
-    let col = correlation_col.as_deref().unwrap_or("<关联列>");
-    format!(
-        "关联子查询自引用UPDATE存在逐行执行O(n²)风险; 建议改写:\n\
-         方式一(UPDATE FROM): UPDATE {table} SET ... = t.new_val FROM (SELECT {col}, ... FROM {table}) t WHERE {table}.{col} = t.{col};\n\
-         方式二(CTE): WITH new_vals AS (SELECT {col}, ... FROM {table}) UPDATE {table} SET ... = n.new_val FROM new_vals n WHERE {table}.{col} = n.{col};"
-    )
+    let col = correlation_col.as_deref().unwrap_or("<correlation_column>");
+    t!("finding.SUBQ-006.suggestion", table = table, col = col).to_string()
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode, StreamingType};
+use rust_i18n::t;
 
 use super::super::context::{GlobalStats, PlanContext};
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -16,8 +17,8 @@ impl DiagnosticRule for DataSkewDetected {
         "SKEW-001"
     }
 
-    fn name(&self) -> &str {
-        "数据倾斜"
+    fn name(&self) -> String {
+        t!("finding.SKEW-001.name").to_string()
     }
 
     fn severity(&self) -> Severity {
@@ -51,15 +52,14 @@ impl DataSkewDetected {
                     let relation = node.relation.as_deref().unwrap_or("unknown");
                     findings.push(make_finding(
                         &DataSkewDetected,
-                        format!(
-                            "Streaming(Redistribute)重分布{}行, 实际与估算偏差{:.1}x — 疑似数据倾斜",
-                            actual.rows as u64, ratio
-                        ),
+                        t!(
+                            "finding.SKEW-001.detail",
+                            rows = actual.rows as u64,
+                            ratio = ratio
+                        )
+                        .to_string(),
                         node,
-                        Some(format!(
-                            "调整分布列: ALTER TABLE {} DISTRIBUTE BY HASH(new_col); 使用 /*+ skew(t1(c1)) */ Hint; 查询倾斜: SELECT * FROM pgxc_get_table_skewness('{}')",
-                            relation, relation
-                        )),
+                        Some(t!("finding.SKEW-001.suggestion", relation = relation).to_string()),
                     ));
                 }
             }
@@ -77,8 +77,8 @@ impl DiagnosticRule for DistributionColumnMismatch {
     fn id(&self) -> &str {
         "DIST-001"
     }
-    fn name(&self) -> &str {
-        "分布列不当导致重分布"
+    fn name(&self) -> String {
+        t!("finding.DIST-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Warning
@@ -93,15 +93,16 @@ impl DiagnosticRule for DistributionColumnMismatch {
                     let relation = node.relation.as_deref().unwrap_or("unknown");
                     return Some(make_finding(
                         self,
-                        format!(
-                            "Streaming(Redistribute)重分布{}行, 连接列与分布列不匹配",
-                            actual.rows as u64
-                        ),
+                        t!("finding.DIST-001.detail", rows = actual.rows as u64).to_string(),
                         node,
-                        Some(format!(
-                            "Streaming(Redistribute)重分布{}行, 连接列与分布列不匹配; 对齐分布列与JOIN列: ALTER TABLE {} DISTRIBUTE BY HASH(join_col); 使用 /*+ redistribute(t1) */ 显式指定重分布策略",
-                            actual.rows as u64, relation
-                        )),
+                        Some(
+                            t!(
+                                "finding.DIST-001.suggestion",
+                                rows = actual.rows as u64,
+                                relation = relation
+                            )
+                            .to_string(),
+                        ),
                     ));
                 }
             }

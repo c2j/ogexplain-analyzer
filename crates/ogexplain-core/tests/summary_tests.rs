@@ -63,6 +63,7 @@ Total runtime: 0.350 ms";
         gauss_advanced_feature: None,
         gauss_extension: None,
         gauss_tags: vec![],
+        template_id: None,
     };
     let row = SummaryRow::compute(&plan, &diag, Some(&complexity));
 

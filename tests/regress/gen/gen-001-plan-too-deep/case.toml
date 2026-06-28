@@ -1,0 +1,21 @@
+rule_id             = "GEN-001"
+case_name           = "gen-001-plan-too-deep"
+expect_fired        = true
+expect_min_severity = "warning"
+
+[dataset]
+source           = "supplemental"
+supplemental_file = "tests/fixtures/20_deep_plan.txt"
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = false
+weak_signal      = false
+skip_live_reason = "supplemental EXPLAIN is hand-written; not replayable against a live DB without the original DDL"
+
+[config]
+max_plan_depth = 3

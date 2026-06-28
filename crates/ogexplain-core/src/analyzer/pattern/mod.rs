@@ -24,6 +24,7 @@ use crate::analyzer::context::GlobalStats;
 use crate::analyzer::report::{DiagnosticCategory, Finding, Severity};
 use crate::analyzer::rules::DiagnosticRule;
 use crate::model::{ExplainPlan, PlanNode};
+use rust_i18n::t;
 
 use engine::{AntiPatternDef, PatternEngine};
 use types::{Evidence, MatchResult, MatchedNode};
@@ -97,8 +98,8 @@ impl DiagnosticRule for AntiPatternRule {
         "ANTI"
     }
 
-    fn name(&self) -> &str {
-        "Anti-pattern Subtree Detection"
+    fn name(&self) -> String {
+        t!("finding.ANTI.name").to_string()
     }
 
     fn severity(&self) -> Severity {

@@ -1,6 +1,5 @@
 ---
 source: crates/ogexplain-core/tests/integration_tests.rs
-assertion_line: 90
 expression: plan
 ---
 root:
@@ -25,6 +24,7 @@ root:
   structured_props:
     sort_method: external merge
     sort_disk: 5840kB
+    peak_memory_kb: 5840
   children:
     - node_type:
         type: HashJoin
@@ -86,6 +86,7 @@ root:
             hash_buckets: 1024
             hash_batches: 1
             hash_memory_usage: 48kB
+            peak_memory_kb: 48
           children:
             - node_type:
                 type: NestedLoop

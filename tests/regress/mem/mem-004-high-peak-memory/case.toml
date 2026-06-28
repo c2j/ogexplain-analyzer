@@ -1,0 +1,22 @@
+rule_id             = "MEM-004"
+case_name           = "mem-004-high-peak-memory"
+expect_fired        = true
+expect_min_severity = "warning"
+
+[dataset]
+source            = "ogagila"
+ogagila_version   = "v3"
+ogagila_query_ids = ["Q30"]
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = false
+weak_signal      = false
+skip_live_reason = "default DiagnosticConfig threshold (100MB) unreachable on ogagila's 16K-row schema; live-db verification would need custom GUC or larger data"
+
+[config]
+memory_threshold_kb = 500

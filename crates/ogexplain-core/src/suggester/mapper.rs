@@ -1,5 +1,6 @@
 use super::suggestion::{Suggestion, SuggestionCategory};
 use crate::analyzer::report::Finding;
+use rust_i18n::t;
 
 pub struct SuggestionEngine;
 
@@ -16,8 +17,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: est_rules,
                 category: SuggestionCategory::StatisticsUpdate,
-                message: "多个估算偏差表明统计信息可能过期，建议对所有涉及的表执行 ANALYZE"
-                    .to_string(),
+                message: t!("finding.suggester.multi_estimation").to_string(),
                 confidence: 0.85,
             });
         }
@@ -36,10 +36,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: spill_rules.clone(),
                 category: SuggestionCategory::ConfigurationTuning,
-                message: format!(
-                    "检测到 {} 处内存溢出到磁盘，建议增大 work_mem 以避免磁盘 I/O",
-                    spill_rules.len()
-                ),
+                message: t!("finding.suggester.multi_spill", count = spill_rules.len()).to_string(),
                 confidence: 0.9,
             });
         }
@@ -60,9 +57,7 @@ impl SuggestionEngine {
                     .map(|f| f.rule_id.clone())
                     .collect(),
                 category: SuggestionCategory::IndexOptimization,
-                message:
-                    "同时检测到扫描和连接问题，在连接列和过滤列上创建复合索引可能有助于提升性能"
-                        .to_string(),
+                message: t!("finding.suggester.scan_and_join").to_string(),
                 confidence: 0.8,
             });
         }
@@ -75,7 +70,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: push_findings.iter().map(|f| f.rule_id.clone()).collect(),
                 category: SuggestionCategory::DistributionOptimization,
-                message: "检测到下推问题，检查查询中的不可下推构造并考虑数据重分布".to_string(),
+                message: t!("finding.suggester.pushdown_issues").to_string(),
                 confidence: 0.75,
             });
         }
@@ -88,7 +83,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: subq_findings.iter().map(|f| f.rule_id.clone()).collect(),
                 category: SuggestionCategory::QueryRewrite,
-                message: "检测到关联子查询自引用UPDATE，建议改写为 UPDATE ... FROM 或 CTE 形式以避免逐行执行".to_string(),
+                message: t!("finding.suggester.subquery_self_update").to_string(),
                 confidence: 0.9,
             });
         }
@@ -101,8 +96,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: type_findings.iter().map(|f| f.rule_id.clone()).collect(),
                 category: SuggestionCategory::QueryRewrite,
-                message: "多处类型不一致问题, 建议全面审查 WHERE/JOIN 条件中的数据类型匹配"
-                    .to_string(),
+                message: t!("finding.suggester.type_inconsistencies").to_string(),
                 confidence: 0.85,
             });
         }
@@ -115,8 +109,7 @@ impl SuggestionEngine {
             suggestions.push(Suggestion {
                 related_rules: vec_findings.iter().map(|f| f.rule_id.clone()).collect(),
                 category: SuggestionCategory::ConfigurationTuning,
-                message: "检测到引擎切换, 建议统一使用行引擎或向量化引擎以消除 Adapter 开销"
-                    .to_string(),
+                message: t!("finding.suggester.engine_switches").to_string(),
                 confidence: 0.8,
             });
         }

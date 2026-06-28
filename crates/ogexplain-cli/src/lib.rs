@@ -144,6 +144,7 @@ fn to_complexity_input(
     };
     ComplexityInput {
         sql_preview,
+        template_id: Some(ogsql_complexity::template_id(&first.sql_text)),
         tables: first.metrics.table_count,
         joins: first.metrics.join_count,
         subqueries: first.metrics.subquery_count,
@@ -473,7 +474,7 @@ tables,joins,subqueries,where_conditions,aggregates,cases,set_ops,ctes,windows,\
 has_group_by,has_order_by,has_distinct,subquery_depth,hints,\
 score,level,gauss_score,gauss_level,\
 gauss_sql_structure,gauss_pl_logic,gauss_advanced_feature,gauss_extension,\
-gauss_tags,\
+gauss_tags,template_id,\
 root_op,total_cost,total_time_ms,actual_rows,estimated_rows,\
 plan_depth,node_count,total_loops,\
 worst_est_ratio,spill_kb,peak_memory_kb,pushdown,\
@@ -511,6 +512,7 @@ critical_count,warning_count,info_count";
             fmt_csv_opt_i64(row.gauss_advanced_feature),
             fmt_csv_opt_i64(row.gauss_extension),
             csv_escape(&row.gauss_tags.join(";")),
+            fmt_csv_opt_str(&row.template_id),
             csv_escape(&row.root_op),
             format!("{}", row.total_cost),
             format!("{}", row.total_time_ms),
@@ -593,6 +595,7 @@ struct CsvRowResult {
     peak_memory_kb: Option<f64>,
     complexity_score: Option<f64>,
     complexity_level: Option<String>,
+    template_id: Option<String>,
     summary: Option<SummaryRow>,
 }
 
@@ -618,6 +621,7 @@ impl CsvRowResult {
             peak_memory_kb: None,
             complexity_score: None,
             complexity_level: None,
+            template_id: None,
             summary: None,
         }
     }
@@ -633,15 +637,13 @@ fn process_csv_input(
 
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
-        .from_reader(
-            if input_path == "-" {
-                Box::new(std::io::stdin()) as Box<dyn std::io::Read>
-            } else {
-                let file = std::fs::File::open(Path::new(input_path))
-                    .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
-                Box::new(file) as Box<dyn std::io::Read>
-            },
-        );
+        .from_reader(if input_path == "-" {
+            Box::new(std::io::stdin()) as Box<dyn std::io::Read>
+        } else {
+            let file = std::fs::File::open(Path::new(input_path))
+                .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+            Box::new(file) as Box<dyn std::io::Read>
+        });
 
     let headers = reader
         .headers()
@@ -757,6 +759,9 @@ fn process_csv_row(
         peak_memory_kb: summary.peak_memory_kb,
         complexity_score: summary.score,
         complexity_level: summary.level.clone(),
+        template_id: complexity_input
+            .as_ref()
+            .and_then(|c| c.template_id.clone()),
         summary: Some(summary),
     })
 }
@@ -789,6 +794,7 @@ fn write_csv_header<W: std::io::Write>(
             "peak_memory_kb",
             "complexity_score",
             "complexity_level",
+            "template_id",
         ]);
     }
 
@@ -871,6 +877,7 @@ fn write_csv_row<W: std::io::Write>(
                 .unwrap_or_default(),
         );
         cols.push(row.complexity_level.clone().unwrap_or_default());
+        cols.push(row.template_id.clone().unwrap_or_default());
     }
 
     if matches!(mode, CsvColumnsMode::Full) {
@@ -2667,7 +2674,10 @@ mod tests {
             writer.flush().unwrap();
         }
         let text = String::from_utf8(buf).unwrap();
-        text.trim().split(',').map(|s| s.trim_matches('"').to_string()).collect()
+        text.trim()
+            .split(',')
+            .map(|s| s.trim_matches('"').to_string())
+            .collect()
     }
 
     #[test]
@@ -2680,19 +2690,20 @@ mod tests {
     }
 
     #[test]
-    fn test_csv_header_focused_has_19_columns() {
+    fn test_csv_header_focused_has_20_columns() {
         let cols = write_header_to_vec(CsvColumnsMode::Focused);
-        assert_eq!(cols.len(), 19, "focused mode should have 19 columns");
+        assert_eq!(cols.len(), 20, "focused mode should have 20 columns");
         assert_eq!(cols[9], "root_op");
         assert_eq!(cols[18], "complexity_level");
+        assert_eq!(cols[19], "template_id");
     }
 
     #[test]
-    fn test_csv_header_full_has_52_columns() {
+    fn test_csv_header_full_has_53_columns() {
         let cols = write_header_to_vec(CsvColumnsMode::Full);
-        assert_eq!(cols.len(), 52, "full mode should have 52 columns");
-        assert_eq!(cols[19], "total_cost");
-        assert_eq!(cols[51], "gauss_tags");
+        assert_eq!(cols.len(), 53, "full mode should have 53 columns");
+        assert_eq!(cols[20], "total_cost");
+        assert_eq!(cols[52], "gauss_tags");
     }
 
     #[test]

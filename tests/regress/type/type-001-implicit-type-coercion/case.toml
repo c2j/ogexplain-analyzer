@@ -1,0 +1,18 @@
+rule_id             = "TYPE-001"
+case_name           = "type-001-implicit-type-coercion"
+expect_fired        = true
+expect_min_severity = "critical"
+
+[dataset]
+source            = "supplemental"
+supplemental_file = "tests/fixtures/17_implicit_cast.txt"
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = false
+weak_signal      = false
+skip_live_reason = "supplemental EXPLAIN is hand-written; no live OG instance needed for static contract"

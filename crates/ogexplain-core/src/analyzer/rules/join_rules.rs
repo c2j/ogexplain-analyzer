@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode};
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
@@ -22,8 +23,8 @@ impl DiagnosticRule for NestedLoopLargeDataset {
     fn id(&self) -> &str {
         "JOIN-001"
     }
-    fn name(&self) -> &str {
-        "Nested Loop with large dataset"
+    fn name(&self) -> String {
+        t!("finding.JOIN-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -45,16 +46,21 @@ impl DiagnosticRule for NestedLoopLargeDataset {
                 let work = actual.rows * actual.loops;
                 if work > max_inner_work {
                     max_inner_work = work;
-                    detail_child = format!(
-                        "Inner side processed {} rows × {} loops = {} total rows",
-                        actual.rows, actual.loops, work
-                    );
+                    detail_child = t!(
+                        "finding.JOIN-001.detail",
+                        rows = actual.rows,
+                        loops = actual.loops,
+                        total = work
+                    )
+                    .to_string();
                     inner_has_index = matches!(
                         child.node_type,
                         NodeType::IndexScan
                             | NodeType::IndexOnlyScan
                             | NodeType::BitmapHeapScan
                             | NodeType::PartitionedIndexScan
+                            | NodeType::PartitionedBitmapHeapScan
+                            | NodeType::CStoreIndexScan
                     );
                     join_column = child
                         .properties
@@ -79,21 +85,22 @@ impl DiagnosticRule for NestedLoopLargeDataset {
             return None;
         }
 
-        let mut detail = format!("{} (threshold: {})", detail_child, self.threshold);
+        let mut detail = t!(
+            "finding.JOIN-001.detail_threshold",
+            child = detail_child,
+            threshold = self.threshold
+        )
+        .to_string();
         if inner_has_index {
-            detail.push_str(", 内表已有索引");
+            detail.push_str(&t!("finding.JOIN-001.detail_has_index"));
         }
 
         let suggestion = if inner_has_index {
-            "Nested Loop 内表已有索引但工作量仍然很大; 考虑 ANALYZE 更新统计信息或 SET enable_nestloop = off"
-                .to_string()
+            t!("finding.JOIN-001.suggestion_has_index").to_string()
         } else if let Some(ref col) = join_column {
-            format!(
-                "CREATE INDEX ON inner_table({}) 以加速 Nested Loop; 或 SET enable_nestloop = off",
-                col
-            )
+            t!("finding.JOIN-001.suggestion_no_index_with_col", col = col).to_string()
         } else {
-            "SET enable_nestloop = off; or create index on join column".to_string()
+            t!("finding.JOIN-001.suggestion_no_index_no_col").to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -106,8 +113,8 @@ impl DiagnosticRule for HashSpillToDisk {
     fn id(&self) -> &str {
         "JOIN-002"
     }
-    fn name(&self) -> &str {
-        "Hash spill to disk"
+    fn name(&self) -> String {
+        t!("finding.JOIN-002.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -128,23 +135,31 @@ impl DiagnosticRule for HashSpillToDisk {
         let mem_usage_str = get_property_value(node, "Memory Usage").unwrap_or("unknown");
         let disk_size = extract_disk_size_from_buckets(value);
 
-        let mut detail = format!(
-            "Hash used {} batches (spilled to disk). Memory Usage: {}",
-            batches, mem_usage_str
-        );
+        let mut detail = t!(
+            "finding.JOIN-002.detail",
+            batches = batches,
+            mem_usage = mem_usage_str
+        )
+        .to_string();
         if let Some(ref disk) = disk_size {
-            detail.push_str(&format!(", Disk: {}", disk));
+            detail.push_str(&t!("finding.JOIN-002.detail_disk", disk = disk));
         }
 
         let suggestion = if let Some(disk_kb) = disk_size.as_ref().and_then(|s| parse_kb_value(s)) {
             let mem_kb: i64 = parse_kb_value(mem_usage_str).unwrap_or(0);
             let recommended_mb: i64 = ((disk_kb + mem_kb) / 1024 + 1).max(4);
-            format!(
-                "SET work_mem = '{}MB'; 当前使用 {} 已溢出到磁盘, 建议至少 {}MB",
-                recommended_mb, mem_usage_str, recommended_mb
+            t!(
+                "finding.JOIN-002.suggestion_recommended",
+                recommended = recommended_mb,
+                mem_usage = mem_usage_str
             )
+            .to_string()
         } else {
-            format!("Increase work_mem (current usage: {})", mem_usage_str)
+            t!(
+                "finding.JOIN-002.suggestion_default",
+                mem_usage = mem_usage_str
+            )
+            .to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
@@ -195,4 +210,189 @@ fn parse_kb_value(s: &str) -> Option<i64> {
             .map(|v| (v * 1024.0 * 1024.0) as i64);
     }
     s.parse::<i64>().ok()
+}
+
+// ── JOIN-003: Expensive join filter ────────────────────────────────
+
+pub struct HashJoinExpensiveFilter {
+    threshold: f64,
+}
+
+impl HashJoinExpensiveFilter {
+    pub fn new(_config: DiagnosticConfig) -> Self {
+        Self { threshold: 10000.0 }
+    }
+}
+
+impl DiagnosticRule for HashJoinExpensiveFilter {
+    fn id(&self) -> &str {
+        "JOIN-003"
+    }
+    fn name(&self) -> String {
+        t!("finding.JOIN-003.name").to_string()
+    }
+    fn severity(&self) -> Severity {
+        Severity::Warning
+    }
+    fn category(&self) -> DiagnosticCategory {
+        DiagnosticCategory::JoinStrategy
+    }
+    fn check(&self, node: &PlanNode, _ctx: &PlanContext) -> Option<Finding> {
+        if node.node_type != NodeType::HashJoin && node.node_type != NodeType::MergeJoin {
+            return None;
+        }
+        let has_join_filter = node.properties.iter().any(|p| p.label == "Join Filter");
+        if !has_join_filter {
+            return None;
+        }
+        let rows_removed: f64 = node
+            .properties
+            .iter()
+            .find(|p| p.label == "Rows Removed by Join Filter")
+            .and_then(|p| p.value.trim().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        if rows_removed <= self.threshold {
+            return None;
+        }
+
+        let join_label = match node.node_type {
+            NodeType::HashJoin => "Hash Join",
+            _ => "Merge Join",
+        };
+        let detail = t!(
+            "finding.JOIN-003.detail",
+            join_label = join_label,
+            rows = rows_removed as i64,
+            threshold = self.threshold as i64
+        )
+        .to_string();
+        let suggestion = t!("finding.JOIN-003.suggestion", rows = rows_removed as i64).to_string();
+
+        Some(make_finding(self, detail, node, Some(suggestion)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzer::config::DiagnosticConfig;
+    use crate::analyzer::context::{GlobalStats, PlanContext};
+    use crate::model::buffer::NodeProperty;
+    use crate::model::{ExplainPlan, NodeType, PlanNode};
+
+    fn test_check_join003(node: &PlanNode) -> Option<Finding> {
+        let rule = HashJoinExpensiveFilter::new(DiagnosticConfig::default());
+        let dummy_root = PlanNode {
+            node_type: NodeType::Result,
+            relation: None,
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: vec![],
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 0,
+        };
+        let plan = ExplainPlan {
+            root: dummy_root,
+            summary: None,
+        };
+        let stats = GlobalStats::compute(&plan);
+        let ctx = PlanContext {
+            plan: &plan,
+            global_stats: &stats,
+        };
+        rule.check(node, &ctx)
+    }
+
+    fn make_join_node(
+        node_type: NodeType,
+        join_filter: Option<&str>,
+        rows_removed: f64,
+    ) -> PlanNode {
+        let mut props = Vec::new();
+        if let Some(filter) = join_filter {
+            props.push(NodeProperty {
+                label: "Join Filter".to_string(),
+                value: filter.to_string(),
+            });
+        }
+        if rows_removed > 0.0 {
+            props.push(NodeProperty {
+                label: "Rows Removed by Join Filter".to_string(),
+                value: rows_removed.to_string(),
+            });
+        }
+        PlanNode {
+            node_type,
+            relation: Some("test_table".to_string()),
+            join_type: None,
+            estimated: None,
+            actual: None,
+            properties: props,
+            structured_props: None,
+            buffers: None,
+            children: vec![],
+            indent_level: 0,
+            line_number: 1,
+        }
+    }
+
+    #[test]
+    fn test_join003_hash_join_with_expensive_filter() {
+        let node = make_join_node(NodeType::HashJoin, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_some(),
+            "JOIN-003 should fire on HashJoin with 50000 rows removed"
+        );
+        let f = finding.unwrap();
+        assert!(f.detail.contains("Hash Join"));
+        assert!(f.detail.contains("50000"));
+        assert!(f.suggestion.unwrap().contains("50000"));
+    }
+
+    #[test]
+    fn test_join003_merge_join_with_expensive_filter() {
+        let node = make_join_node(NodeType::MergeJoin, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_some(),
+            "JOIN-003 should fire on MergeJoin with 50000 rows removed"
+        );
+        let f = finding.unwrap();
+        assert!(f.detail.contains("Merge Join"));
+    }
+
+    #[test]
+    fn test_join003_no_join_filter_does_not_fire() {
+        let node = make_join_node(NodeType::HashJoin, None, 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire without Join Filter property"
+        );
+    }
+
+    #[test]
+    fn test_join003_below_threshold_does_not_fire() {
+        let node = make_join_node(NodeType::HashJoin, Some("(o.status = 'shipped')"), 100.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire when rows removed (100) ≤ threshold (10000)"
+        );
+    }
+
+    #[test]
+    fn test_join003_seqscan_does_not_fire() {
+        let node = make_join_node(NodeType::SeqScan, Some("(o.status = 'shipped')"), 50000.0);
+        let finding = test_check_join003(&node);
+        assert!(
+            finding.is_none(),
+            "JOIN-003 should NOT fire on SeqScan node"
+        );
+    }
 }

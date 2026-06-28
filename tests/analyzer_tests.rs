@@ -260,7 +260,7 @@ fn push_001_triggers_on_streaming_redistribute() {
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::PushdownFailure);
     assert!(
-        finding.detail.contains("Streaming") || finding.detail.contains("下推"),
+        finding.detail.contains("Streaming") || finding.detail.contains("pushed down"),
         "detail should mention streaming or pushdown"
     );
 }
@@ -286,7 +286,7 @@ fn push_002_triggers_on_multi_layer_streaming() {
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::PushdownFailure);
     assert!(
-        finding.detail.contains("Streaming") || finding.detail.contains("重分布"),
+        finding.detail.contains("Streaming") || finding.detail.contains("redistribution"),
         "detail should mention streaming or redistribution"
     );
 }
@@ -303,7 +303,7 @@ fn type_001_triggers_on_implicit_cast() {
     assert_eq!(finding.severity, Severity::Critical);
     assert_eq!(finding.category, DiagnosticCategory::TypeMismatch);
     assert!(
-        finding.detail.contains("status = '42'") || finding.detail.contains("隐式类型转换"),
+        finding.detail.contains("status = '42'") || finding.detail.contains("implicit type cast"),
         "detail should mention filter condition or implicit cast"
     );
 }
@@ -337,7 +337,7 @@ fn vec_001_triggers_on_mixed_engines() {
     assert_eq!(finding.severity, Severity::Warning);
     assert_eq!(finding.category, DiagnosticCategory::Vectorization);
     assert!(
-        finding.detail.contains("Adapter") || finding.detail.contains("适配器"),
+        finding.detail.contains("Adapter") || finding.detail.contains("adapter"),
         "detail should mention Adapter"
     );
 }
@@ -368,7 +368,7 @@ fn gen_001_triggers_on_deep_plan_with_custom_config() {
     assert_eq!(finding.severity, Severity::Info);
     assert_eq!(finding.category, DiagnosticCategory::General);
     assert!(
-        finding.detail.contains("深度") || finding.detail.contains("6"),
+        finding.detail.contains("depth") || finding.detail.contains("6"),
         "detail should mention plan depth"
     );
 }
@@ -548,7 +548,8 @@ fn suggestion_scan_and_join_findings_trigger_composite_index() {
         .find(|s| matches!(s.category, SuggestionCategory::IndexOptimization))
         .expect("Expected an IndexOptimization suggestion for scan + join findings");
     assert!(
-        index_suggestion.message.contains("复合索引") || index_suggestion.message.contains("索引")
+        index_suggestion.message.contains("composite index")
+            || index_suggestion.message.contains("索引")
     );
     assert!(index_suggestion.confidence > 0.0);
 }
@@ -572,7 +573,10 @@ fn suggestion_push_findings_trigger_distribution_optimization() {
         .iter()
         .find(|s| matches!(s.category, SuggestionCategory::DistributionOptimization))
         .expect("Expected a DistributionOptimization suggestion for push findings");
-    assert!(dist_suggestion.message.contains("下推") || dist_suggestion.message.contains("重分布"));
+    assert!(
+        dist_suggestion.message.contains("pushdown")
+            || dist_suggestion.message.contains("distribution")
+    );
     assert!(dist_suggestion.confidence > 0.0);
 }
 
@@ -671,7 +675,7 @@ fn mixed_engines_finding_counts_two_adapters() {
     let report = analyze_fixture("19_mixed_engines.txt");
     let finding = get_finding(&report, "VEC-001").expect("VEC-001 should be present");
     assert!(
-        finding.detail.contains("2") || finding.detail.contains("两"),
+        finding.detail.contains("2"),
         "detail should mention adapter count: {}",
         finding.detail
     );
@@ -779,9 +783,7 @@ fn subq_006_triggers_with_streaming_in_distributed() {
     let finding = get_finding(&report, "SUBQ-006")
         .expect("Expected SUBQ-006 for distributed correlated subquery UPDATE");
     assert!(
-        finding.detail.contains("Streaming")
-            || finding.detail.contains("分布式")
-            || finding.detail.contains("distributed"),
+        finding.detail.contains("Streaming") || finding.detail.contains("distributed"),
         "detail should mention distributed scenario, got: {}",
         finding.detail
     );

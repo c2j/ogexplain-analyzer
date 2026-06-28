@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q30"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q30 (4-table join: film->inventory->rental->payment, GROUP BY f.title, LIMIT 30) produces 3 Hash nodes. The largest is the Hash building rental's hash table: 'Buckets: 32768  Batches: 1  Memory Usage: 883kB' (Q30.explain line 24-25). The parser classifies this line by first-colon as label='Buckets' value='32768  Batches: 1  Memory Usage: 883kB'. NodeProperties::extract matches the 'Buckets' label and derives hash_memory_usage='883kB', then fallback 1 sets structured_props.peak_memory_kb=883.0. find_peak_memory_in_tree returns 883.0. With config_overrides memory_threshold_kb=500, the rule fires: 883.0 > 500.0. find_highest_memory_node returns None because get_property_value(node,'Memory Usage') finds no property with that exact label (the memory info is embedded inside the 'Buckets' property value, not a standalone property). Therefore the detail_top_node suffix is NOT appended; detail is just the base template. config_overrides is needed because the default threshold (102400 kB = 100 MB) is unreachable on ogagila's 16K-row tables — the highest peak memory across all 97 queries is only 883 kB. We lower to 500 kB to exercise the rule's logic. anti_findings: MEM-001 does NOT fire (no Sort node in Q30 — plan uses Hash Join, not Merge Join). JOIN-002 does NOT fire (Hash Join Batches=1, meaning no spill to disk). GEN-001 does NOT fire (plan depth ≈ 6, well below default threshold 10)."
+  },
+
+  "findings": [
+    {
+      "rule_id": "MEM-004",
+      "must_fire": true,
+      "min_severity": "warning",
+      "category": "MemoryUsage",
+      "detail_must_contain": ["Peak memory", "883", "500"],
+      "detail_must_not_contain": [],
+      "suggestion_must_contain": ["increase work_mem"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "MEM-001",
+      "must_not_fire": true,
+      "reason": "MEM-001 (SortSpillToDisk) requires a Sort node with Sort Method containing 'external'. Q30 has no Sort node at all — the plan uses Hash Join and HashAggregate, no sorting."
+    },
+    {
+      "rule_id": "JOIN-002",
+      "must_not_fire": true,
+      "reason": "JOIN-002 (HashJoinSpillToDisk) requires Batches > 1 on a Hash Join. Q30's two Hash Joins both have inner Hash nodes with Batches: 1 (in-memory, no spill)."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Q30's plan depth is approximately 6 (Limit -> HashAggregate -> Hash Join -> Hash Join -> Hash -> Seq Scan on film), well below 10."
+    }
+  ]
+}

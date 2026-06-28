@@ -1,4 +1,5 @@
 use crate::model::PlanNode;
+use rust_i18n::t;
 
 use super::super::config::DiagnosticConfig;
 use super::super::context::{GlobalStats, PlanContext};
@@ -21,8 +22,8 @@ impl DiagnosticRule for PlanTooDeep {
     fn id(&self) -> &str {
         "GEN-001"
     }
-    fn name(&self) -> &str {
-        "执行计划层级过深"
+    fn name(&self) -> String {
+        t!("finding.GEN-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Info
@@ -43,13 +44,15 @@ impl DiagnosticRule for PlanTooDeep {
             severity: self.severity(),
             category: self.category(),
             title: self.name().to_string(),
-            detail: format!(
-                "执行计划深度为 {}（阈值: {}）; 深度过高通常表示子查询未提升或多层嵌套",
-                stats.max_depth, self.max_depth
-            ),
+            detail: t!(
+                "finding.GEN-001.detail",
+                depth = stats.max_depth,
+                max_depth = self.max_depth
+            )
+            .to_string(),
             node_line: None,
             node_type: None,
-            suggestion: Some("简化查询: /*+ EXPAND_SUBQUERY */; /*+ EXPAND_SUBLINK */; /*+ LAZY_AGG */; /*+ REDUCE_ORDER_BY */; 考虑拆分为多个简单查询".to_string()),
+            suggestion: Some(t!("finding.GEN-001.suggestion").to_string()),
             sql_rewrite: None,
             evidence: None,
         }]

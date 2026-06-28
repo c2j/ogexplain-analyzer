@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "ogagila_commit": "d960d8c",
+    "ogagila_version": "v3",
+    "ogagila_query_ids": ["Q17"],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-28",
+    "author": "c2j",
+    "review_notes": "Q17 uses /*+ nestloop(r p) */ hint to force a Nested Loop between rental and payment. Plan: Nested Loop -> [Partition Iterator -> Partitioned Seq Scan on payment p (16049 rows)] + [Index Scan on rental r (278 rows × 16049 loops = 4,461,622 total work)]. JOIN-001 fires because max child work (4.4M) >> threshold (10000). Inner child is IndexScan (rental_pkey), so inner_has_index=true -> detail appends ', inner table has index' and suggestion uses suggestion_has_index variant (no column-specific CREATE INDEX). Critical severity per rule impl (NOT warning as @severity marker in queries.sql claims). Note: rule likely has a placeholder bug — `finding.JOIN-001.detail` template includes '%{threshold}' but t!() call does not pass threshold, so detail_child may contain literal '%{threshold}' text. This case captures actual current behavior; if rule is fixed to pass threshold, expected detail_must_contain must be updated. Other ogagila 'JOIN-001 target' queries (Q15, Q16, Q18, Q19) do NOT actually produce Nested Loop nodes in OG's plan — Q15/Q16/Q19 use Hash/Merge Join, Q18 has NL but inner work is only 400 (below threshold). Q17 is the only v3 query that genuinely triggers JOIN-001."
+  },
+
+  "findings": [
+    {
+      "rule_id": "JOIN-001",
+      "must_fire": true,
+      "min_severity": "critical",
+      "category": "JoinStrategy",
+      "detail_must_contain": ["278", "16049", "4461622"],
+      "detail_must_not_contain": [],
+      "suggestion_must_contain": ["enable_nestloop"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-004",
+      "must_not_fire": true,
+      "reason": "The Index Scan on rental has a Filter (customer_id BETWEEN 1 AND 10), but SCAN-004 fires on SeqScan/CStoreScan/BitmapHeapScan variants, not IndexScan. Seq Scan on payment has no Filter."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "Plan depth = 4 (Nested Loop -> Partition Iterator -> Partitioned Seq Scan); default max_plan_depth = 10."
+    },
+    {
+      "rule_id": "JOIN-002",
+      "must_not_fire": true,
+      "reason": "No Hash node (HashSpillToDisk requires NodeType::Hash with Batches > 1)."
+    }
+  ]
+}

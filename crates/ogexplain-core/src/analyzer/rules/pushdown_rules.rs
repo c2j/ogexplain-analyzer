@@ -1,4 +1,5 @@
 use crate::model::{NodeType, PlanNode, StreamingType};
+use rust_i18n::t;
 
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
@@ -11,8 +12,8 @@ impl DiagnosticRule for QueryNotPushedDown {
     fn id(&self) -> &str {
         "PUSH-001"
     }
-    fn name(&self) -> &str {
-        "查询未下推"
+    fn name(&self) -> String {
+        t!("finding.PUSH-001.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -27,43 +28,53 @@ impl DiagnosticRule for QueryNotPushedDown {
             _ => return None,
         };
 
-        let reasons = collect_pushdown_blockers(node);
+        let (reasons, has_subquery, has_volatile) = collect_pushdown_blockers(node);
 
-        let mut detail = format!("查询未完全下推 — 发现 Streaming({}) 节点", streaming_type);
+        let mut detail = t!("finding.PUSH-001.detail", streaming_type = streaming_type).to_string();
         if !reasons.is_empty() {
-            detail.push_str(&format!(", 可能原因: {}", reasons.join(", ")));
+            detail.push_str(&t!(
+                "finding.PUSH-001.detail_reasons",
+                reasons = reasons.join(", ")
+            ));
         }
 
-        let suggestion = if reasons.iter().any(|r| r.contains("子查询")) {
-            "使用 /*+ EXPAND_SUBLINK */ 提升子链接; /*+ EXPAND_SUBQUERY */ 提升子查询".to_string()
-        } else if reasons.iter().any(|r| r.contains("易变函数")) {
-            "查询含易变函数, 不可下推; 考虑改写为可下推形式或使用 PL/pgSQL".to_string()
+        let suggestion = if has_subquery {
+            t!("finding.PUSH-001.suggestion_subquery").to_string()
+        } else if has_volatile {
+            t!("finding.PUSH-001.suggestion_volatile").to_string()
         } else {
-            "检查不可下推构造; 使用 hint: EXPAND_SUBLINK/EXPAND_SUBQUERY; SET rewrite_rule=partialpush"
-                .to_string()
+            t!("finding.PUSH-001.suggestion_default").to_string()
         };
 
         Some(make_finding(self, detail, node, Some(suggestion)))
     }
 }
 
-fn collect_pushdown_blockers(node: &PlanNode) -> Vec<String> {
+fn collect_pushdown_blockers(node: &PlanNode) -> (Vec<String>, bool, bool) {
     let mut blockers = Vec::new();
-    collect_blockers_recursive(node, &mut blockers);
-    blockers
+    let mut has_subquery = false;
+    let mut has_volatile = false;
+    collect_blockers_recursive(node, &mut blockers, &mut has_subquery, &mut has_volatile);
+    (blockers, has_subquery, has_volatile)
 }
 
-fn collect_blockers_recursive(node: &PlanNode, blockers: &mut Vec<String>) {
+fn collect_blockers_recursive(
+    node: &PlanNode,
+    blockers: &mut Vec<String>,
+    has_subquery: &mut bool,
+    has_volatile: &mut bool,
+) {
     if matches!(
         node.node_type,
         NodeType::SubqueryScan | NodeType::VectorSubqueryScan
     ) {
-        blockers.push("子查询未提升".to_string());
+        blockers.push(t!("finding.PUSH-001.blocker_subquery").to_string());
+        *has_subquery = true;
     }
     if matches!(node.node_type, NodeType::Result | NodeType::VectorResult)
         && any_property_contains(node, "SubPlan")
     {
-        blockers.push("关联子链接(SubPlan)".to_string());
+        blockers.push(t!("finding.PUSH-001.blocker_subplan").to_string());
     }
     if let Some(filter) = node
         .properties
@@ -72,11 +83,12 @@ fn collect_blockers_recursive(node: &PlanNode, blockers: &mut Vec<String>) {
         .map(|p| p.value.as_str())
     {
         if filter.contains("now()") || filter.contains("random()") || filter.contains("nextval") {
-            blockers.push("易变函数调用".to_string());
+            blockers.push(t!("finding.PUSH-001.blocker_volatile").to_string());
+            *has_volatile = true;
         }
     }
     for child in &node.children {
-        collect_blockers_recursive(child, blockers);
+        collect_blockers_recursive(child, blockers, has_subquery, has_volatile);
     }
 }
 
@@ -86,8 +98,8 @@ impl DiagnosticRule for MultiLayerStreaming {
     fn id(&self) -> &str {
         "PUSH-002"
     }
-    fn name(&self) -> &str {
-        "多层流式传输"
+    fn name(&self) -> String {
+        t!("finding.PUSH-002.name").to_string()
     }
     fn severity(&self) -> Severity {
         Severity::Critical
@@ -113,21 +125,26 @@ impl DiagnosticRule for MultiLayerStreaming {
         let current_type = streaming_type_name(&node.node_type);
         let total_layers = layers.len() + 1;
 
-        let detail = format!(
-            "Streaming 节点下存在 {} 层 Streaming — 数据重分布过多: {} → {}",
-            total_layers - 1,
-            current_type,
-            layers.join(" → ")
-        );
+        let detail = t!(
+            "finding.PUSH-002.detail",
+            layers = total_layers - 1,
+            current = current_type,
+            chain = layers.join(" → ")
+        )
+        .to_string();
 
         let suggestion = if total_layers >= 3 {
-            "多层重分布严重影响性能; /*+ redistribute(t1) */ 显式指定; /*+ broadcast(small) */ 广播小表; /*+ leading(t1 t2 t3) */ 调整连接顺序".to_string()
+            t!("finding.PUSH-002.suggestion_deep")
         } else {
-            "使用 hint 减少重分布层数: /*+ redistribute(t1) */ 或 /*+ broadcast(small) */"
-                .to_string()
+            t!("finding.PUSH-002.suggestion_shallow")
         };
 
-        Some(make_finding(self, detail, node, Some(suggestion)))
+        Some(make_finding(
+            self,
+            detail,
+            node,
+            Some(suggestion.to_string()),
+        ))
     }
 }
 
