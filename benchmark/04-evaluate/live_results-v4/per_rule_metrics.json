@@ -1,0 +1,134 @@
+{
+  "SCAN-001": {
+    "tp": 2,
+    "fp": 2,
+    "fn": 6,
+    "precision": 0.5,
+    "recall": 0.25,
+    "f1": 0.3333333333333333,
+    "cases": [
+      "OGEXP-GT-2026-0001",
+      "OGEXP-GT-2026-0017"
+    ]
+  },
+  "SCAN-004": {
+    "tp": 13,
+    "fp": 14,
+    "fn": 3,
+    "precision": 0.48148148148148145,
+    "recall": 0.8125,
+    "f1": 0.6046511627906976,
+    "cases": [
+      "OGEXP-GT-2026-0002",
+      "OGEXP-GT-2026-0003",
+      "OGEXP-GT-2026-0006",
+      "OGEXP-GT-2026-0008",
+      "OGEXP-GT-2026-0009",
+      "OGEXP-GT-2026-0010",
+      "OGEXP-GT-2026-0011",
+      "OGEXP-GT-2026-0012",
+      "OGEXP-GT-2026-0013",
+      "OGEXP-GT-2026-0014",
+      "OGEXP-GT-2026-0018",
+      "OGEXP-GT-2026-0036",
+      "OGEXP-GT-2026-0053"
+    ]
+  },
+  "TYPE-004": {
+    "tp": 5,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "cases": [
+      "OGEXP-GT-2026-0010",
+      "OGEXP-GT-2026-0014",
+      "OGEXP-GT-2026-0048",
+      "OGEXP-GT-2026-0049",
+      "OGEXP-GT-2026-0050"
+    ]
+  },
+  "JOIN-001": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.5,
+    "f1": 0.6666666666666666,
+    "cases": [
+      "OGEXP-GT-2026-0017"
+    ]
+  },
+  "EST-001": {
+    "tp": 2,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "cases": [
+      "OGEXP-GT-2026-0017",
+      "OGEXP-GT-2026-0065"
+    ]
+  },
+  "JOIN-002": {
+    "tp": 4,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "cases": [
+      "OGEXP-GT-2026-0020",
+      "OGEXP-GT-2026-0021",
+      "OGEXP-GT-2026-0022",
+      "OGEXP-GT-2026-0023"
+    ]
+  },
+  "SUBQ-001": {
+    "tp": 3,
+    "fp": 4,
+    "fn": 0,
+    "precision": 0.42857142857142855,
+    "recall": 1.0,
+    "f1": 0.6,
+    "cases": [
+      "OGEXP-GT-2026-0061",
+      "OGEXP-GT-2026-0062",
+      "OGEXP-GT-2026-0063"
+    ]
+  },
+  "PART-001": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 3,
+    "precision": 1.0,
+    "recall": 0.25,
+    "f1": 0.4,
+    "cases": [
+      "OGEXP-GT-2026-0057"
+    ]
+  },
+  "SUBQ-006": {
+    "tp": 2,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "cases": [
+      "OGEXP-GT-2026-0064",
+      "OGEXP-GT-2026-0065"
+    ]
+  },
+  "AGG-002": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "cases": []
+  }
+}
