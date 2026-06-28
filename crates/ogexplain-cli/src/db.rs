@@ -137,7 +137,13 @@ fn dump_final_output(trimmed: &str) {
         let hex: String = chunk.iter().map(|b| format!("{:02x} ", b)).collect();
         let ascii: String = chunk
             .iter()
-            .map(|&b| if (32..127).contains(&b) { b as char } else { '.' })
+            .map(|&b| {
+                if (32..127).contains(&b) {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
             .collect();
         eprintln!("  {:48} {}", hex, ascii);
     }

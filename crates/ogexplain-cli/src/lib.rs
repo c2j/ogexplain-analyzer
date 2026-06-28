@@ -656,7 +656,11 @@ fn process_csv_input(
         let record = match result {
             Ok(r) => r,
             Err(e) => {
-                results.push(CsvRowResult::error("", "", &format!("CSV parse error: {}", e)));
+                results.push(CsvRowResult::error(
+                    "",
+                    "",
+                    &format!("CSV parse error: {}", e),
+                ));
                 continue;
             }
         };
@@ -694,15 +698,12 @@ fn process_csv_row(
     explain_text: &str,
     diag_config: &ogexplain_core::analyzer::config::DiagnosticConfig,
 ) -> Result<CsvRowResult> {
-    let plan =
-        ogexplain_core::parse(explain_text).context("Failed to parse EXPLAIN text")?;
+    let plan = ogexplain_core::parse(explain_text).context("Failed to parse EXPLAIN text")?;
 
     let complexity = ogsql_complexity::analyze(sql_text).ok();
-    let gauss_complexity = ogsql_complexity::gauss_analyze(
-        sql_text,
-        &ogsql_complexity::ComplexityConfig::default(),
-    )
-    .ok();
+    let gauss_complexity =
+        ogsql_complexity::gauss_analyze(sql_text, &ogsql_complexity::ComplexityConfig::default())
+            .ok();
     let complexity_input = complexity
         .as_ref()
         .map(|r| to_complexity_input(r, gauss_complexity.as_ref()));
@@ -1404,12 +1405,7 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let explain_text = db::fetch_explain(
-        config_opt.map(Path::new),
-        name_opt,
-        &sql_text,
-        analyze,
-    )?;
+    let explain_text = db::fetch_explain(config_opt.map(Path::new), name_opt, &sql_text, analyze)?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);
