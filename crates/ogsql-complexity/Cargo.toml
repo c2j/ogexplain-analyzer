@@ -7,6 +7,7 @@ description = "SQL complexity analyzer for OpenGauss/GaussDB queries"
 
 [dependencies]
 ogsql-parser = { git = "https://github.com/c2j/ogsql-parser" }
+regex = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 
