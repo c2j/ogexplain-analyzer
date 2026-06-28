@@ -29,13 +29,13 @@ cargo build --workspace
 cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt
 
 # JSON 输出
-cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt -o json
+cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt --format json
 
 # 热力图输出（需要 EXPLAIN ANALYZE）
-cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o heatmap
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt --format heatmap
 
-# 瀑布图输出（需要 EXPLAIN ANALYZE）
-cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o waterfall
+# 资源瀑布图输出（需要 EXPLAIN ANALYZE）
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt --format waterfall
 
 # 从标准输入读取
 cat tests/fixtures/01_simple_seq_scan.txt | cargo run -p ogexplain-cli -- analyze -
@@ -85,12 +85,14 @@ ogexplain analyze <文件路径> [选项]
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `-o, --output` | `text` | 输出格式：`text`、`json`、`heatmap`、`waterfall` |
+| `--format <format>` | `text` | 输出格式：`text`、`json`、`heatmap`、`waterfall` |
+| `-o, --output <path>` | — | 输出文件路径（txt 模式下用于 CSV 导出） |
+| `--input-format` | `txt` | 输入格式：`csv`（批量）或 `txt`（单条 EXPLAIN 文本） |
+| `--output-columns` | `minimal` | CSV 批量模式列集：`minimal`、`focused`、`full` |
 | `--threshold` | `info` | 最低严重级别：`critical`、`warning`、`info` |
 | `-q, --quiet` | — | 仅显示诊断结果，不显示执行计划树 |
 | `-v, --verbose` | — | 详细输出 |
 | `--multi` | — | 启用多块解析（混合 SQL+EXPLAIN 文件） |
-| `--csv <path>` | — | 导出汇总表为 CSV（使用 `-` 输出到 stdout） |
 | `--lang` | `auto` | 语言：`en`、`zh-CN` 或 `auto`（跟随系统语言） |
 
 #### 子命令 `explain` — 数据库直连 EXPLAIN（需要 `db` feature）
@@ -115,7 +117,7 @@ ogexplain explain -f query.sql
 ogexplain explain -s "SELECT ..." --name prod
 
 # 带完整分析选项
-ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --threshold warning
+ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv --threshold warning
 ```
 
 > 已移除 `-d/--dsn` 选项。连接信息必须来自配置文件（`--config <path>`，默认

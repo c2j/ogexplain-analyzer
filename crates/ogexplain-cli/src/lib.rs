@@ -566,7 +566,7 @@ impl CsvColumnsMode {
             "focused" => Ok(Self::Focused),
             "full" => Ok(Self::Full),
             _ => anyhow::bail!(
-                "Invalid --csv-columns '{}': expected minimal, focused, or full",
+                "Invalid --output-columns '{}': expected minimal, focused, or full",
                 s
             ),
         }
@@ -633,8 +633,15 @@ fn process_csv_input(
 
     let mut reader = csv::ReaderBuilder::new()
         .flexible(true)
-        .from_path(Path::new(input_path))
-        .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+        .from_reader(
+            if input_path == "-" {
+                Box::new(std::io::stdin()) as Box<dyn std::io::Read>
+            } else {
+                let file = std::fs::File::open(Path::new(input_path))
+                    .with_context(|| format!("Failed to open CSV input: {}", input_path))?;
+                Box::new(file) as Box<dyn std::io::Read>
+            },
+        );
 
     let headers = reader
         .headers()
@@ -656,10 +663,14 @@ fn process_csv_input(
         let record = match result {
             Ok(r) => r,
             Err(e) => {
+                let position = e
+                    .position()
+                    .map(|p| format!("line {}", p.line()))
+                    .unwrap_or_else(|| "unknown line".to_string());
                 results.push(CsvRowResult::error(
                     "",
                     "",
-                    &format!("CSV parse error: {}", e),
+                    &format!("CSV parse error at {}: {}", position, e),
                 ));
                 continue;
             }
@@ -1242,6 +1253,12 @@ pub fn run() -> Result<()> {
             };
 
             if input_format == "csv" {
+                if format != "text" {
+                    eprintln!(
+                        "Warning: --format {} is ignored in CSV input mode (output is always CSV)",
+                        format
+                    );
+                }
                 return process_csv_input(
                     file,
                     output_path.as_deref(),

@@ -36,10 +36,6 @@ cli.analyze.help_multi:
   en: "Parse all EXPLAIN blocks in file"
   zh-CN: "解析文件中所有 EXPLAIN 块"
 
-cli.analyze.help_csv:
-  en: "Export summary to CSV file (use '-' for stdout)"
-  zh-CN: "导出摘要到 CSV 文件（使用 '-' 输出到标准输出）"
-
 cli.analyze.help_lang:
   en: "Language (en, zh-CN, auto)"
   zh-CN: "语言 (en, zh-CN, auto)"
@@ -95,10 +91,6 @@ cli.explain.help_threshold:
 cli.explain.help_quiet:
   en: "Only show findings, no summary"
   zh-CN: "仅显示诊断结果，不显示摘要"
-
-cli.explain.help_csv:
-  en: "Export summary to CSV file (use '-' for stdout)"
-  zh-CN: "导出摘要到 CSV 文件（使用 '-' 输出到标准输出）"
 
 cli.explain.help_lang:
   en: "Language (en, zh-CN, auto)"

@@ -29,13 +29,13 @@ cargo build --workspace
 cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt
 
 # JSON output
-cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt -o json
+cargo run -p ogexplain-cli -- analyze tests/fixtures/03_hash_join.txt --format json
 
 # Heatmap output (requires EXPLAIN ANALYZE)
-cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o heatmap
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt --format heatmap
 
 # Waterfall output (requires EXPLAIN ANALYZE)
-cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt -o waterfall
+cargo run -p ogexplain-cli -- analyze tests/fixtures/10_complex_plan.txt --format waterfall
 
 # Read from stdin
 cat tests/fixtures/01_simple_seq_scan.txt | cargo run -p ogexplain-cli -- analyze -
@@ -85,12 +85,14 @@ ogexplain analyze <file> [options]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `-o, --output` | `text` | Output format: `text`, `json`, `heatmap`, `waterfall` |
+| `--format <format>` | `text` | Output format: `text`, `json`, `heatmap`, `waterfall` |
+| `-o, --output <path>` | — | Output file path (for CSV export in txt mode) |
+| `--input-format` | `txt` | Input format: `csv` (batch) or `txt` (single EXPLAIN text) |
+| `--output-columns` | `minimal` | CSV batch columns: `minimal`, `focused`, `full` |
 | `--threshold` | `info` | Minimum severity: `critical`, `warning`, `info` |
 | `-q, --quiet` | — | Show findings only, no plan tree |
 | `-v, --verbose` | — | Verbose output |
 | `--multi` | — | Enable multi-block parsing (mixed SQL+EXPLAIN files) |
-| `--csv <path>` | — | Export summary table to CSV (use `-` for stdout) |
 | `--lang` | `auto` | Language: `en`, `zh-CN`, or `auto` (system locale) |
 
 #### Subcommand: `explain` — DB-connected EXPLAIN (requires `db` feature)
@@ -109,7 +111,7 @@ ogexplain explain -s "SELECT * FROM orders"
 ogexplain explain -s "SELECT ..." --name prod
 
 # With all analysis options
-ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --threshold warning
+ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv --threshold warning
 ```
 
 > The `-d/--dsn` flag was removed. Connection info must come from a config file
@@ -126,10 +128,10 @@ ogexplain explain -s "SELECT ..." --name prod -o json --csv results.csv --thresh
 | `-s, --sql <sql>` | SQL statement to explain (inline string) |
 | `-f, --sql-file <path>` | File containing SQL statement |
 | `--analyze` | Run EXPLAIN ANALYZE (executes the query) |
-| `-o, --output <fmt>` | Output format: `text`, `json`, `heatmap`, `waterfall` |
+| `--format <fmt>` | Output format: `text`, `json`, `heatmap`, `waterfall` |
+| `-o, --output <path>` | Output file path (for CSV export) |
 | `--threshold <level>` | Minimum severity: `info`, `warning`, `critical` |
 | `-q, --quiet` | Show findings only |
-| `--csv <path>` | Export summary to CSV |
 | `--lang <lang>` | Language: `en`, `zh-CN`, `auto` |
 
 **Config file format** (reuses `~/.gaussdb-mcp.toml` from `gaussdb-mcp`):
