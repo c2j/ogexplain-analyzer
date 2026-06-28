@@ -115,7 +115,7 @@ pub fn any_property_contains(node: &PlanNode, needle: &str) -> bool {
     node.properties.iter().any(|p| p.value.contains(needle))
 }
 
-fn strip_cast_annotations(s: &str) -> String {
+pub fn strip_cast_annotations(s: &str) -> String {
     let re = regex::Regex::new(r"::[a-zA-Z_][a-zA-Z0-9_]*(\([^)]*\))?")
         .expect("valid strip_cast_annotations regex");
     re.replace_all(s, "").to_string()
@@ -175,7 +175,7 @@ pub fn extract_column_from_filter(filter: &str) -> Option<String> {
     // After stripping ::cast annotations, closing parens may remain
     // between the column name and `=`, e.g. `(status) = 'ready'`.
     let re = regex::Regex::new(
-        r"(?:^|[\s(,])([a-zA-Z_][a-zA-Z0-9_]*)\)*\s*=\s*(?:'[^']*'|\d+(?:\.\d+)?)"
+        r"(?:^|[\s(,])([a-zA-Z_][a-zA-Z0-9_]*)\)*\s*=\s*(?:'[^']*'|\d+(?:\.\d+)?)",
     )
     .expect("valid extract_column_from_filter regex");
     re.captures(cleaned)

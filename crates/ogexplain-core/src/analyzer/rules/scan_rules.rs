@@ -3,7 +3,9 @@ use crate::model::{NodeType, PlanNode};
 use super::super::config::DiagnosticConfig;
 use super::super::context::PlanContext;
 use super::super::report::{DiagnosticCategory, Finding, Severity};
-use super::utils::{any_property_contains, effective_scan_size, get_property_value};
+use super::utils::{
+    any_property_contains, effective_scan_size, get_property_value, strip_cast_annotations,
+};
 use super::{make_finding, DiagnosticRule};
 
 pub struct LargeTableFullScan {
@@ -216,14 +218,17 @@ impl DiagnosticRule for FilterWithoutIndex {
 }
 
 fn extract_filter_columns(node: &PlanNode) -> Option<Vec<String>> {
-    let filter = get_property_value(node, "Filter")?;
+    let filter_raw = get_property_value(node, "Filter")?;
+    let filter = strip_cast_annotations(filter_raw);
     // Match: col = value, col != value, col > value, col IS NULL, col BETWEEN
-    // Also match col = 'value' with optional parentheses around the expression
+    // Also match col = 'value' with optional parentheses around the expression.
+    // After strip_cast_annotations, closing parens may remain between column
+    // name and operator, so we allow \) *zero or more before \s*.
     let re = regex::Regex::new(
-        r"\(?(\w+)\s*(?:=|!=|<>|<|>|<=|>=|~~|!~~)\s*(?:'[^']*'|\d+(?:\.\d+)?)|\(?(\w+)\s+IS\s+NULL|\(?(\w+)\s+BETWEEN"
+        r"\(?(\w+)\)*\s*(?:=|!=|<>|<|>|<=|>=|~~|!~~)\s*(?:'[^']*'|\d+(?:\.\d+)?)|\(?(\w+)\)*\s+IS\s+NULL|\(?(\w+)\)*\s+BETWEEN"
     ).ok()?;
     let cols: Vec<String> = re
-        .captures_iter(filter)
+        .captures_iter(&filter)
         .filter_map(|cap| {
             cap.get(1)
                 .or_else(|| cap.get(2))
