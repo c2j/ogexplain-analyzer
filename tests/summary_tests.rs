@@ -92,6 +92,7 @@ fn summary_with_complexity_input() {
         gauss_advanced_feature: Some(2),
         gauss_extension: Some(1),
         gauss_tags: vec!["single-table".to_string()],
+        template_id: None,
     };
     let summary = SummaryRow::compute(&plan, &report, Some(&complexity));
 
