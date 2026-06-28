@@ -76,15 +76,12 @@ impl DiagnosticRule for HighPeakMemory {
         None
     }
     fn check_global(&self, plan: &crate::model::ExplainPlan, _stats: &GlobalStats) -> Vec<Finding> {
-        let summary = match &plan.summary {
-            Some(s) => s,
-            None => return Vec::new(),
-        };
-        let peak = match summary.peak_memory_kb {
-            Some(v) => v as f64,
-            None => return Vec::new(),
-        };
-        if peak <= self.threshold {
+        let peak = match &plan.summary {
+            Some(s) => s.peak_memory_kb.map(|v| v as f64),
+            None => None,
+        }
+        .unwrap_or_else(|| find_peak_memory_in_tree(&plan.root));
+        if peak <= 0.0 || peak <= self.threshold {
             return Vec::new();
         }
 
@@ -116,6 +113,21 @@ impl DiagnosticRule for HighPeakMemory {
             evidence: None,
         }]
     }
+}
+
+fn find_peak_memory_in_tree(node: &PlanNode) -> f64 {
+    let mut max = node
+        .structured_props
+        .as_ref()
+        .and_then(|p| p.peak_memory_kb)
+        .unwrap_or(0.0);
+    for child in &node.children {
+        let child_max = find_peak_memory_in_tree(child);
+        if child_max > max {
+            max = child_max;
+        }
+    }
+    max
 }
 
 fn find_highest_memory_node(node: &PlanNode) -> Option<(String, i64, Option<String>)> {

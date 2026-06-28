@@ -82,11 +82,39 @@ impl NodeProperties {
         }
 
         if any_found {
+            // If peak_memory_kb is still None, try deriving from sibling fields.
+            if props.peak_memory_kb.is_none() {
+                // Fallback 1: Hash Memory Usage (e.g., "4096kB" from Buckets line)
+                if let Some(ref mem) = props.hash_memory_usage {
+                    props.peak_memory_kb = parse_memory_to_f64(mem);
+                }
+                // Fallback 2: Sort disk spill (proxy — spilled sort used at least this much memory)
+                if props.peak_memory_kb.is_none() {
+                    if let Some(ref disk) = props.sort_disk {
+                        props.peak_memory_kb = parse_memory_to_f64(disk);
+                    }
+                }
+            }
             Some(props)
         } else {
             None
         }
     }
+}
+
+fn parse_memory_to_f64(s: &str) -> Option<f64> {
+    let s = s.trim();
+    if let Some(kb) = s.strip_suffix("kB") {
+        return kb.trim().parse::<f64>().ok();
+    }
+    if let Some(mb) = s.strip_suffix("MB") {
+        return mb.trim().parse::<f64>().ok().map(|v| v * 1024.0);
+    }
+    if let Some(gb) = s.strip_suffix("GB") {
+        return gb.trim().parse::<f64>().ok().map(|v| v * 1024.0 * 1024.0);
+    }
+    // Plain number — assume kB
+    s.parse::<f64>().ok()
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

@@ -1,6 +1,5 @@
 ---
 source: crates/ogexplain-core/tests/integration_tests.rs
-assertion_line: 50
 expression: plan
 ---
 root:
@@ -25,6 +24,7 @@ root:
   structured_props:
     sort_method: external merge
     sort_disk: 48kB
+    peak_memory_kb: 48
   children:
     - node_type:
         type: SeqScan
