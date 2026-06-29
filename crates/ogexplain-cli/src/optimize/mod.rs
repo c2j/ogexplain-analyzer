@@ -4,6 +4,7 @@
 //! converge. See `.sisyphus/plans/2026-06-28-closed-loop-pilot.md` Phase 4.
 
 pub mod mapper;
+pub mod verify;
 
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -21,12 +22,24 @@ pub struct OptimizeArgs {
     pub config_path: Option<std::path::PathBuf>,
     pub name: Option<String>,
     pub schema_path: Option<String>,
+    /// Directory of `.sql` DDL files (alternative to `schema_path` JSON).
+    /// Mutually exclusive with `schema_path`. Supports PRIMARY KEY constraints.
+    pub sql_dir: Option<String>,
     pub metamorphosis_path: String,
     pub max_iterations: usize,
     pub analyze_enabled: bool,
     pub skip_stats_check: bool,
     pub format: String,
     pub output: Option<String>,
+    // ↓ NEW (Issue #41 — verification integration)
+    /// If true, skip the metamorphosis verify step entirely (Week 1 behavior).
+    pub skip_verify: bool,
+    /// Verification engine: "qed" or "verieql". See `VerifyEngine::from_str`.
+    pub verify_engine: String,
+    /// Per-rewrite verification subprocess timeout (seconds).
+    pub verify_timeout: u64,
+    /// VeriEQL bound parameter (max rows per table in counterexample search).
+    pub verify_bound: usize,
 }
 
 #[derive(Debug)]
@@ -38,6 +51,9 @@ struct IterationRecord {
     snapshot_after: MetricsSnapshot,
     rewritten_sql: Option<String>,
     notes: Vec<String>,
+    /// Result of metamorphosis verify on this iteration's rewrite, if any.
+    /// `None` = no verification performed (e.g. --skip-verify, or rewrite produced nothing).
+    verification: Option<verify::VerifyResult>,
 }
 
 pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
@@ -137,9 +153,84 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
                 snapshot_after: curr_snapshot.clone(),
                 rewritten_sql: None,
                 notes: vec!["No rewrite produced".into()],
+                verification: None,
             });
             break;
         };
+
+        // ── Verification step (Issue #41) ─────────────────────────────────
+        // After the rewrite is produced but before accepting it into the SQL
+        // history, optionally verify semantic equivalence via metamorphosis.
+        let verification: Option<verify::VerifyResult> = if args.skip_verify {
+            // User explicitly opted out — Week 1 behavior.
+            None
+        } else {
+            // Parse the user's --verify-engine choice.
+            let engine: verify::VerifyEngine = args.verify_engine
+                .parse()
+                .unwrap_or(verify::VerifyEngine::Qed);
+
+            // Convert schema_path/sql_dir: Option<String> → Option<SchemaSource>.
+            let schema_source = args.schema_path
+                .as_deref()
+                .map(|path| verify::SchemaSource::Json(std::path::Path::new(path)))
+                .or_else(|| args.sql_dir
+                    .as_deref()
+                    .map(|dir| verify::SchemaSource::SqlDir(std::path::Path::new(dir))));
+
+            // Call metamorphosis verify. Errors (subprocess failure, timeout)
+            // are converted to VerifyStatus::Unknown so we don't fail the whole
+            // optimize run — the user can inspect the caveat in the report.
+            let result = match verify::call_metamorphosis_verify(
+                std::path::Path::new(&args.metamorphosis_path),
+                &current_sql,
+                &rewritten,
+                schema_source,
+                engine,
+                args.verify_bound,
+                args.verify_timeout,
+            ) {
+                Ok(r) => r,
+                Err(e) => verify::VerifyResult {
+                    engine,
+                    status: verify::VerifyStatus::Unknown {
+                        reason: format!("metamorphosis verify error: {e}"),
+                    },
+                    elapsed_ms: None,
+                    original_sql: current_sql.clone(),
+                    rewritten_sql: rewritten.clone(),
+                    raw_output: None,
+                },
+            };
+
+            // Check the decision: reject and stop, or accept (possibly with caveat).
+            match verify::decide_verification_outcome(&result) {
+                verify::VerificationDecision::Reject { counterexample } => {
+                    // Record this iteration with the failed verification, then stop.
+                    history.push(IterationRecord {
+                        iteration,
+                        rule_id: finding.rule_id.clone(),
+                        action: action.clone(),
+                        snapshot_before: prev_snapshot.clone(),
+                        snapshot_after: curr_snapshot.clone(),
+                        rewritten_sql: Some(rewritten.clone()),
+                        notes: vec![format!(
+                            "Verification rejected: {}",
+                            counterexample.as_deref().unwrap_or("(no counterexample)")
+                        )],
+                        verification: Some(result),
+                    });
+                    return finalize(
+                        &history,
+                        StopReason::VerificationFailed { counterexample },
+                        &current_sql,
+                        &args,
+                    );
+                }
+                verify::VerificationDecision::Accept => Some(result),
+            }
+        };
+        // ── End verification step ─────────────────────────────────────────
 
         let rewritten_hash = hash_sql(&rewritten);
         if sql_history.contains(&rewritten_hash) {
@@ -155,6 +246,7 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
             snapshot_after: curr_snapshot.clone(),
             rewritten_sql: Some(rewritten.clone()),
             notes: Vec::new(),
+            verification,
         });
 
         prev_snapshot = Some(curr_snapshot);
@@ -184,6 +276,14 @@ fn finalize(
                         "critical_before": r.snapshot_before.as_ref().map(|s| s.critical_count),
                         "critical_after": r.snapshot_after.critical_count,
                         "rewritten_sql": r.rewritten_sql,
+                        // ↓ NEW (Issue #41)
+                        "verification": r.verification.as_ref().map(|v| {
+                            serde_json::json!({
+                                "engine": v.engine,
+                                "status": &v.status,
+                                "elapsed_ms": v.elapsed_ms,
+                            })
+                        }),
                     })
                 })
                 .collect();
@@ -233,6 +333,37 @@ fn render_report(history: &[IterationRecord], reason: &StopReason, final_sql: &s
                 "Critical findings: {} → {}\n",
                 before.critical_count, after.critical_count
             ));
+        }
+        // Verification status (Issue #41)
+        match &record.verification {
+            Some(v) => match &v.status {
+                verify::VerifyStatus::Equivalent => {
+                    out.push_str(&format!(
+                        "Verification: ✓ {} Equivalent ({}ms)\n",
+                        v.engine, v.elapsed_ms.unwrap_or(0)
+                    ));
+                }
+                verify::VerifyStatus::NotEquivalent { counterexample } => {
+                    out.push_str(&format!("Verification: ✗ {} NotEquivalent\n", v.engine));
+                    if let Some(ce) = counterexample {
+                        for line in ce.lines() {
+                            out.push_str(&format!("  {}\n", line));
+                        }
+                    }
+                }
+                verify::VerifyStatus::Unknown { reason } => {
+                    out.push_str(&format!("Verification: ? {} Unknown: {}\n", v.engine, reason));
+                }
+                verify::VerifyStatus::Timeout { seconds } => {
+                    out.push_str(&format!("Verification: ⏱ {} Timeout after {}s\n", v.engine, seconds));
+                }
+                verify::VerifyStatus::Skipped { reason } => {
+                    out.push_str(&format!("Verification: ⏭ {} Skipped ({:?})\n", v.engine, reason));
+                }
+            },
+            None => {
+                out.push_str("Verification: (not performed)\n");
+            }
         }
         for note in &record.notes {
             out.push_str(&format!("Note: {}\n", note));
@@ -394,5 +525,47 @@ mod tests {
         let report = render_report(&[], &StopReason::Success, "SELECT 1");
         assert!(report.contains("Iterations: 0"));
         assert!(report.contains("SELECT 1"));
+    }
+
+    #[test]
+    fn render_report_includes_verification_field() {
+        use crate::optimize::verify::{VerifyEngine, VerifyResult, VerifyStatus};
+
+        let verified_record = IterationRecord {
+            iteration: 1,
+            rule_id: "SUBQ-001".into(),
+            action: RemediationAction::Log,
+            snapshot_before: None,
+            snapshot_after: MetricsSnapshot::default(),
+            rewritten_sql: Some("SELECT 1".into()),
+            notes: Vec::new(),
+            verification: Some(VerifyResult {
+                engine: VerifyEngine::Qed,
+                status: VerifyStatus::Equivalent,
+                elapsed_ms: Some(22),
+                original_sql: "SELECT 1".into(),
+                rewritten_sql: "SELECT 1".into(),
+                raw_output: None,
+            }),
+        };
+
+        let report = render_report(&[verified_record], &StopReason::Success, "SELECT 1");
+        assert!(report.contains("Verification: ✓ qed Equivalent (22ms)"),
+            "report must include verification line; got:\n{report}");
+
+        // And the None case
+        let unverified_record = IterationRecord {
+            iteration: 2,
+            rule_id: "SUBQ-001".into(),
+            action: RemediationAction::Log,
+            snapshot_before: None,
+            snapshot_after: MetricsSnapshot::default(),
+            rewritten_sql: None,
+            notes: Vec::new(),
+            verification: None,
+        };
+        let report2 = render_report(&[unverified_record], &StopReason::Success, "SELECT 1");
+        assert!(report2.contains("Verification: (not performed)"),
+            "report must show not-performed for None; got:\n{report2}");
     }
 }

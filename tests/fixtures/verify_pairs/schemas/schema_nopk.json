@@ -1,0 +1,17 @@
+{
+  "users": {
+    "columns": {
+      "id": "INT",
+      "name": "VARCHAR(100)",
+      "email": "VARCHAR(255)"
+    }
+  },
+  "orders": {
+    "columns": {
+      "id": "INT",
+      "uid": "INT",
+      "amount": "NUMERIC(10,2)",
+      "created_at": "TIMESTAMP"
+    }
+  }
+}

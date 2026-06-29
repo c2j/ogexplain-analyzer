@@ -20,6 +20,7 @@ csv = "1"
 rust-i18n = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "2"
 gaussdb = { git = "https://github.com/c2j/rust-opengauss", tag = "gaussdb-mcp-v0.5.3", features = ["sync", "config", "tls-native-tls"], optional = true }
 # Direct optional deps so we can toggle `*/vendored` for static musl builds.
 # Each pulls the same version the relevant transitive dep already resolves to.

@@ -11,6 +11,7 @@ full = ["cli", "tui", "mcp"]
 cli = ["dep:ogexplain-cli", "dep:anyhow"]
 tui = ["dep:ogexplain-tui", "dep:color-eyre"]
 mcp = ["dep:ogexplain-mcp", "ogexplain-cli?/mcp"]
+db = ["ogexplain-cli/db"]
 live-db = []
 
 [lib]
