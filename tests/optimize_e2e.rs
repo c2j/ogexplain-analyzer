@@ -41,7 +41,7 @@ fn fixture_21_subq_001_filtered_by_quality_gate() {
     );
 }
 
-/// Verify all Track A rule_ids map to Rewrite actions (or UseBuiltinRewrite).
+/// Verify all Track A rule_ids map to Rewrite actions.
 #[test]
 fn track_a_rules_map_to_rewrite_actions() {
     let track_a = [
@@ -50,6 +50,7 @@ fn track_a_rules_map_to_rewrite_actions() {
         ("TYPE-001", vec!["add-explicit-cast"]),
         ("TYPE-004", vec!["suggest-trgm-index"]),
         ("AGG-001", vec!["rewrite-group-agg"]),
+        ("SUBQ-006", vec!["subquery-to-join"]),
     ];
     for (rule_id, expected_rules) in track_a {
         let action = map_diagnostic(rule_id);
@@ -67,10 +68,6 @@ fn track_a_rules_map_to_rewrite_actions() {
             ),
         }
     }
-    assert!(matches!(
-        map_diagnostic("SUBQ-006"),
-        RemediationAction::UseBuiltinRewrite
-    ));
 }
 
 /// Verify Track B/C/D rules map to advisory actions, not Rewrite.
@@ -197,7 +194,7 @@ fn full_pipeline_fixture_10_filters_correctly() {
         assert!(
             matches!(
                 action,
-                RemediationAction::Rewrite { .. } | RemediationAction::UseBuiltinRewrite
+                RemediationAction::Rewrite { .. }
             ),
             "filter_rewritable must only return Rewrite/UseBuiltinRewrite findings, got {:?} for {}",
             action,
