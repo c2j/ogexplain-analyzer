@@ -1,0 +1,18 @@
+rule_id             = "MEM-001"
+case_name           = "mem-001-sort-spill-to-disk"
+expect_fired        = true
+expect_min_severity = "critical"
+
+[dataset]
+source            = "supplemental"
+supplemental_file = "tests/fixtures/05_sort_external_merge.txt"
+
+[side_effects]
+requires_set         = {}
+modifies_data        = false
+requires_delete_stats = false
+
+[verification]
+live_db_verify   = false
+weak_signal      = false
+skip_live_reason = "supplemental EXPLAIN from fixture 05 (hand-written); no live OG database with events table for replay"

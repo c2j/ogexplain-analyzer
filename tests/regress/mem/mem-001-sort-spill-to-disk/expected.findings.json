@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "ogagila_commit": "supplemental",
+    "ogagila_version": "supplemental",
+    "ogagila_query_ids": [],
+    "ogexplain_version": "0.4.5",
+    "authored_at": "2026-06-29",
+    "author": "c2j",
+    "review_notes": "Fixture tests/fixtures/05_sort_external_merge.txt is a hand-authored EXPLAIN ANALYZE output: Sort -> Seq Scan on events with estimated rows=1000, Sort Method 'external merge  Disk: 48kB', Sort Key 'created_at'. MEM-001 fires on the Sort node because is_sort_node(Sort)=true and 'external merge' contains 'external'. extract_disk_size('external merge  Disk: 48kB') returns '48kB'. detail template 'Sort Method: %{value}' becomes 'Sort Method: external merge  Disk: 48kB'; with Sort Key appended: ', Sort Key: created_at'. suggestion template with disk='48kB' produces 'SET work_mem to a higher value; sort spilled to disk (48kB), consider creating an index on the sort key to eliminate sorting'. SCAN-001 does NOT fire (1000 rows < 10000 threshold, and Sort is in the legitimate-ancestor allowlist). SCAN-004 does NOT fire (no Filter property). SORT-003 does NOT fire (single Sort, no Sort descendant). GEN-001 does NOT fire (depth=2 <= threshold 10). MEM-004 does NOT fire (no Peak Memory summary line or Memory Usage property). source=supplemental because no ogagila v3 query produces an external-merge Sort as the pre-recorded EXPLAIN material; all four MEM-001-targeted queries (Q24-Q27) use top-N heapsort with LIMIT and never spill to disk."
+  },
+
+  "findings": [
+    {
+      "rule_id": "MEM-001",
+      "must_fire": true,
+      "min_severity": "critical",
+      "category": "MemoryUsage",
+      "detail_must_contain": ["Sort Method", "external merge", "created_at", "48kB"],
+      "detail_must_not_contain": ["Index", "quicksort", "top-N"],
+      "suggestion_must_contain": ["work_mem", "48kB", "sort key"]
+    }
+  ],
+
+  "anti_findings": [
+    {
+      "rule_id": "SCAN-001",
+      "must_not_fire": true,
+      "reason": "Seq Scan on events has estimated rows=1000 (< large_table_rows default 10000). Additionally, Sort is in the legitimate full-scan ancestor allowlist (scan_rules.rs:90)."
+    },
+    {
+      "rule_id": "SCAN-004",
+      "must_not_fire": true,
+      "reason": "SCAN-004 requires a Filter property on the scan node. The Seq Scan in fixture 05 has no Filter."
+    },
+    {
+      "rule_id": "SORT-003",
+      "must_not_fire": true,
+      "reason": "SORT-003 fires when a Sort node has a Sort descendant. Fixture 05 has exactly one Sort node, no children Sorts."
+    },
+    {
+      "rule_id": "GEN-001",
+      "must_not_fire": true,
+      "reason": "GEN-001 (PlanTooDeep) fires when plan depth exceeds max_plan_depth (default 10). Fixture 05 depth = 2 (Sort -> Seq Scan)."
+    }
+  ]
+}
