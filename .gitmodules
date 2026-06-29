@@ -4,3 +4,6 @@
 [submodule "lib/ogagila"]
 	path = lib/ogagila
 	url = git@github.com:c2j/ogagila.git
+[submodule "lib/metamorphosis"]
+	path = lib/metamorphosis
+	url = git@github.com:c2j/metamorphosis.git

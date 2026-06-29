@@ -42,6 +42,8 @@ color-eyre = { version = "0.6", optional = true }
 
 [dev-dependencies]
 ogexplain-cli = { path = "crates/ogexplain-cli", features = ["db", "mcp"] }
+ogexplain-optimizer = { path = "crates/ogexplain-optimizer" }
+metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-qed" }
 testcontainers = "0.27"
 tokio = { version = "1", features = ["rt", "macros", "time"] }
 serde = { version = "1", features = ["derive"] }
@@ -56,6 +58,7 @@ members = [
     "crates/ogexplain-tui",
     "crates/ogsql-complexity",
     "crates/ogexplain-mcp",
+    "crates/ogexplain-optimizer",
 ]
 resolver = "2"
 
