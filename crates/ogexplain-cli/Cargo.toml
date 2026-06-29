@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 ogexplain-core = { path = "../ogexplain-core" }
+ogexplain-optimizer = { path = "../ogexplain-optimizer" }
 ogsql-complexity = { path = "../ogsql-complexity" }
 clap = { version = "4", features = ["derive", "cargo"] }
 colored = "3"

@@ -45,8 +45,8 @@ cli.explain.about:
   zh-CN: "连接数据库并获取 SQL 的执行计划"
 
 cli.explain.help_config:
-  en: "Path to config file (default: ~/.gaussdb-mcp.toml)"
-  zh-CN: "配置文件路径（默认: ~/.gaussdb-mcp.toml）"
+  en: "Path to config file (default: ~/.gaussdb.toml)"
+  zh-CN: "配置文件路径（默认: ~/.gaussdb.toml）"
 
 cli.explain.help_name:
   en: "Connection name from config file (for multi-connection setups)"
