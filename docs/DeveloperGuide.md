@@ -21,12 +21,13 @@ For user-facing usage, see the [README](../README.md). For contribution workflow
 
 ### 1.1 Workspace Structure
 
-ogexplain-analyzer is a Cargo workspace with five crates, all sharing version `0.2.0` and edition `2021`:
+ogexplain-analyzer is a Cargo workspace with six crates, all sharing version `0.2.0` and edition `2021`:
 
 ```
 ogexplain-analyzer/                 # Workspace root (virtual manifest)
 ├── crates/
 │   ├── ogexplain-core/             # Pure library — zero IO/UI deps
+│   ├── ogexplain-optimizer/        # Library — closed-loop optimizer (orchestrator + converge + rewrite/verify)
 │   ├── ogexplain-cli/              # Binary: ogexplain (clap v4 subcommands)
 │   ├── ogexplain-tui/              # Binary: ogexplain-tui (ratatui + Elm/TEA)
 │   ├── ogexplain-mcp/              # Binary: ogexplain-mcp (rmcp 1.7, stdio)
@@ -34,7 +35,8 @@ ogexplain-analyzer/                 # Workspace root (virtual manifest)
 ├── tests/
 │   ├── fixtures/                   # 31 EXPLAIN TEXT fixture files
 │   ├── integration_tests.rs        # Parser insta snapshot tests
-│   └── analyzer_tests.rs           # Diagnostic rule tests
+│   ├── analyzer_tests.rs           # Diagnostic rule tests
+│   └── regress_optimize/           # Optimizer regression test cases
 └── docs/
 ```
 

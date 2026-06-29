@@ -12,8 +12,9 @@
   - [3.1 analyze 子命令](#31-analyze-子命令)
   - [3.2 explain 子命令](#32-explain-子命令)
   - [3.3 mcp 子命令](#33-mcp-子命令)
-  - [3.4 管道与标准输入](#34-管道与标准输入)
-  - [3.5 国际化（i18n）](#35-国际化i18n)
+  - [3.4 optimize 子命令（闭环优化）](#34-optimize-子命令闭环优化)
+  - [3.5 管道与标准输入](#35-管道与标准输入)
+  - [3.6 国际化（i18n）](#36-国际化i18n)
 - [4. TUI 交互式界面](#4-tui-交互式界面)
   - [4.1 启动模式](#41-启动模式)
   - [4.2 界面布局](#42-界面布局)
@@ -143,7 +144,7 @@ ogexplain-tui --version
 
 ## 3. CLI 命令行使用
 
-CLI 工具名为 `ogexplain`，提供三个子命令：`analyze`、`explain` 和 `mcp`。
+CLI 工具名为 `ogexplain`，提供四个子命令：`analyze`、`explain`、`optimize` 和 `mcp`。
 
 ```bash
 ogexplain <子命令> [选项]
@@ -267,13 +268,13 @@ ogexplain analyze file.txt --csv - | head -1
 ogexplain explain -s "<SQL 语句>" [选项]
 ```
 
-连接信息从配置文件（`--config <path>`，默认 `~/.gaussdb-mcp.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量加载。已移除 `-d/--dsn` 选项，避免凭据出现在命令行 / shell 历史 / `ps` 输出中。
+连接信息从配置文件（`--config <path>`，默认 `~/.gaussdb.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量加载。已移除 `-d/--dsn` 选项，避免凭据出现在命令行 / shell 历史 / `ps` 输出中。
 
 #### 参数说明
 
 | 参数 | 说明 |
 |------|------|
-| `--config <path>` | TOML 配置文件路径（默认：`~/.gaussdb-mcp.toml`） |
+| `--config <path>` | TOML 配置文件路径（默认：`~/.gaussdb.toml`） |
 | `--name <name>` | 多连接配置中的命名连接 |
 | `-s, --sql` | 内联 SQL 语句 |
 | `-f, --sql-file` | SQL 文件路径 |
@@ -289,7 +290,7 @@ ogexplain explain -s "<SQL 语句>" [选项]
 **基本 EXPLAIN（仅查看计划，不执行查询）：**
 
 ```bash
-# 使用默认配置路径 ~/.gaussdb-mcp.toml
+# 使用默认配置路径 ~/.gaussdb.toml
 ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
 
 # 显式指定配置文件
@@ -329,7 +330,7 @@ ogexplain explain \
 
 **配置文件格式**
 
-`~/.gaussdb-mcp.toml`（与 `gaussdb-mcp` 工具共享）支持扁平单连接或 `[[connections]]` 多连接形式：
+`~/.gaussdb.toml`（与 `gaussdb-mcp` 工具共享）支持扁平单连接或 `[[connections]]` 多连接形式：
 
 ```toml
 # 扁平单连接
@@ -357,7 +358,105 @@ ogexplain mcp
 
 MCP 服务器的详细使用方法请参见[第 6 章](#6-mcp-与-ai-助手集成)。
 
-### 3.4 管道与标准输入
+### 3.4 optimize 子命令（闭环优化）
+
+`optimize` 子命令运行基于 [metamorphosis](https://github.com/c2j/metamorphosis) 的迭代闭环 SQL 优化管道。使用库 API（而非子进程）进行 SQL 重写和语义等价验证。
+
+**管道**：`EXPLAIN → 诊断 → 映射到重写规则 → metamorphosis 重写 → QED/VeriEQL 验证 → 重新 EXPLAIN → 收敛`
+
+```bash
+# 构建时已默认启用数据库支持
+cargo build -p ogexplain-cli
+
+# 优化 SQL 语句（内联）
+ogexplain optimize -s "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = o.uid)"
+
+# 从文件读取
+ogexplain optimize -f query.sql
+
+# 指定命名连接和 Schema 文件（上下文感知重写）
+ogexplain optimize -s "SELECT ..." --name ogagila --schema schema.json
+
+# 限制迭代次数并跳过验证（快速迭代）
+ogexplain optimize -s "SELECT ..." --max-iterations 3 --skip-verify
+
+# JSON 输出
+ogexplain optimize -s "SELECT ..." --format json -o result.json
+```
+
+#### 参数说明
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `-s, --sql <sql>` | — | 要优化的 SQL 语句（内联字符串） |
+| `-f, --sql-file <path>` | — | 包含 SQL 语句的文件 |
+| `--config <path>` | `~/.gaussdb.toml` | DB 配置文件路径 |
+| `--name <name>` | — | 配置文件中的命名连接 |
+| `--schema <path>` | — | Schema JSON 文件（`{table: {col: type}}`）用于重写上下文 |
+| `--sql-dir <path>` | — | `.sql` DDL 文件目录（替代 `--schema`） |
+| `--max-iterations <n>` | `10` | 强制停止前的最大迭代次数 |
+| `--skip-verify` | — | 跳过语义等价验证 |
+| `--verify-engine <name>` | `qed` | 验证引擎：`qed`（形式化 Z3 证明）或 `verieql`（有界检查） |
+| `--verify-timeout <s>` | `60` | 每次重写的验证超时（秒） |
+| `--verify-bound <n>` | `2` | VeriEQL 边界参数（每个表的最大行数） |
+| `--format <fmt>` | `text` | 输出格式：`text`、`json` |
+| `-o, --output <path>` | — | 输出文件路径 |
+| `-v, --verbose` | — | 详细输出 |
+
+#### 收敛条件
+
+当满足以下任一条件时，优化循环停止：
+
+| 停止原因 | 说明 |
+|----------|------|
+| **Success** | 所有关键发现已解决（critical_count = 0） |
+| **FixedPoint** | 重写后的 SQL 与之前已见过的 SQL 相同 |
+| **NoRewritableFindings** | 没有诊断发现可以映射到重写规则 |
+| **Regression** | 成本退化超过阈值（`regression_threshold_pct` = 10%） |
+| **Plateau** | 连续 `max_plateau_count`（3）次迭代改进低于 `min_improvement_pct`（5%） |
+| **MaxIterations** | 达到 `--max-iterations` |
+| **VerificationFailed** | QED/VeriEQL 验证不通过 |
+
+#### 输出示例（text 格式）
+
+```
+=== 优化报告 ===
+停止原因: FixedPoint
+迭代次数: 1
+
+--- 第 1 次迭代 ---
+触发规则: SUBQ-001 (重写规则: ["subquery-to-join"])
+成本: 500.00 → 200.00 (-60.0%)
+关键发现: 2 → 0
+验证: (未执行)
+
+=== 最终 SQL ===
+SELECT o.id, o.amount FROM orders AS o INNER JOIN users AS u ON u.id = o.user_id AND u.active = 1
+```
+
+#### Schema 格式
+
+`--schema` 选项为 metamorphosis 提供表结构信息，用于上下文感知重写（如 `SELECT *` 展开）：
+
+```json
+{
+  "users": { "id": "INTEGER", "name": "VARCHAR(100)", "email": "VARCHAR(255)" },
+  "orders": { "id": "INTEGER", "user_id": "INTEGER", "amount": "NUMERIC(10,2)" }
+}
+```
+
+支持 `primary_key`（增强 QED 验证准确性）：
+
+```json
+{
+  "users": {
+    "columns": { "id": "INTEGER", "name": "VARCHAR(100)" },
+    "primary_key": ["id"]
+  }
+}
+```
+
+### 3.5 管道与标准输入
 
 `analyze` 子命令支持从标准输入读取数据（文件路径参数使用 `-`）：
 
@@ -372,7 +471,7 @@ gsql -d mydb -c "EXPLAIN SELECT * FROM orders" | ogexplain analyze -
 gsql -d mydb -c "EXPLAIN ANALYZE SELECT * FROM orders" | ogexplain analyze - -o json
 ```
 
-### 3.5 国际化（i18n）
+### 3.6 国际化（i18n）
 
 ogexplain-analyzer 支持中文（`zh-CN`）和英文（`en`）两种输出语言。
 
@@ -929,7 +1028,7 @@ CSV 文件包含 43 列，涵盖：SQL 预览、复杂度评分、计划指标�
 直接连接数据库，执行 EXPLAIN ANALYZE 并一步完成分析：
 
 ```bash
-# 基本用法（连接信息从 ~/.gaussdb-mcp.toml 读取）
+# 基本用法（连接信息从 ~/.gaussdb.toml 读取）
 ogexplain explain \
     -s "SELECT * FROM orders WHERE status = 'pending'" \
     --analyze
@@ -946,7 +1045,35 @@ gsql -d mydb -c "EXPLAIN ANALYZE SELECT * FROM orders WHERE status = 'pending'" 
 
 > **注意：** `EXPLAIN ANALYZE` 会实际执行查询。对于 `SELECT` 语句通常安全，但避免对 `UPDATE`/`DELETE` 使用 `--analyze`，除非在测试环境中。
 
-### 7.5 TUI 交互式分析
+### 7.5 闭环 SQL 优化
+
+基于诊断发现迭代重写 SQL，直到收敛：
+
+```bash
+# 优化子查询 — metamorphosis 将 EXISTS 重写为 JOIN
+ogexplain optimize \
+    -s "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = o.uid)" \
+    --name ogagila
+
+# 带 Schema 的上下文感知重写 + QED 验证
+ogexplain optimize \
+    -s "SELECT * FROM orders WHERE film_id IN (SELECT film_id FROM film_actor)" \
+    --schema schema.json --verify-engine qed --name ogagila
+
+# 快速迭代模式 — 跳过验证、限制迭代次数
+ogexplain optimize \
+    -f query.sql --max-iterations 3 --skip-verify --name ogagila
+```
+
+**典型工作流程：**
+
+1. 编写 SQL 查询语句
+2. 运行 `ogexplain optimize -s "你的 SQL" --name <连接>`
+3. 查看优化报告 — 触发了哪些规则、重写结果如何
+4. 对比重写前后的成本变化
+5. 可选择启用验证（`--verify-engine qed`）获取形式化等价证明
+
+### 7.7 TUI 交互式分析
 
 使用 TUI 进行交互式执行计划探索：
 
@@ -968,7 +1095,7 @@ ogexplain-tui
 6. 如果有多个计划，按 `N`/`P` 切换
 7. 按 `q` 退出
 
-### 7.6 AI 辅助分析
+### 7.8 AI 辅助分析
 
 通过 MCP 服务器，在 AI 助手中获取智能分析：
 
