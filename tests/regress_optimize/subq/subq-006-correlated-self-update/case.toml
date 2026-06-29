@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-006"
+case_name  = "subq-006-correlated-self-update"
+description = "UPDATE rental SET return_date = (SELECT MAX...) WHERE return_date IS NULL — should trigger SUBQ-006 rewrite"
+
+[config]
+max_iterations = 5
+skip_verify    = true

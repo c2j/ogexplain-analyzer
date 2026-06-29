@@ -1,0 +1,9 @@
+Update on film f  (cost=0.00..150.00 rows=50 width=40)
+  ->  Hash Join  (cost=0.00..120.00 rows=50 width=40)
+        Hash Cond: (f.film_id = fa.film_id)
+        ->  Seq Scan on film f  (cost=0.00..80.00 rows=1000 width=40)
+        ->  Hash  (cost=0.00..30.00 rows=50 width=4)
+              ->  HashAggregate  (cost=0.00..30.00 rows=50 width=4)
+                    Group Key: film_actor.film_id
+                    ->  Seq Scan on film_actor fa  (cost=0.00..20.00 rows=100 width=4)
+                          Filter: (actor_id < 5)

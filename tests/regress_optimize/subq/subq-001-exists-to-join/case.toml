@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-001"
+case_name  = "subq-001-exists-to-join"
+description = "EXISTS subquery should be rewritten to JOIN by metamorphosis"
+
+[config]
+max_iterations = 5
+skip_verify    = true

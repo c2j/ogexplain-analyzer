@@ -1,0 +1,3 @@
+Aggregate  (cost=0.00..80.00 rows=1 width=8)
+  ->  Index Scan using film_pkey on film  (cost=0.00..60.00 rows=60 width=0)
+        Index Cond: (film_id = ANY ('{1,2,...,60}'::integer[]))

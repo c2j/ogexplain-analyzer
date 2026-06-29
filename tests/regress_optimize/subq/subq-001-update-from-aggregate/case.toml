@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-001"
+case_name  = "subq-001-update-from-aggregate"
+description = "UPDATE FROM (SELECT ... GROUP BY ... HAVING) subquery"
+
+[config]
+max_iterations = 5
+skip_verify    = true
