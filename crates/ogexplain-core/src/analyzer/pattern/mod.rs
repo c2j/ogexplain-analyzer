@@ -45,6 +45,11 @@ impl AntiPatternRule {
             Box::new(patterns::materialize_cascade::MaterializeCascade),
             Box::new(patterns::index_scan_amplify::IndexScanAmplify::default()),
             Box::new(patterns::gather_then_sort::GatherThenSort::default()),
+            Box::new(patterns::nested_loop_sort::NestedLoopSort::default()),
+            Box::new(patterns::hash_join_skewed::HashJoinSkewed::default()),
+            Box::new(patterns::multi_distinct::MultiDistinct),
+            Box::new(patterns::index_heap_fetches::IndexHeapFetches::default()),
+            Box::new(patterns::agg_over_streaming::AggOverStreaming::default()),
         ];
         Self {
             engine: PatternEngine::new(patterns),
