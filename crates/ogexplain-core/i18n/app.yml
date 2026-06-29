@@ -1243,8 +1243,8 @@ finding.JOIN-001.name:
   en: "Nested Loop with large dataset"
   zh-CN: "大数据集嵌套循环"
 finding.JOIN-001.detail:
-  en: "Inner side processed %{rows} rows × %{loops} loops = %{total} total rows (threshold: %{threshold})"
-  zh-CN: "内表处理了 %{rows} 行 × %{loops} 循环 = %{total} 总行数 (阈值: %{threshold})"
+  en: "Inner side processed %{rows} rows × %{loops} loops = %{total} total rows"
+  zh-CN: "内表处理了 %{rows} 行 × %{loops} 循环 = %{total} 总行数"
 finding.JOIN-001.detail_threshold:
   en: "%{child} (threshold: %{threshold})"
   zh-CN: "%{child} (阈值: %{threshold})"

@@ -11,8 +11,6 @@ use ogexplain_core::DiagnosticHint;
 pub enum RemediationAction {
     /// Call metamorphosis with the listed rule IDs.
     Rewrite { rules: Vec<&'static str> },
-    /// Use ogexplain's built-in sql_rewrite (e.g. SUBQ-006).
-    UseBuiltinRewrite,
     /// Output a DDL suggestion (CREATE INDEX, etc.) — no auto-execution.
     DdlAdvice,
     /// Output a configuration suggestion (SET work_mem, etc.).
@@ -29,7 +27,9 @@ pub fn map_diagnostic(rule_id: &str) -> RemediationAction {
         "SUBQ-001" | "REW-001" => RemediationAction::Rewrite {
             rules: vec!["subquery-to-join"],
         },
-        "SUBQ-006" => RemediationAction::UseBuiltinRewrite,
+        "SUBQ-006" => RemediationAction::Rewrite {
+            rules: vec!["subquery-to-join"],
+        },
         "TYPE-001" => RemediationAction::Rewrite {
             rules: vec!["add-explicit-cast"],
         },
@@ -56,10 +56,7 @@ pub fn filter_rewritable(findings: &[Finding]) -> Vec<&Finding> {
         .iter()
         .filter(|f| {
             let action = map_diagnostic(&f.rule_id);
-            if !matches!(
-                action,
-                RemediationAction::Rewrite { .. } | RemediationAction::UseBuiltinRewrite
-            ) {
+            if !matches!(action, RemediationAction::Rewrite { .. }) {
                 return false;
             }
             if f.rule_id == "SUBQ-001" && f.table.is_none() {
@@ -106,10 +103,10 @@ mod tests {
     }
 
     #[test]
-    fn map_subq_006_to_builtin_rewrite() {
+    fn map_subq_006_to_subquery_to_join() {
         assert!(matches!(
             map_diagnostic("SUBQ-006"),
-            RemediationAction::UseBuiltinRewrite
+            RemediationAction::Rewrite { rules } if rules == vec!["subquery-to-join"]
         ));
     }
 

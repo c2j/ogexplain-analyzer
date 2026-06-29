@@ -28,6 +28,7 @@ fn build_explain_sql(sql: &str, analyze: bool) -> String {
 /// * `name` - Named connection selector from config file
 /// * `sql` - The SQL statement to explain
 /// * `analyze` - If true, run EXPLAIN ANALYZE instead of EXPLAIN
+/// * `verbose` - If true, enable `OGEXPLAIN_DEBUG_RAW` hex dumps to stderr
 ///
 /// # Errors
 /// Returns error if connection fails or EXPLAIN execution fails.
@@ -36,16 +37,17 @@ pub fn fetch_explain(
     name: Option<&str>,
     sql: &str,
     analyze: bool,
+    verbose: bool,
 ) -> Result<String> {
     #[cfg(not(feature = "db"))]
     {
-        let _ = (config_path, name, sql, analyze);
+        let _ = (config_path, name, sql, analyze, verbose);
         anyhow::bail!("Database support not compiled. Rebuild with --features db");
     }
 
     #[cfg(feature = "db")]
     {
-        fetch_explain_impl(config_path, name, sql, analyze)
+        fetch_explain_impl(config_path, name, sql, analyze, verbose)
     }
 }
 
@@ -55,8 +57,9 @@ fn fetch_explain_impl(
     name: Option<&str>,
     sql: &str,
     analyze: bool,
+    verbose: bool,
 ) -> Result<String> {
-    let debug_raw = std::env::var_os("OGEXPLAIN_DEBUG_RAW").is_some();
+    let debug_raw = std::env::var_os("OGEXPLAIN_DEBUG_RAW").is_some() && verbose;
 
     let mut client = gaussdb::config::connect_sync(None, config_path, name)
         .map_err(|err| map_connect_error(err, config_path, name))?;
@@ -299,7 +302,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = fetch_explain(Some(&config_path), None, "SELECT 1", false);
+        let result = fetch_explain(Some(&config_path), None, "SELECT 1", false, false);
         assert!(result.is_err(), "Expected connection error, got Ok");
 
         let _ = std::fs::remove_dir_all(&dir);
@@ -309,7 +312,7 @@ mod tests {
     #[test]
     #[cfg(not(feature = "db"))]
     fn test_no_db_feature_bails() {
-        let result = fetch_explain(None, None, "SELECT 1", false);
+        let result = fetch_explain(None, None, "SELECT 1", false, false);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
