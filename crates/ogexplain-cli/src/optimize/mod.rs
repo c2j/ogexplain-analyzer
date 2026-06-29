@@ -111,10 +111,6 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
         let action = map_diagnostic(&finding.rule_id);
 
         let rewritten_sql = match &action {
-            RemediationAction::UseBuiltinRewrite => finding
-                .sql_rewrite
-                .as_ref()
-                .map(|r| r.rewritten_sql.clone()),
             RemediationAction::Rewrite { rules } => {
                 let hint = finding_to_hint(finding);
                 Some(call_metamorphosis_rewrite(
@@ -314,6 +310,16 @@ fn call_metamorphosis_rewrite(
         cmd.arg("--schema").arg(schema);
     }
 
+    if let Some(hint) = hint {
+        let hint_path = std::env::temp_dir().join(format!(
+            "ogexplain_hint_{}.json",
+            hint.rule_id
+        ));
+        let hint_json = serde_json::to_string(hint)?;
+        fs::write(&hint_path, &hint_json)?;
+        cmd.arg("--diagnostic-hints").arg(&hint_path);
+    }
+
     let output = cmd
         .output()
         .with_context(|| format!("Failed to spawn {}", metamorphosis_path))?;
@@ -337,7 +343,6 @@ fn call_metamorphosis_rewrite(
     if cleaned.is_empty() {
         anyhow::bail!("metamorphosis rewrite produced empty output");
     }
-    let _ = hint;
     Ok(cleaned)
 }
 
