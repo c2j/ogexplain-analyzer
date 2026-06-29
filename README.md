@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance diagnostics tool. Parses TEXT-format execution plans, runs 25 diagnostic rules (OpenGauss-specific checks for pushdown, vectorization, streaming, implicit type coercion, and more), and outputs actionable findings with parameterized optimization suggestions.
+OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance diagnostics tool. Parses TEXT-format execution plans, runs 25 diagnostic rules (OpenGauss-specific checks for pushdown, vectorization, streaming, implicit type coercion, and more), and outputs actionable findings with parameterized optimization suggestions. Includes a closed-loop SQL optimization pipeline powered by metamorphosis — `EXPLAIN → diagnose → rewrite → verify → re-EXPLAIN → converge`.
 
 ## Features
 
@@ -13,6 +13,7 @@ OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` output parser and performance di
 - **Resource waterfall** — CPU & memory bottleneck analysis with waterfall charts identifying the slowest/hottest nodes.
 - **SQL complexity scoring** — Integrated `ogsql-complexity` crate scores SQL statements on a 0–100 scale with GaussDB-specific dimensions (SQL structure, PL logic, advanced features, extensions).
 - **SQL rewrite** — Automatically detects and rewrites correlated-subquery self-update patterns (SUBQ-006) to `UPDATE ... FROM` syntax when original SQL is provided.
+- **Closed-loop optimization** — `optimize` subcommand runs the full closed-loop pipeline: `EXPLAIN → diagnose → map → metamorphosis rewrite → QED/VeriEQL verify → re-EXPLAIN → converge`. Iteratively rewrites SQL guided by diagnostic findings until convergence.
 - **i18n support** — English and Chinese (`zh-CN`) output via `--lang` flag or auto-detection from system locale.
 - **MCP server** — Model Context Protocol server for AI assistant integration (Claude Desktop, Cursor, VS Code) with 5 tools.
 - **Multiple interfaces** — CLI for scripting, TUI for interactive exploration, MCP for AI assistants, library crate for embedding.
@@ -102,9 +103,9 @@ ogexplain analyze <file> [options]
 cargo build -p ogexplain-cli
 
 # Run EXPLAIN using config file (no plaintext password on CLI)
-ogexplain explain -s "SELECT * FROM orders" --config ~/.gaussdb-mcp.toml
+ogexplain explain -s "SELECT * FROM orders" --config ~/.gaussdb.toml
 
-# Or rely on the default config path (~/.gaussdb-mcp.toml)
+# Or rely on the default config path (~/.gaussdb.toml)
 ogexplain explain -s "SELECT * FROM orders"
 
 # Select a named connection from config file
@@ -115,7 +116,7 @@ ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv
 ```
 
 > The `-d/--dsn` flag was removed. Connection info must come from a config file
-> (`--config <path>`, default `~/.gaussdb-mcp.toml`) or the `GAUSSDB_URL` /
+> (`--config <path>`, default `~/.gaussdb.toml`) or the `GAUSSDB_URL` /
 > `DATABASE_URL` environment variable. Storing credentials in a file or env var
 > keeps them out of shell history and `ps` output.
 
@@ -123,7 +124,7 @@ ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv
 
 | Option | Description |
 |--------|-------------|
-| `--config <path>` | Path to TOML config file (default: `~/.gaussdb-mcp.toml`) |
+| `--config <path>` | Path to TOML config file (default: `~/.gaussdb.toml`) |
 | `--name <name>` | Named connection from `[[connections]]` in config file |
 | `-s, --sql <sql>` | SQL statement to explain (inline string) |
 | `-f, --sql-file <path>` | File containing SQL statement |
@@ -134,7 +135,7 @@ ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv
 | `-q, --quiet` | Show findings only |
 | `--lang <lang>` | Language: `en`, `zh-CN`, `auto` |
 
-**Config file format** (reuses `~/.gaussdb-mcp.toml` from `gaussdb-mcp`):
+**Config file format** (reuses `~/.gaussdb.toml` from `gaussdb-mcp`):
 
 ```toml
 # Flat single-connection config
@@ -170,7 +171,7 @@ sslmode = "verify-full"
 
 1. `GAUSSDB_URL` environment variable
 2. `DATABASE_URL` environment variable
-3. Config file (`--config <path>` or `~/.gaussdb-mcp.toml`)
+3. Config file (`--config <path>` or `~/.gaussdb.toml`)
 5. Error with actionable message
 
 **Keyring support:** When `password = "keyring"` is set in the config file, the tool reads the actual password from the OS keychain using the `gaussdb-mcp` service name. Store passwords with:
@@ -179,6 +180,52 @@ gaussdb-mcp store-password
 ```
 
 **Note:** `--analyze` will actually execute the query on the database. Use with caution on production systems.
+
+#### Subcommand: `optimize` — Closed-loop SQL optimization (requires `db` feature)
+
+```bash
+ogexplain optimize [options]
+```
+
+Iteratively rewrites SQL guided by diagnostic findings:
+
+```
+EXPLAIN → diagnose → map to rewrite rules → metamorphosis rewrite →
+QED/VeriEQL verify → re-EXPLAIN → converge → repeat until convergence
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-s, --sql <sql>` | — | SQL statement to optimize (inline string) |
+| `-f, --sql-file <path>` | — | File containing SQL statement |
+| `--config <path>` | `~/.gaussdb.toml` | Path to DB config file |
+| `--name <name>` | — | Named connection from `[[connections]]` in config file |
+| `--schema <path>` | — | Schema JSON file for metamorphosis rewrite context |
+| `--sql-dir <path>` | — | Directory of `.sql` DDL files (alternative to `--schema`) |
+| `--max-iterations <n>` | `10` | Maximum optimization iterations before forced stop |
+| `--skip-verify` | — | Skip semantic equivalence verification (accept rewrites without proof) |
+| `--verify-engine <name>` | `qed` | Verification engine: `qed` (formal Z3 proof) or `verieql` (bounded check) |
+| `--verify-timeout <s>` | `60` | Per-rewrite verification timeout in seconds |
+| `--verify-bound <n>` | `2` | VeriEQL bound (max rows per table) |
+| `--format <fmt>` | `text` | Output format: `text`, `json` |
+| `-o, --output <path>` | — | Output file path |
+
+**Example:**
+
+```bash
+# Optimize a subquery — metamorphosis rewrites EXISTS → JOIN
+ogexplain optimize -s "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = o.uid)"
+
+# With QED verification (requires schema)
+ogexplain optimize -s "SELECT ..." --schema schema.json --verify-engine qed
+
+# Connect to a named database profile
+ogexplain optimize -s "SELECT ..." --name ogagila --max-iterations 5
+```
+
+> **Convergence**: The loop stops when all critical findings are resolved (Success), no more rewritable findings exist (NoRewritableFindings), the rewritten SQL matches a previously-seen SQL (FixedPoint), cost regresses beyond threshold (Regression), improvement plateaus (Plateau), or max iterations are reached (MaxIterations).
 
 #### Subcommand: `mcp` — Start MCP server (requires `mcp` feature)
 
@@ -353,12 +400,13 @@ cargo build -p ogexplain-cli --features mcp   # via unified CLI: ogexplain mcp
 
 ## Architecture
 
-Rust Cargo workspace with five crates:
+Rust Cargo workspace with six crates:
 
 | Crate | Type | Purpose |
 |-------|------|---------|
 | [`ogexplain-core`](crates/ogexplain-core/) | Library | Parser + Model + Analyzer + Suggester + Rewriter (no UI deps) |
-| [`ogexplain-cli`](crates/ogexplain-cli/) | Binary (`ogexplain`) | CLI frontend — file/pipe input, text/JSON/heatmap/waterfall/CSV output |
+| [`ogexplain-optimizer`](crates/ogexplain-optimizer/) | Library | Closed-loop optimizer — orchestrator, convergence, rewrite/verify integration with metamorphosis |
+| [`ogexplain-cli`](crates/ogexplain-cli/) | Binary (`ogexplain`) | CLI frontend — file/pipe input, text/JSON/heatmap/waterfall/CSV output, `optimize` subcommand |
 | [`ogexplain-tui`](crates/ogexplain-tui/) | Binary (`ogexplain-tui`) | Interactive TUI — collapsible plan tree, node detail, diagnostics, paste input |
 | [`ogexplain-mcp`](crates/ogexplain-mcp/) | Binary (`ogexplain-mcp`) | MCP server — 5 tools for AI assistant integration via stdio |
 | [`ogsql-complexity`](crates/ogsql-complexity/) | Library | SQL complexity scoring (standalone, reusable) |
@@ -378,6 +426,17 @@ ogexplain-core
 ├── summary/         SummaryRow for batch reporting (SQL complexity + plan metrics + diagnostics)
 ├── sql/             SQL/EXPLAIN block segmentation from mixed input
 └── i18n/            rust-i18n based localization (en, zh-CN)
+```
+
+### Optimizer Pipeline
+
+```
+ogexplain-optimizer
+├── orchestrator/    Main loop: EXPLAIN → diagnose → map → rewrite → verify → converge
+├── converge/        Convergence detection (LoopConfig, MetricsSnapshot, StopReason)
+├── mapper/          Diagnostic finding → metamorphosis rewrite rule mapping
+├── rewrite/         SQL↔AST encapsulation for metamorphosis RewriteEngine library API
+└── verify/          Semantic equivalence verification via QED (Z3) / VeriEQL (bounded MCF)
 ```
 
 ## Diagnostic Rules
@@ -438,15 +497,23 @@ The integrated `ogsql-complexity` crate provides:
 ## Testing
 
 ```bash
-cargo test --workspace                   # All tests
-cargo test -p ogexplain-core            # Core library tests
-cargo test -p ogexplain-mcp             # MCP server integration tests
+cargo test --workspace                        # All tests
+cargo test -p ogexplain-core                 # Core library tests
+cargo test -p ogexplain-optimizer            # Optimizer library tests
+cargo test -p ogexplain-mcp                  # MCP server integration tests
+cargo test --test optimize_e2e               # Optimizer end-to-end (static)
+cargo test --test optimize_regress           # Optimizer regression (mock DB, 9 cases)
+cargo test --test regress                    # Analyzer regression (per-rule, 11 cases)
 cargo test --test db_explain --features ogexplain-cli/db  # DB integration tests (requires Docker)
-cargo insta review                       # Interactive snapshot review
+cargo test --test optimize_regress_live --features ogexplain-cli/db -- --ignored --nocapture  # Live-DB optimizer (requires OpenGauss + ogagila)
+cargo test --test regress_live --features live-db -- --nocapture  # Live-DB analyzer (requires Docker)
+cargo insta review                            # Interactive snapshot review
 cargo fmt --all && cargo clippy --workspace  # Lint (zero warnings)
 ```
 
 Test fixtures are in `tests/fixtures/` (31 files) — each is a raw EXPLAIN TEXT output file covering specific scenarios (simple scans, joins, spills, streaming, vectorization, subqueries, aggregates, distribution, etc.).
+
+Regression test cases are in `tests/regress/` (analyzer, 11 cases) and `tests/regress_optimize/` (optimizer, 9 cases) — each case is a self-contained contract with SQL, mock EXPLAIN data, and expected outcomes.
 
 ## License
 
