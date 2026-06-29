@@ -25,6 +25,7 @@ pub struct OptimizeArgs {
     pub max_iterations: usize,
     pub analyze_enabled: bool,
     pub skip_stats_check: bool,
+    pub verbose: bool,
     pub format: String,
     pub output: Option<String>,
 }
@@ -41,9 +42,9 @@ struct IterationRecord {
 }
 
 pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
-    check_metamorphosis_available(&args.metamorphosis_path)?;
+    check_metamorphosis_available(&args.metamorphosis_path, args.verbose)?;
 
-    if !args.skip_stats_check {
+    if !args.skip_stats_check && args.verbose {
         eprintln!("⚠️  Warning: Phase 0 stats check not yet implemented.");
         eprintln!("   Stale statistics may produce misleading diagnostics.");
         eprintln!(
@@ -72,6 +73,7 @@ pub fn run_optimize(args: OptimizeArgs) -> Result<()> {
             args.name.as_deref(),
             &current_sql,
             args.analyze_enabled,
+            args.verbose,
         )
         .with_context(|| format!("EXPLAIN failed at iteration {}", iteration))?;
 
@@ -259,15 +261,19 @@ fn hash_sql(sql: &str) -> u64 {
     hasher.finish()
 }
 
-fn check_metamorphosis_available(path: &str) -> Result<()> {
+fn check_metamorphosis_available(path: &str, verbose: bool) -> Result<()> {
     match std::process::Command::new(path).arg("--version").output() {
         Ok(output) => {
             if output.status.success() {
-                let version = String::from_utf8_lossy(&output.stdout);
-                eprintln!("Using metamorphosis: {} ({})", path, version.trim());
+                if verbose {
+                    let version = String::from_utf8_lossy(&output.stdout);
+                    eprintln!("Using metamorphosis: {} ({})", path, version.trim());
+                }
                 Ok(())
             } else {
-                eprintln!("Using metamorphosis: {} (version check skipped)", path);
+                if verbose {
+                    eprintln!("Using metamorphosis: {} (version check skipped)", path);
+                }
                 Ok(())
             }
         }

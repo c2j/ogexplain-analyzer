@@ -1149,6 +1149,13 @@ pub fn run() -> Result<()> {
                         .long("lang")
                         .default_value("auto")
                         .help(t!("cli.explain.help_lang").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("verbose")
+                        .short('v')
+                        .long("verbose")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cli.analyze.help_verbose").to_string()),
                 ),
         )
         .subcommand(
@@ -1226,6 +1233,13 @@ pub fn run() -> Result<()> {
                         .long("output")
                         .short('o')
                         .help("Output file path"),
+                )
+                .arg(
+                    clap::Arg::new("verbose")
+                        .short('v')
+                        .long("verbose")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Verbose output (enable debug/status messages)"),
                 ),
         );
 
@@ -1250,6 +1264,7 @@ pub fn run() -> Result<()> {
                     .map(|s| s.as_str())
                     .unwrap_or("info");
                 let quiet = args.get_flag("quiet");
+                let verbose = args.get_flag("verbose");
 
                 return run_explain(
                     config_opt,
@@ -1261,6 +1276,7 @@ pub fn run() -> Result<()> {
                     threshold,
                     quiet,
                     output.as_deref(),
+                    verbose,
                 );
             }
             #[cfg(not(feature = "db"))]
@@ -1311,6 +1327,7 @@ pub fn run() -> Result<()> {
                     .map(|s| s.as_str().to_string())
                     .unwrap_or_else(|| "text".to_string());
                 let output = args.get_one::<String>("output").cloned();
+                let verbose = args.get_flag("verbose");
 
                 return optimize::run_optimize(optimize::OptimizeArgs {
                     sql,
@@ -1321,6 +1338,7 @@ pub fn run() -> Result<()> {
                     max_iterations,
                     analyze_enabled: analyze && i_know,
                     skip_stats_check: skip_stats,
+                    verbose,
                     format,
                     output,
                 });
@@ -1537,6 +1555,7 @@ fn run_explain(
     threshold: &str,
     quiet: bool,
     csv: Option<&str>,
+    verbose: bool,
 ) -> Result<()> {
     use crate::db;
 
@@ -1552,11 +1571,11 @@ fn run_explain(
         }
     };
 
-    if analyze {
+    if analyze && verbose {
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let explain_text = db::fetch_explain(config_opt.map(Path::new), name_opt, &sql_text, analyze)?;
+    let explain_text = db::fetch_explain(config_opt.map(Path::new), name_opt, &sql_text, analyze, verbose)?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);
