@@ -1193,6 +1193,11 @@ pub fn run() -> Result<()> {
                         .help("Schema JSON file path (passed to metamorphosis)"),
                 )
                 .arg(
+                    clap::Arg::new("sql_dir")
+                        .long("sql-dir")
+                        .help("Directory of .sql DDL files (alternative to --schema; supports PRIMARY KEY constraints)"),
+                )
+                .arg(
                     clap::Arg::new("metamorphosis")
                         .long("metamorphosis")
                         .default_value("metamorphosis")
@@ -1240,6 +1245,30 @@ pub fn run() -> Result<()> {
                         .long("verbose")
                         .action(clap::ArgAction::SetTrue)
                         .help("Verbose output (enable debug/status messages)"),
+                )
+                .arg(
+                    clap::Arg::new("skip_verify")
+                        .long("skip-verify")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip metamorphosis verify step (accept rewrites without equivalence proof)"),
+                )
+                .arg(
+                    clap::Arg::new("verify_engine")
+                        .long("verify-engine")
+                        .default_value("qed")
+                        .help("Verification engine: qed (formal proof) or verieql (bounded check)"),
+                )
+                .arg(
+                    clap::Arg::new("verify_timeout")
+                        .long("verify-timeout")
+                        .default_value("60")
+                        .help("Per-rewrite verification timeout in seconds"),
+                )
+                .arg(
+                    clap::Arg::new("verify_bound")
+                        .long("verify-bound")
+                        .default_value("2")
+                        .help("VeriEQL bound parameter (max rows per table)"),
                 ),
         );
 
@@ -1311,6 +1340,7 @@ pub fn run() -> Result<()> {
                     .map(std::path::PathBuf::from);
                 let name = args.get_one::<String>("name").cloned();
                 let schema_path = args.get_one::<String>("schema").cloned();
+                let sql_dir = args.get_one::<String>("sql_dir").cloned();
                 let metamorphosis_path = args
                     .get_one::<String>("metamorphosis")
                     .cloned()
@@ -1322,6 +1352,19 @@ pub fn run() -> Result<()> {
                 let analyze = args.get_flag("analyze");
                 let i_know = args.get_flag("i_know_the_risks");
                 let skip_stats = args.get_flag("skip_stats_check");
+                let skip_verify = args.get_flag("skip_verify");
+                let verify_engine = args
+                    .get_one::<String>("verify_engine")
+                    .cloned()
+                    .unwrap_or_else(|| "qed".to_string());
+                let verify_timeout = args
+                    .get_one::<String>("verify_timeout")
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(60);
+                let verify_bound = args
+                    .get_one::<String>("verify_bound")
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(2);
                 let format = args
                     .get_one::<String>("format")
                     .map(|s| s.as_str().to_string())
@@ -1334,6 +1377,7 @@ pub fn run() -> Result<()> {
                     config_path,
                     name,
                     schema_path,
+                    sql_dir,
                     metamorphosis_path,
                     max_iterations,
                     analyze_enabled: analyze && i_know,
@@ -1341,6 +1385,11 @@ pub fn run() -> Result<()> {
                     verbose,
                     format,
                     output,
+                    // ↓ NEW
+                    skip_verify,
+                    verify_engine,
+                    verify_timeout,
+                    verify_bound,
                 });
             }
             #[cfg(not(feature = "db"))]

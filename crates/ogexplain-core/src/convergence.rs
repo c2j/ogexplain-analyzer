@@ -91,6 +91,13 @@ pub enum StopReason {
     NoRewritableFindings,
     /// Rewritten SQL equals previously-seen SQL (oscillation or fixed-point).
     FixedPoint,
+    // ↓ NEW (Issue #41)
+    /// Metamorphosis verify found the rewrite is not semantically equivalent.
+    /// Stops the loop to prevent accepting an unsound rewrite.
+    VerificationFailed {
+        /// Human-readable counterexample from the verifier (may be multi-line).
+        counterexample: Option<String>,
+    },
 }
 
 /// Decide whether to continue the optimization loop.
