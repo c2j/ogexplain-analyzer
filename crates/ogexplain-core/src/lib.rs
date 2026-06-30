@@ -1,7 +1,6 @@
 rust_i18n::i18n!("i18n", fallback = "en");
 
 pub mod analyzer;
-pub mod convergence;
 pub mod diagnostic_hint;
 pub mod i18n;
 pub mod model;

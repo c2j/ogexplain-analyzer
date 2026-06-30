@@ -1,0 +1,7 @@
+rule_id    = "REW-001"
+case_name  = "rew-001-large-in-list"
+description = "SELECT COUNT(*) FROM film WHERE film_id IN (1,2,3,...60) — should suggest EXISTS rewrite"
+
+[config]
+max_iterations = 5
+skip_verify    = true

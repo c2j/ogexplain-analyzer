@@ -21,12 +21,13 @@
 
 ### 1.1 工作空间结构
 
-5 个 crate 共享 `version = "0.2.0"` 和 `edition = "2021"`：
+6 个 crate 共享 `version = "0.2.0"` 和 `edition = "2021"`：
 
 ```
 ogexplain-analyzer/          # 工作空间根（虚拟 manifest）
 ├── crates/
 │   ├── ogexplain-core/      # 纯库：解析器 + 模型 + 分析器 + 建议引擎 + 改写器
+│   ├── ogexplain-optimizer/ # 闭环优化器：编排 + 收敛 + 与 metamorphosis 的重写/验证集成
 │   ├── ogexplain-cli/       # CLI 二进制 (ogexplain)
 │   ├── ogexplain-tui/       # TUI 二进制 (ogexplain-tui)
 │   ├── ogexplain-mcp/       # MCP 服务器 (ogexplain-mcp)
@@ -34,11 +35,12 @@ ogexplain-analyzer/          # 工作空间根（虚拟 manifest）
 ├── tests/
 │   ├── fixtures/            # EXPLAIN TEXT 测试用例（31 个）
 │   ├── integration_tests.rs # 解析器 insta 快照测试
-│   └── analyzer_tests.rs    # 诊断规则测试
+│   ├── analyzer_tests.rs    # 诊断规则测试
+│   └── regress_optimize/    # 优化器回归测试用例
 └── Cargo.toml               # 工作空间 manifest + feature 门控
 ```
 
-**为什么 5 个 crate？** 关注点分离 + 依赖隔离。`ogexplain-core` 零 IO/UI 依赖，可嵌入任何 Rust 项目（Web 服务、WASM、CLI）。`ogsql-complexity` 独立于 EXPLAIN 解析，可单独用于 SQL 审计。每个前端 crate 只引入自己需要的依赖。
+**为什么 6 个 crate？** 关注点分离 + 依赖隔离。`ogexplain-core` 零 IO/UI 依赖，可嵌入任何 Rust 项目（Web 服务、WASM、CLI）。`ogexplain-optimizer` 持有 metamorphosis 和 Z3 依赖，与 core 解耦。`ogsql-complexity` 独立于 EXPLAIN 解析，可单独用于 SQL 审计。每个前端 crate 只引入自己需要的依赖。
 
 ### 1.2 数据流
 
@@ -96,9 +98,11 @@ EXPLAIN TEXT ──► parse() ──► ExplainPlan
 ```
 ogexplain-core ← ogexplain-cli
                ← ogexplain-tui
+               ← ogexplain-optimizer
                ← ogexplain-mcp ← ogsql-complexity
 
 ogsql-complexity ← ogexplain-cli, ogexplain-mcp
+ogexplain-optimizer → metamorphosis-core, metamorphosis-rewrite, z3 (via QED)
 ```
 
 `ogexplain-core` 依赖极少（`regex`、`serde`、`thiserror`、`toml`、`rust-i18n`、`ogsql-parser`）。

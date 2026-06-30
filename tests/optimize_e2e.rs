@@ -4,8 +4,8 @@
 //! converge) without requiring a database or metamorphosis binary. Live-DB
 //! validation is in `tests/optimize_live_e2e.sh`.
 
-use ogexplain_cli::optimize::mapper::{filter_rewritable, map_diagnostic, RemediationAction};
-use ogexplain_core::convergence::{
+use ogexplain_optimizer::mapper::{filter_rewritable, map_diagnostic, RemediationAction};
+use ogexplain_optimizer::converge::{
     should_continue, LoopConfig, LoopDecision, MetricsSnapshot, StopReason,
 };
 use ogexplain_core::{analyze, parse};

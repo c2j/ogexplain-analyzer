@@ -1,7 +1,7 @@
 //! Maps ogexplain Finding.rule_id to metamorphosis rewrite rules or advisory actions.
 //!
-//! Used by the `optimize` subcommand to decide what to do with each finding.
-//! Mapping table design: see Heptadecagon `docs/closed-loop-optimization-design.md` §5.2.
+//! Used by the optimize orchestration to decide what to do with each finding.
+//! Migrated from `ogexplain-cli/src/optimize/mapper.rs`.
 
 use ogexplain_core::analyzer::report::Finding;
 use ogexplain_core::DiagnosticHint;
@@ -49,8 +49,7 @@ pub fn map_diagnostic(rule_id: &str) -> RemediationAction {
 /// Filter findings to those with a rewrite action.
 ///
 /// Quality gate: SUBQ-001 findings are only included when `table` is present
-/// (not None). v4 benchmark shows SUBQ-001 precision = 0.43 (4 FP / 7 total);
-/// requiring non-None table filters cases where no scan descendant was located.
+/// (not None).
 pub fn filter_rewritable(findings: &[Finding]) -> Vec<&Finding> {
     findings
         .iter()

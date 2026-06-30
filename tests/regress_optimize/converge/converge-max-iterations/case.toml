@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-001"
+case_name  = "converge-max-iterations"
+description = "Iterates until max_iterations with small improvements each time"
+
+[config]
+max_iterations = 3
+skip_verify    = true

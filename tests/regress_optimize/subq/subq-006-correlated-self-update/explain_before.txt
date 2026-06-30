@@ -1,0 +1,7 @@
+Update on rental r  (cost=0.00..500.00 rows=100 width=36)
+  ->  Seq Scan on rental r  (cost=0.00..50.00 rows=100 width=36)
+        Filter: (return_date IS NULL)
+        SubPlan 1
+          ->  Aggregate  (cost=0.00..450.00 rows=1 width=8)
+                ->  Seq Scan on payment p  (cost=0.00..400.00 rows=1000 width=8)
+                      Filter: (rental_id = r.rental_id)

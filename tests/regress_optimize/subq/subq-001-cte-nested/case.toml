@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-001"
+case_name  = "subq-001-cte-nested"
+description = "CTE with nested IN and correlated subqueries — deep plan"
+
+[config]
+max_iterations = 10
+skip_verify    = true

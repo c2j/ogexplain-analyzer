@@ -1,0 +1,16 @@
+[package]
+name = "ogexplain-optimizer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ogexplain-core = { path = "../ogexplain-core" }
+ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.4" }
+metamorphosis-core = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-core" }
+metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-qed" }
+metamorphosis-verieql = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-verieql" }
+metamorphosis-rules = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-rules" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"

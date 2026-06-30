@@ -1,0 +1,2 @@
+Seq Scan on users  (cost=0.00..45.00 rows=1 width=36) (actual time=0.050..0.300 rows=1 loops=1)
+  Filter: (id = 123)

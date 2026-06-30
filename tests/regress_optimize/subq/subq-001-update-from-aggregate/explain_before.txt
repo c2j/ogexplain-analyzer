@@ -1,0 +1,10 @@
+Update on customer c  (cost=0.00..250.00 rows=50 width=30)
+  ->  Hash Join  (cost=0.00..200.00 rows=50 width=36)
+        Hash Cond: (sub.customer_id = c.customer_id)
+        ->  Subquery Scan on sub  (cost=0.00..100.00 rows=50 width=4)
+              ->  HashAggregate  (cost=0.00..100.00 rows=50 width=12)
+                    Group Key: payment.customer_id
+                    Filter: (sum(payment.amount) > 100)
+                    ->  Seq Scan on payment  (cost=0.00..80.00 rows=5000 width=12)
+        ->  Hash  (cost=0.00..50.00 rows=500 width=6)
+              ->  Seq Scan on customer c  (cost=0.00..50.00 rows=500 width=6)

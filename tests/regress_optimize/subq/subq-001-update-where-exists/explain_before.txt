@@ -1,0 +1,6 @@
+Update on film f  (cost=0.00..300.00 rows=50 width=40)
+  ->  Seq Scan on film f  (cost=0.00..100.00 rows=50 width=40)
+        Filter: (SubPlan 1)
+        SubPlan 1
+          ->  Seq Scan on film_actor fa  (cost=0.00..200.00 rows=10 width=0)
+                Filter: ((actor_id < 5) AND (film_id = f.film_id))

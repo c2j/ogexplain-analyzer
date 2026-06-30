@@ -1,0 +1,7 @@
+rule_id    = "SUBQ-001"
+case_name  = "subq-001-update-where-exists"
+description = "UPDATE SET rental_rate WHERE EXISTS correlated subquery"
+
+[config]
+max_iterations = 5
+skip_verify    = true

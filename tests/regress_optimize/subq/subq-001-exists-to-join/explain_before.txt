@@ -1,0 +1,6 @@
+Subquery Scan on orders  (cost=0.00..450.00 rows=1000 width=12) (actual time=0.100..5.200 rows=850 loops=1)
+  Filter: (SubPlan 1)
+  SubPlan 1
+    ->  Seq Scan on users u  (cost=0.00..35.00 rows=50 width=0) (actual time=0.010..0.200 rows=1 loops=1000)
+          Filter: ((active = 1) AND (id = o.user_id))
+  ->  Seq Scan on orders o  (cost=0.00..40.00 rows=1000 width=12) (actual time=0.010..0.500 rows=1000 loops=1)

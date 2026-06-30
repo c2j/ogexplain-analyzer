@@ -2,7 +2,7 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` 输出解析与性能诊断工具。解析 TEXT 格式执行计划，运行 25 条诊断规则（包含下推、向量化、流式计算、隐式类型转换等 OpenGauss 专项检查），输出诊断发现与参数化优化建议。
+OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` 输出解析与性能诊断工具。解析 TEXT 格式执行计划，运行 25 条诊断规则（包含下推、向量化、流式计算、隐式类型转换等 OpenGauss 专项检查），输出诊断发现与参数化优化建议。包含基于 metamorphosis 的闭环 SQL 优化管道 —— `EXPLAIN → 诊断 → 重写 → 验证 → 重新 EXPLAIN → 收敛`。
 
 ## 功能特性
 
@@ -13,6 +13,7 @@ OpenGauss/GaussDB `EXPLAIN` / `EXPLAIN ANALYZE` 输出解析与性能诊断工�
 - **资源瀑布图** — CPU 和内存瓶颈分析，以瀑布图形式标识最慢/最热的节点。
 - **SQL 复杂度评分** — 集成 `ogsql-complexity` crate，按 0–100 分制评估 SQL 语句复杂度，支持 GaussDB 四维模型（SQL 结构、PL 逻辑、高级特性、扩展功能）。
 - **SQL 改写** — 当提供原始 SQL 时，自动检测并改写关联子查询自更新模式（SUBQ-006）为 `UPDATE ... FROM` 语法。
+- **闭环优化** — `optimize` 子命令运行完整闭环管道：`EXPLAIN → 诊断 → 映射 → metamorphosis 重写 → QED/VeriEQL 验证 → 重新 EXPLAIN → 收敛`。基于诊断发现迭代重写 SQL，直到收敛。
 - **国际化支持** — 通过 `--lang` 参数或系统语言自动检测，支持英文和中文（`zh-CN`）输出。
 - **MCP 服务器** — 提供 Model Context Protocol 服务器，支持 AI 助手集成（Claude Desktop、Cursor、VS Code），含 5 个工具。
 - **多种接口** — CLI 用于脚本集成，TUI 用于交互式探索，MCP 用于 AI 助手，库 crate 用于嵌入式调用。
@@ -102,9 +103,9 @@ ogexplain analyze <文件路径> [选项]
 cargo build -p ogexplain-cli
 
 # 通过配置文件连接（避免在命令行明文输入密码）
-ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'" --config ~/.gaussdb-mcp.toml
+ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'" --config ~/.gaussdb.toml
 
-# 也可使用默认配置路径（~/.gaussdb-mcp.toml）
+# 也可使用默认配置路径（~/.gaussdb.toml）
 ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
 
 # 执行 EXPLAIN ANALYZE（会实际执行查询）
@@ -121,10 +122,56 @@ ogexplain explain -s "SELECT ..." --name prod --format json --output results.csv
 ```
 
 > 已移除 `-d/--dsn` 选项。连接信息必须来自配置文件（`--config <path>`，默认
-> `~/.gaussdb-mcp.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量。把凭据放到
+> `~/.gaussdb.toml`）或 `GAUSSDB_URL` / `DATABASE_URL` 环境变量。把凭据放到
 > 文件或环境变量里可以避免泄露到 shell 历史和 `ps` 输出。
 
 **注意：** `--analyze` 会在数据库上实际执行查询。在生产系统上请谨慎使用。
+
+#### 子命令 `optimize` — 闭环 SQL 优化（需要 `db` 特性）
+
+```bash
+ogexplain optimize [选项]
+```
+
+基于诊断发现迭代重写 SQL：
+
+```
+EXPLAIN → 诊断 → 映射到重写规则 → metamorphosis 重写 →
+QED/VeriEQL 验证 → 重新 EXPLAIN → 收敛 → 重复直到收敛
+```
+
+**选项：**
+
+| 选项 | 默认值 | 说明 |
+|--------|---------|-------------|
+| `-s, --sql <sql>` | — | 要优化的 SQL 语句（内联字符串） |
+| `-f, --sql-file <path>` | — | 包含 SQL 语句的文件 |
+| `--config <path>` | `~/.gaussdb.toml` | DB 配置文件路径 |
+| `--name <name>` | — | 配置文件中的命名连接 |
+| `--schema <path>` | — | metamorphosis 重写上下文的 Schema JSON 文件 |
+| `--sql-dir <path>` | — | `.sql` DDL 文件目录（替代 `--schema`） |
+| `--max-iterations <n>` | `10` | 强制停止前的最大迭代次数 |
+| `--skip-verify` | — | 跳过语义等价验证 |
+| `--verify-engine <name>` | `qed` | 验证引擎：`qed`（形式化 Z3 证明）或 `verieql`（有界检查） |
+| `--verify-timeout <s>` | `60` | 每次重写的验证超时（秒） |
+| `--verify-bound <n>` | `2` | VeriEQL 边界参数（每个表的最大行数） |
+| `--format <fmt>` | `text` | 输出格式：`text`、`json` |
+| `-o, --output <path>` | — | 输出文件路径 |
+
+**示例：**
+
+```bash
+# 优化子查询 — metamorphosis 将 EXISTS 重写为 JOIN
+ogexplain optimize -s "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = o.uid)"
+
+# 使用 QED 验证（需要 schema）
+ogexplain optimize -s "SELECT ..." --schema schema.json --verify-engine qed
+
+# 连接到命名数据库配置
+ogexplain optimize -s "SELECT ..." --name ogagila --max-iterations 5
+```
+
+> **收敛**：当所有关键发现已解决（Success）、无可重写发现（NoRewritableFindings）、重写 SQL 与之前相同（FixedPoint）、成本退化超过阈值（Regression）、改进低于阈值（Plateau）或达到最大迭代（MaxIterations）时，循环停止。
 
 #### 子命令 `mcp` — 启动 MCP 服务器（需要 `mcp` feature）
 
@@ -299,12 +346,13 @@ cargo build -p ogexplain-cli --features mcp   # 通过统一 CLI：ogexplain mcp
 
 ## 架构
 
-Rust Cargo 工作空间，包含五个 crate：
+Rust Cargo 工作空间，包含六个 crate：
 
 | Crate | 类型 | 用途 |
 |-------|------|------|
 | [`ogexplain-core`](crates/ogexplain-core/) | 库 | 解析器 + 数据模型 + 分析引擎 + 建议引擎 + SQL 改写（无 UI 依赖） |
-| [`ogexplain-cli`](crates/ogexplain-cli/) | 二进制（`ogexplain`） | CLI 前端 — 文件/管道输入，text/JSON/heatmap/waterfall/CSV 输出 |
+| [`ogexplain-optimizer`](crates/ogexplain-optimizer/) | 库 | 闭环优化器 — 编排、收敛检测、与 metamorphosis 的重写/验证集成 |
+| [`ogexplain-cli`](crates/ogexplain-cli/) | 二进制（`ogexplain`） | CLI 前端 — 文件/管道输入，text/JSON/heatmap/waterfall/CSV 输出，`optimize` 子命令 |
 | [`ogexplain-tui`](crates/ogexplain-tui/) | 二进制（`ogexplain-tui`） | 交互式 TUI — 可折叠计划树、节点详情、诊断、粘贴输入 |
 | [`ogexplain-mcp`](crates/ogexplain-mcp/) | 二进制（`ogexplain-mcp`） | MCP 服务器 — 通过 stdio 为 AI 助手提供 5 个工具 |
 | [`ogsql-complexity`](crates/ogsql-complexity/) | 库 | SQL 复杂度评分（独立可复用） |
@@ -324,6 +372,17 @@ ogexplain-core
 ├── summary/         SummaryRow 批量报告（SQL 复杂度 + 计划指标 + 诊断统计）
 ├── sql/             SQL/EXPLAIN 块分割（从混合输入中提取）
 └── i18n/            基于 rust-i18n 的国际化（en, zh-CN）
+```
+
+### 优化器管道
+
+```
+ogexplain-optimizer
+├── orchestrator/    主循环：EXPLAIN → 诊断 → 映射 → 重写 → 验证 → 收敛
+├── converge/        收敛检测（LoopConfig, MetricsSnapshot, StopReason）
+├── mapper/          诊断发现 → metamorphosis 重写规则映射
+├── rewrite/         SQL↔AST 封装，对接 metamorphosis RewriteEngine 库 API
+└── verify/          语义等价验证（QED/Z3 或 VeriEQL/有界模型检查）
 ```
 
 ## 诊断规则
@@ -386,8 +445,12 @@ ogexplain-core
 ```bash
 cargo test --workspace                   # 所有测试
 cargo test -p ogexplain-core            # 核心库测试
+cargo test -p ogexplain-optimizer       # 优化器库测试
 cargo test -p ogexplain-mcp             # MCP 服务器集成测试
+cargo test --test optimize_e2e          # 优化器端到端（静态）
+cargo test --test optimize_regress      # 优化器回归（模拟 DB，9 个案例）
 cargo test --test db_explain --features ogexplain-cli/db  # 数据库集成测试（需要 Docker）
+cargo test --test optimize_regress_live --features ogexplain-cli/db -- --ignored --nocapture  # 实时 DB 优化器（需要 OpenGauss + ogagila）
 cargo insta review                       # 交互式快照审查
 cargo fmt --all && cargo clippy --workspace  # 代码检查（零警告）
 ```

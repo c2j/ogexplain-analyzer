@@ -3,14 +3,13 @@
 //! Compares two [`MetricsSnapshot`]s across iterations and decides whether
 //! to continue the rewrite→verify→re-evaluate loop or stop.
 //!
-//! See `.sisyphus/plans/2026-06-28-closed-loop-pilot.md` Phase 2 and
-//! Heptadecagon `docs/closed-loop-optimization-design.md` §7 for context.
+//! Migrated from `ogexplain-core/src/convergence.rs`.
 
 use serde::Serialize;
 
 /// Snapshot of plan metrics relevant to convergence detection.
 ///
-/// Subset of [`crate::summary::SummaryRow`] that:
+/// Subset of [`ogexplain_core::summary::SummaryRow`] that:
 /// (a) is sufficient for convergence decisions,
 /// (b) derives `PartialEq` safely (no f64 NaN risk on real plan data).
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
@@ -26,7 +25,7 @@ pub struct MetricsSnapshot {
 
 impl MetricsSnapshot {
     /// Extract convergence-relevant fields from a full SummaryRow.
-    pub fn from_summary(s: &crate::summary::SummaryRow) -> Self {
+    pub fn from_summary(s: &ogexplain_core::summary::SummaryRow) -> Self {
         Self {
             total_cost: Some(s.total_cost),
             total_time_ms: Some(s.total_time_ms),
@@ -51,10 +50,8 @@ pub struct LoopConfig {
     /// Cost increase fraction that triggers regression rollback. Default 0.10 (10%).
     pub regression_threshold_pct: f64,
     /// Whether to require QED/VeriEQL equivalence proof before accepting a rewrite.
-    /// Week 1 pilot may set this to false (rely on metamorphosis Conditional safety).
     pub require_equivalence_proof: bool,
     /// Whether to auto-run ANALYZE when stale statistics detected (Phase 0).
-    /// Week 1 pilot sets this to false (manual ANALYZE required).
     pub auto_run_analyze: bool,
 }
 
@@ -91,11 +88,9 @@ pub enum StopReason {
     NoRewritableFindings,
     /// Rewritten SQL equals previously-seen SQL (oscillation or fixed-point).
     FixedPoint,
-    // ↓ NEW (Issue #41)
     /// Metamorphosis verify found the rewrite is not semantically equivalent.
-    /// Stops the loop to prevent accepting an unsound rewrite.
     VerificationFailed {
-        /// Human-readable counterexample from the verifier (may be multi-line).
+        /// Human-readable counterexample from the verifier.
         counterexample: Option<String>,
     },
 }

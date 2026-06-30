@@ -11,8 +11,9 @@ OpenGauss/GaussDB EXPLAIN plan parser, performance diagnostics, and optimization
 3. [CLI Usage](#cli-usage)
    - [analyze Subcommand](#analyze-subcommand)
    - [explain Subcommand (DB-Connected)](#explain-subcommand-db-connected)
-   - [mcp Subcommand](#mcp-subcommand)
-   - [Output Formats](#output-formats)
+- [mcp Subcommand](#mcp-subcommand)
+- [optimize Subcommand (Closed-Loop)](#optimize-subcommand-closed-loop)
+- [Output Formats](#output-formats)
    - [Reading from Pipe/Stdin](#reading-from-pipestdin)
    - [Internationalization (i18n)](#internationalization-i18n)
 4. [TUI Usage](#tui-usage)
@@ -190,13 +191,13 @@ The `explain` subcommand connects directly to an OpenGauss/GaussDB database, run
 ogexplain explain -s <sql> [options]
 ```
 
-Connection info is loaded from a config file (`--config <path>`, default `~/.gaussdb-mcp.toml`) or the `GAUSSDB_URL` / `DATABASE_URL` environment variable. The `-d/--dsn` flag was removed so credentials never appear on the command line.
+Connection info is loaded from a config file (`--config <path>`, default `~/.gaussdb.toml`) or the `GAUSSDB_URL` / `DATABASE_URL` environment variable. The `-d/--dsn` flag was removed so credentials never appear on the command line.
 
 #### Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--config <path>` | | Path to TOML config file (default: `~/.gaussdb-mcp.toml`) |
+| `--config <path>` | | Path to TOML config file (default: `~/.gaussdb.toml`) |
 | `--name <name>` | | Named connection from `[[connections]]` in config file |
 | `--sql <statement>` | `-s` | SQL statement to explain (inline) |
 | `--sql-file <path>` | `-f` | SQL statement from file |
@@ -213,7 +214,7 @@ Connection info is loaded from a config file (`--config <path>`, default `~/.gau
 # Build with database support
 cargo build -p ogexplain-cli --features db
 
-# Run EXPLAIN using the default config path (~/.gaussdb-mcp.toml)
+# Run EXPLAIN using the default config path (~/.gaussdb.toml)
 ogexplain explain -s "SELECT * FROM orders WHERE status = 'pending'"
 
 # Explicit config path
@@ -247,6 +248,125 @@ ogexplain mcp
 ```
 
 The MCP server communicates via stdio transport. It is designed to be launched by AI assistants (Claude Desktop, Cursor, VS Code) rather than used directly. See [MCP Integration](#mcp-integration-with-ai-assistants) for configuration details.
+
+### optimize Subcommand (Closed-Loop)
+
+The `optimize` subcommand runs an iterative closed-loop SQL optimization pipeline powered by [metamorphosis](https://github.com/c2j/metamorphosis). It leverages the library API (not subprocess) for SQL rewriting and semantic equivalence verification.
+
+**Pipeline**: `EXPLAIN → diagnose → map to rewrite rules → metamorphosis rewrite → QED/VeriEQL verify → re-EXPLAIN → converge`
+
+```bash
+# Build with database support
+cargo build -p ogexplain-cli
+
+# Optimize a SQL statement — the pipeline diagnoses the EXPLAIN plan and
+# attempts to rewrite problematic patterns via metamorphosis.
+ogexplain optimize -s "YOUR SQL" --name ogagila --skip-verify
+
+# Self-updating correlated subquery (SUBQ-006 — reliably triggers on most OG versions):
+ogexplain optimize --name ogagila --skip-verify -s \
+  "UPDATE rental r SET return_date = \
+   (SELECT MAX(payment_date) FROM payment p WHERE p.rental_id = r.rental_id) \
+   WHERE r.return_date IS NULL"
+
+# From file
+ogexplain optimize -f query.sql --name ogagila
+
+# With schema for context-aware rewriting (improves rewrite quality)
+ogexplain optimize -s "SELECT ..." --name ogagila --schema schema.json
+
+# Limit iterations and skip verification for faster iteration
+ogexplain optimize -s "SELECT ..." --name ogagila --max-iterations 3 --skip-verify
+
+# JSON output
+ogexplain optimize -s "SELECT ..." --name ogagila --format json -o result.json
+```
+
+> **Note:** Rewrite success depends on the OpenGauss version and the specific EXPLAIN plan structure. Modern OG versions may already optimize subqueries (converting EXISTS→Hash Join), producing plans without `SubqueryScan` nodes — in which case `Stop reason: NoRewritableFindings` is expected and normal. The pipeline runs safely regardless: it diagnoses, attempts mapping, and stops gracefully when nothing is rewritable.
+
+#### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-s, --sql <sql>` | — | SQL statement to optimize (inline string) |
+| `-f, --sql-file <path>` | — | File containing SQL statement |
+| `--config <path>` | `~/.gaussdb.toml` | Path to DB config file |
+| `--name <name>` | — | Named connection from `[[connections]]` in config file |
+| `--schema <path>` | — | Schema JSON file (`{table: {col: type}}`) for rewrite context |
+| `--sql-dir <path>` | — | Directory of `.sql` DDL files (alternative to `--schema`) |
+| `--max-iterations <n>` | `10` | Maximum optimization iterations before forced stop |
+| `--skip-verify` | — | Skip semantic equivalence verification |
+| `--verify-engine <name>` | `qed` | Verification engine: `qed` (formal Z3 proof) or `verieql` (bounded check) |
+| `--verify-timeout <s>` | `60` | Per-rewrite verification timeout in seconds |
+| `--verify-bound <n>` | `2` | VeriEQL bound parameter (max rows per table) |
+| `--format <fmt>` | `text` | Output format: `text`, `json` |
+| `-o, --output <path>` | — | Output file path |
+| `-v, --verbose` | — | Verbose output |
+
+#### Convergence
+
+The loop stops when one of these conditions is met:
+
+| Stop Reason | Meaning |
+|-------------|---------|
+| **Success** | All critical findings resolved (critical_count = 0) |
+| **FixedPoint** | Rewritten SQL matches a previously-seen SQL |
+| **NoRewritableFindings** | No diagnostic findings map to rewrite rules |
+| **Regression** | Cost increased beyond `regression_threshold_pct` (10%) |
+| **Plateau** | Cost improvement below `min_improvement_pct` (5%) for `max_plateau_count` (3) consecutive iterations |
+| **MaxIterations** | Reached `--max-iterations` |
+| **VerificationFailed** | QED/VeriEQL found the rewrite is NOT semantically equivalent |
+
+#### Example Output (text format)
+
+When a diagnostic rule fires and a rewrite is produced:
+
+```
+=== Optimization Report ===
+Stop reason: MaxIterations
+Iterations: 1
+
+--- Iteration 1 ---
+Triggered by: SUBQ-006 (Rewrite { rules: ["subquery-to-join"] })
+Verification: (not performed)
+Note: No rewrite produced
+
+=== Final SQL ===
+UPDATE rental r SET return_date = (SELECT MAX(payment_date) FROM payment p...
+```
+
+When no diagnostic findings map to rewritable rules (most well-optimized queries):
+
+```
+=== Optimization Report ===
+Stop reason: NoRewritableFindings
+Iterations: 0
+
+=== Final SQL ===
+SELECT * FROM customer WHERE customer_id = '42'
+```
+
+#### Schema for Rewrite Context
+
+The `--schema` option provides table schema to metamorphosis for context-aware rewriting (e.g. `SELECT *` expansion). Format:
+
+```json
+{
+  "users": { "id": "INTEGER", "name": "VARCHAR(100)", "email": "VARCHAR(255)" },
+  "orders": { "id": "INTEGER", "user_id": "INTEGER", "amount": "NUMERIC(10,2)" }
+}
+```
+
+With `primary_key` support (enhances QED verification accuracy):
+
+```json
+{
+  "users": {
+    "columns": { "id": "INTEGER", "name": "VARCHAR(100)" },
+    "primary_key": ["id"]
+  }
+}
+```
 
 ### Output Formats
 
@@ -891,7 +1011,7 @@ Connect directly to a database for one-step analysis:
 
 ```bash
 # Quick check (EXPLAIN only, no query execution).
-# Connection info is read from ~/.gaussdb-mcp.toml by default.
+# Connection info is read from ~/.gaussdb.toml by default.
 ogexplain explain -s "SELECT COUNT(*) FROM orders WHERE created_at > CURRENT_DATE - 7"
 
 # Full analysis with actual execution (EXPLAIN ANALYZE)
@@ -899,6 +1019,40 @@ ogexplain explain \
     -s "SELECT COUNT(*) FROM orders WHERE created_at > CURRENT_DATE - 7" \
     --analyze -o json
 ```
+
+### Closed-Loop SQL Optimization
+
+Iteratively rewrite SQL based on diagnostic findings. The pipeline safely handles any SQL — it diagnoses, maps to rewrite rules, and stops gracefully when nothing is rewritable.
+
+```bash
+# Diagnose a query — EXPLAIN → analyze → report findings
+ogexplain optimize \
+    -s "SELECT * FROM customer WHERE customer_id = '42'" \
+    --name ogagila --skip-verify
+
+# Self-updating correlated subquery (reliably triggers SUBQ-006)
+ogexplain optimize \
+    -s "UPDATE rental r SET return_date = \
+        (SELECT MAX(payment_date) FROM payment p WHERE p.rental_id = r.rental_id) \
+        WHERE r.return_date IS NULL" \
+    --name ogagila --skip-verify
+
+# With schema for context-aware rewriting + QED verification
+ogexplain optimize \
+    -s "SELECT ..." --schema schema.json --verify-engine qed --name ogagila
+
+# Fast iteration mode — skip verification, limit iterations
+ogexplain optimize -f query.sql --max-iterations 3 --skip-verify --name ogagila
+```
+
+Typical workflow:
+
+1. Write your SQL query
+2. Run `ogexplain optimize -s "YOUR SQL" --name <connection> --skip-verify`
+3. Review the optimization report — check which rule triggered (if any) and the stop reason
+4. `NoRewritableFindings` is normal for well-optimized queries — the OG optimizer handles many patterns already
+5. For queries where rules DO fire, check if the rewrite produced changes
+6. Optionally enable verification (`--verify-engine qed`) to get formal equivalence proof for rewrites
 
 ### AI-Assisted Analysis via TUI
 
@@ -996,10 +1150,10 @@ export LANG=en_US.UTF-8
 
 **Symptom:** Connection refused, timeout, or authentication errors.
 
-**Fix:** Check your config file (`~/.gaussdb-mcp.toml` by default, override with `--config <path>`):
+**Fix:** Check your config file (`~/.gaussdb.toml` by default, override with `--config <path>`):
 
 ```toml
-# Example ~/.gaussdb-mcp.toml — verify these fields
+# Example ~/.gaussdb.toml — verify these fields
 host = "<hostname>"            # Use the correct hostname or IP address
 port = 5432                    # Default is 5432 for OpenGauss
 user = "<username>"

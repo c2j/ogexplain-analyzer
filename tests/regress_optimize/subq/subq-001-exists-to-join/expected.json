@@ -1,0 +1,9 @@
+{
+  "expect_rewrite": true,
+  "expect_stop_reason": null,
+  "expect_iterations": null,
+  "expect_rule_triggered": "SUBQ-001",
+  "rewritten_sql_must_contain": [],
+  "rewritten_sql_must_not_contain": [],
+  "expect_critical_after_less_than": null
+}

@@ -1,0 +1,5 @@
+GroupAggregate  (cost=0.00..120.00 rows=5 width=12) (actual time=2.000..15.000 rows=3 loops=1)
+  Group Key: status
+  ->  Sort  (cost=0.00..90.00 rows=5000 width=4) (actual time=0.500..5.000 rows=5000 loops=1)
+        Sort Key: status
+        ->  Seq Scan on orders  (cost=0.00..40.00 rows=5000 width=4) (actual time=0.010..1.000 rows=5000 loops=1)

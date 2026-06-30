@@ -1,0 +1,7 @@
+rule_id    = "AGG-001"
+case_name  = "agg-001-hash-aggregate"
+description = "GroupAggregate on large dataset should trigger rewrite-group-agg"
+
+[config]
+max_iterations = 5
+skip_verify    = true

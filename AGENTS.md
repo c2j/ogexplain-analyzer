@@ -18,6 +18,7 @@ lib/openGauss-server/                        # Git submodule (openGauss source, 
 Cargo.toml                                   # Workspace root
 crates/
   ogexplain-core/                            # Core library (model + parser + analyzer + suggester)
+  ogexplain-optimizer/                       # Closed-loop optimizer (orchestrator + converge + rewrite/verify)
   ogexplain-cli/                             # CLI frontend
   ogexplain-tui/                             # Interactive TUI frontend
   ogexplain-mcp/                             # MCP server for AI assistants
@@ -32,12 +33,13 @@ tests/
 
 ## Architecture
 
-Rust Cargo workspace with five crates:
+Rust Cargo workspace with six crates:
 
 | Crate | Binary | Purpose |
 |-------|--------|---------|
 | `ogexplain-core` | library | Parser + Model + Analyzer + Suggester (no UI deps) |
-| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON/CSV output, config file for DB connections (`~/.gaussdb-mcp.toml`) |
+| `ogexplain-optimizer` | library | Closed-loop optimizer — orchestrator, convergence, rewrite/verify integration with metamorphosis |
+| `ogexplain-cli` | `ogexplain` | CLI frontend — file/pipe input, text/JSON/CSV output, `optimize` subcommand, config file for DB connections (`~/.gaussdb-mcp.toml`) |
 | `ogexplain-tui` | `ogexplain-tui` | Interactive TUI — collapsible plan tree, node detail, paste input |
 | `ogsql-complexity` | library | SQL complexity scoring (standalone, reusable) |
 | `ogexplain-mcp` | `ogexplain-mcp` | MCP server — exposes analysis as MCP tools for AI assistants |
@@ -51,6 +53,14 @@ Rust Cargo workspace with five crates:
 5. **SQL block parser** (`sql/`): Segments mixed SQL + EXPLAIN text into blocks for batch processing.
 6. **Summary** (`summary/`): SummaryRow for batch reporting with SQL complexity + plan metrics + diagnostic stats.
 7. **i18n** (`i18n/`): rust-i18n based localization (en, zh-CN).
+
+### Optimizer layers:
+
+6. **Orchestrator** (`orchestrator/`): Main loop — `EXPLAIN → diagnose → map → rewrite → verify → converge`. Uses `ExplainExecutor` trait for DB injection.
+7. **Converge** (`converge/`): `MetricsSnapshot`, `LoopConfig`, `StopReason`, `should_continue()`.
+8. **Mapper** (`mapper/`): `map_diagnostic()`, `filter_rewritable()`, `RemediationAction`.
+9. **Rewrite** (`rewrite/`): SQL↔AST encapsulation for `metamorphosis_core::RewriteEngine`.
+10. **Verify** (`verify.rs`): `verify_qed()` (embedded Z3), `verify_verieql()` (bounded MCF).
 
 ### TUI (ratatui + Elm Architecture):
 
@@ -70,9 +80,14 @@ Rust Cargo workspace with five crates:
 | `crates/ogexplain-core/src/parser/` | `mod.rs`, `line_classifier.rs`, `tree_builder.rs` |
 | `crates/ogexplain-core/src/analyzer/` | `mod.rs`, `config.rs`, `context.rs`, `report.rs`, `rules/*.rs` (17 files incl. `utils.rs`) |
 | `crates/ogexplain-core/src/suggester/` | `mod.rs`, `suggestion.rs`, `mapper.rs` |
-| `crates/ogexplain-cli/src/main.rs` | clap CLI with `analyze` subcommand |
+| `crates/ogexplain-cli/src/main.rs` | clap CLI with `analyze` and `optimize` subcommands |
 | `crates/ogexplain-tui/src/` | `main.rs`, `app.rs` (TEA model), `action.rs`, `event.rs`, `components/` |
 | `crates/ogexplain-mcp/src/` | `main.rs`, `server.rs` — MCP server with 5 tools (`analyze_explain`, `parse_explain`, `list_diagnostic_rules`, `get_suggestions`, `score_sql_complexity`) |
+| `crates/ogexplain-optimizer/src/orchestrator.rs` | Main optimization loop |
+| `crates/ogexplain-optimizer/src/converge.rs` | Convergence detection |
+| `crates/ogexplain-optimizer/src/verify.rs` | QED/VeriEQL library API integration |
+| `crates/ogexplain-optimizer/src/rewrite.rs` | SQL↔AST encapsulation |
+| `crates/ogexplain-optimizer/src/mapper.rs` | Diagnostic→rule mapping |
 | `.sisyphus/plans/ogexplain-analyzer-spec.md` | Design spec (1823 lines) |
 | `.sisyphus/plans/ogexplain-analyzer-impl.md` | Implementation plan |
 
@@ -122,6 +137,7 @@ This tool targets **OpenGauss** (PostgreSQL-fork), not vanilla PostgreSQL. OG-sp
 ## Dependencies
 
 - **core**: `regex`, `serde` + `serde_json`, `thiserror`, `toml`; dev: `insta` (YAML snapshots)
+- **optimizer**: `ogexplain-core`, `metamorphosis-core`, `metamorphosis-rewrite`, `z3` (via QED), `tokio`
 - **cli**: `ogexplain-core`, `clap` v4, `colored`, `anyhow`
 - **tui**: `ogexplain-core`, `ratatui` 0.30, `crossterm` 0.29, `ratatui-textarea` 0.8, `tokio`, `color-eyre`, `clap` v4
 - **mcp**: `ogexplain-core`, `ogsql-complexity`, `rmcp` 1.7 (official MCP SDK), `tokio`, `serde`, `schemars`
@@ -134,6 +150,9 @@ cargo build -p ogexplain-core            # core library only
 cargo test --workspace                   # all 317 tests
 cargo test --test integration_tests      # parser insta snapshot tests only
 cargo test --test analyzer_tests         # analyzer diagnostic tests only
+cargo test -p ogexplain-optimizer        # optimizer library tests
+cargo test --test optimize_e2e           # optimizer end-to-end
+cargo test --test optimize_regress       # optimizer regression tests
 cargo insta review                       # interactive snapshot review
 cargo run -p ogexplain-cli -- analyze file.txt -o json   # CLI (text or json output)
 cargo run -p ogexplain-tui -- file.txt   # TUI with file

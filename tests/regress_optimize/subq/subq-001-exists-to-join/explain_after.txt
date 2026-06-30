@@ -1,0 +1,6 @@
+Hash Join  (cost=75.00..120.00 rows=100 width=8) (actual time=0.080..1.500 rows=100 loops=1)
+  Hash Cond: (o.user_id = u.id)
+  ->  Seq Scan on orders o  (cost=0.00..40.00 rows=1000 width=12) (actual time=0.010..0.500 rows=1000 loops=1)
+  ->  Hash  (cost=35.00..35.00 rows=50 width=4)
+        ->  Seq Scan on users u  (cost=0.00..35.00 rows=50 width=4)
+              Filter: (active = 1)

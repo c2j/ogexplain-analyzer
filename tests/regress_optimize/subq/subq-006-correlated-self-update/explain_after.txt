@@ -1,0 +1,9 @@
+Update on rental r  (cost=0.00..200.00 rows=100 width=36)
+  ->  Hash Join  (cost=0.00..150.00 rows=100 width=44)
+        Hash Cond: (r.rental_id = p.rental_id)
+        ->  Seq Scan on rental r  (cost=0.00..50.00 rows=100 width=36)
+              Filter: (return_date IS NULL)
+        ->  Hash  (cost=0.00..80.00 rows=1000 width=12)
+              ->  HashAggregate  (cost=0.00..70.00 rows=1000 width=12)
+                    Group Key: payment.rental_id
+                    ->  Seq Scan on payment p  (cost=0.00..40.00 rows=5000 width=12)

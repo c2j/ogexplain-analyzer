@@ -1,0 +1,7 @@
+rule_id    = "TYPE-001"
+case_name  = "type-001-implicit-cast"
+description = "Implicit type coercion should trigger add-explicit-cast rewrite"
+
+[config]
+max_iterations = 5
+skip_verify    = true

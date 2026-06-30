@@ -1,0 +1,3 @@
+Seq Scan on users  (cost=0.00..50.00 rows=1 width=36) (actual time=0.200..0.800 rows=1 loops=1)
+  Filter: ((id)::text = '123'::text)
+  Rows Removed by Filter: 999

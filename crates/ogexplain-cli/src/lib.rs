@@ -15,9 +15,6 @@ use std::path::Path;
 #[cfg(feature = "db")]
 pub mod db;
 
-#[cfg(feature = "db")]
-pub mod optimize;
-
 #[derive(Parser)]
 #[command(name = "ogexplain")]
 #[command(version)]
@@ -1180,7 +1177,7 @@ pub fn run() -> Result<()> {
                 .arg(
                     clap::Arg::new("config")
                         .long("config")
-                        .help("Path to DB config file (default: ~/.gaussdb-mcp.toml)"),
+                        .help("Path to DB config file (default: ~/.gaussdb.toml)"),
                 )
                 .arg(
                     clap::Arg::new("name")
@@ -1193,15 +1190,16 @@ pub fn run() -> Result<()> {
                         .help("Schema JSON file path (passed to metamorphosis)"),
                 )
                 .arg(
-                    clap::Arg::new("sql_dir")
-                        .long("sql-dir")
-                        .help("Directory of .sql DDL files (alternative to --schema; supports PRIMARY KEY constraints)"),
-                )
-                .arg(
                     clap::Arg::new("metamorphosis")
                         .long("metamorphosis")
                         .default_value("metamorphosis")
-                        .help("Path to metamorphosis binary"),
+                        .hide(true)
+                        .help("Path to metamorphosis binary (deprecated: now uses library API)"),
+                )
+                .arg(
+                    clap::Arg::new("sql_dir")
+                        .long("sql-dir")
+                        .help("Directory of .sql DDL files (alternative to --schema; supports PRIMARY KEY constraints)"),
                 )
                 .arg(
                     clap::Arg::new("max_iterations")
@@ -1225,7 +1223,8 @@ pub fn run() -> Result<()> {
                     clap::Arg::new("skip_stats_check")
                         .long("skip-stats-check")
                         .action(clap::ArgAction::SetTrue)
-                        .help("Skip Phase 0 stats check warning"),
+                        .hide(true)
+                        .help("Skip Phase 0 stats check warning (deprecated)"),
                 )
                 .arg(
                     clap::Arg::new("format")
@@ -1335,23 +1334,14 @@ pub fn run() -> Result<()> {
                 let sql = sql
                     .or(sql_from_file)
                     .ok_or_else(|| anyhow::anyhow!("Either --sql or --sql-file is required"))?;
-                let config_path = args
-                    .get_one::<String>("config")
-                    .map(std::path::PathBuf::from);
-                let name = args.get_one::<String>("name").cloned();
                 let schema_path = args.get_one::<String>("schema").cloned();
                 let sql_dir = args.get_one::<String>("sql_dir").cloned();
-                let metamorphosis_path = args
-                    .get_one::<String>("metamorphosis")
-                    .cloned()
-                    .unwrap_or_else(|| "metamorphosis".to_string());
                 let max_iterations = args
                     .get_one::<String>("max_iterations")
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(10);
                 let analyze = args.get_flag("analyze");
                 let i_know = args.get_flag("i_know_the_risks");
-                let skip_stats = args.get_flag("skip_stats_check");
                 let skip_verify = args.get_flag("skip_verify");
                 let verify_engine = args
                     .get_one::<String>("verify_engine")
@@ -1365,32 +1355,67 @@ pub fn run() -> Result<()> {
                     .get_one::<String>("verify_bound")
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(2);
-                let format = args
-                    .get_one::<String>("format")
-                    .map(|s| s.as_str().to_string())
-                    .unwrap_or_else(|| "text".to_string());
                 let output = args.get_one::<String>("output").cloned();
                 let verbose = args.get_flag("verbose");
 
-                return optimize::run_optimize(optimize::OptimizeArgs {
-                    sql,
+                // Hidden backward-compat args (accepted but ignored)
+                let _metamorphosis_path = args.get_one::<String>("metamorphosis");
+                let _skip_stats = args.get_flag("skip_stats_check");
+
+                let config_path = args
+                    .get_one::<String>("config")
+                    .map(std::path::PathBuf::from);
+                let name = args.get_one::<String>("name").cloned();
+
+                struct DbExecutor {
+                    config_path: Option<std::path::PathBuf>,
+                    name: Option<String>,
+                    verbose: bool,
+                }
+
+                impl ogexplain_optimizer::orchestrator::ExplainExecutor for DbExecutor {
+                    fn fetch_explain(&self, sql: &str, analyze: bool) -> Result<String, String> {
+                        crate::db::fetch_explain(
+                            self.config_path.as_deref(),
+                            self.name.as_deref(),
+                            sql,
+                            analyze,
+                            self.verbose,
+                        )
+                        .map_err(|e| e.to_string())
+                    }
+                }
+
+                let executor = DbExecutor {
                     config_path,
                     name,
-                    schema_path,
+                    verbose,
+                };
+
+                let config = ogexplain_optimizer::orchestrator::OptimizeConfig {
+                    sql,
+                    schema_json_path: schema_path,
                     sql_dir,
-                    metamorphosis_path,
                     max_iterations,
                     analyze_enabled: analyze && i_know,
-                    skip_stats_check: skip_stats,
-                    verbose,
-                    format,
-                    output,
-                    // ↓ NEW
                     skip_verify,
                     verify_engine,
                     verify_timeout,
                     verify_bound,
-                });
+                    verbose,
+                };
+
+                let report = ogexplain_optimizer::orchestrator::run_optimize(config, &executor)
+                    .map_err(|e| anyhow::anyhow!("Optimization failed: {}", e))?;
+
+                if let Some(path) = output {
+                    std::fs::write(&path, &report)
+                        .with_context(|| format!("Failed to write report to {}", path))?;
+                } else {
+                    print!("{}", report);
+                }
+
+                return Ok(());
             }
             #[cfg(not(feature = "db"))]
             {
