@@ -7,10 +7,14 @@ edition.workspace = true
 ogexplain-core = { path = "../ogexplain-core" }
 ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.4" }
 metamorphosis-core = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-core" }
-metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-qed" }
-metamorphosis-verieql = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-verieql" }
+metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-qed", optional = true }
+metamorphosis-verieql = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-verieql", optional = true }
 metamorphosis-rules = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-rules" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tracing = "0.1"
+
+[features]
+default = ["verify"]
+verify = ["dep:metamorphosis-qed", "dep:metamorphosis-verieql"]

@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 ogexplain-core = { path = "../ogexplain-core" }
-ogexplain-optimizer = { path = "../ogexplain-optimizer" }
+ogexplain-optimizer = { path = "../ogexplain-optimizer", default-features = false }
 ogsql-complexity = { path = "../ogsql-complexity" }
 clap = { version = "4", features = ["derive", "cargo"] }
 colored = "3"
@@ -30,8 +30,9 @@ libdbus-sys = { version = "0.2", optional = true }
 ogexplain-mcp = { path = "../ogexplain-mcp", optional = true }
 
 [features]
-default = ["db"]
+default = ["db", "optimizer-verify"]
 db = ["dep:gaussdb"]
+optimizer-verify = ["ogexplain-optimizer/verify"]
 # Static-musl / hermetic-release helper: compiles OpenSSL + libdbus from source
 # so the resulting binary has no system libssl/libcrypto/libdbus dependency.
 # Required because gaussdb's `config` feature pulls keyring's Linux

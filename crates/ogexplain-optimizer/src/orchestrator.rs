@@ -292,70 +292,77 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         let verification: Option<verify::VerifyResult> = if config.skip_verify {
             None
         } else {
-            let engine: VerifyEngine = config
-                .verify_engine
-                .parse()
-                .unwrap_or(VerifyEngine::Qed);
+            #[cfg(feature = "verify")]
+            {
+                let engine: VerifyEngine = config
+                    .verify_engine
+                    .parse()
+                    .unwrap_or(VerifyEngine::Qed);
 
-            let result = match engine {
-                VerifyEngine::Qed => {
-                    let rich_schema = build_rich_schema(table_entries.as_ref());
-                    verify::verify_qed(&current_sql, &rewritten, &rich_schema, config.verify_timeout)
-                }
-                VerifyEngine::VeriEql => {
-                    let rich_schema = build_rich_schema(table_entries.as_ref());
-                    let tables = verify::rich_schema_to_verieql(&rich_schema);
-                    let constraints = serde_json::json!({});
-                    verify::verify_verieql(
-                        &current_sql,
-                        &rewritten,
-                        &tables,
-                        &constraints,
-                        config.verify_bound,
-                    )
-                }
-            };
+                let result = match engine {
+                    VerifyEngine::Qed => {
+                        let rich_schema = build_rich_schema(table_entries.as_ref());
+                        verify::verify_qed(&current_sql, &rewritten, &rich_schema, config.verify_timeout)
+                    }
+                    VerifyEngine::VeriEql => {
+                        let rich_schema = build_rich_schema(table_entries.as_ref());
+                        let tables = verify::rich_schema_to_verieql(&rich_schema);
+                        let constraints = serde_json::json!({});
+                        verify::verify_verieql(
+                            &current_sql,
+                            &rewritten,
+                            &tables,
+                            &constraints,
+                            config.verify_bound,
+                        )
+                    }
+                };
 
-            match result {
-                Ok(r) => {
-                    match verify::decide_verification_outcome(&r) {
-                        verify::VerificationDecision::Reject { counterexample } => {
-                            history.push(IterationRecord {
-                                iteration,
-                                rule_id: finding.rule_id.clone(),
-                                action: action.clone(),
-                                snapshot_before: prev_snapshot.clone(),
-                                snapshot_after: curr_snapshot.clone(),
-                                rewritten_sql: Some(rewritten.clone()),
-                                notes: vec![format!(
-                                    "Verification rejected: {}",
-                                    counterexample.as_deref().unwrap_or("(no counterexample)")
-                                )],
-                                verification: Some(r),
-                            });
-                            return finalize(
-                                &history,
-                                StopReason::VerificationFailed { counterexample },
-                                &current_sql,
-                                &config,
-                            );
+                match result {
+                    Ok(r) => {
+                        match verify::decide_verification_outcome(&r) {
+                            verify::VerificationDecision::Reject { counterexample } => {
+                                history.push(IterationRecord {
+                                    iteration,
+                                    rule_id: finding.rule_id.clone(),
+                                    action: action.clone(),
+                                    snapshot_before: prev_snapshot.clone(),
+                                    snapshot_after: curr_snapshot.clone(),
+                                    rewritten_sql: Some(rewritten.clone()),
+                                    notes: vec![format!(
+                                        "Verification rejected: {}",
+                                        counterexample.as_deref().unwrap_or("(no counterexample)")
+                                    )],
+                                    verification: Some(r),
+                                });
+                                return finalize(
+                                    &history,
+                                    StopReason::VerificationFailed { counterexample },
+                                    &current_sql,
+                                    &config,
+                                );
+                            }
+                            verify::VerificationDecision::Accept => Some(r),
                         }
-                        verify::VerificationDecision::Accept => Some(r),
+                    }
+                    Err(e) => {
+                        let err_result = verify::VerifyResult {
+                            engine,
+                            status: verify::VerifyStatus::Unknown {
+                                reason: format!("verify error: {e}"),
+                            },
+                            elapsed_ms: None,
+                            original_sql: current_sql.clone(),
+                            rewritten_sql: rewritten.clone(),
+                            raw_output: None,
+                        };
+                        Some(err_result)
                     }
                 }
-                Err(e) => {
-                    let err_result = verify::VerifyResult {
-                        engine,
-                        status: verify::VerifyStatus::Unknown {
-                            reason: format!("verify error: {e}"),
-                        },
-                        elapsed_ms: None,
-                        original_sql: current_sql.clone(),
-                        rewritten_sql: rewritten.clone(),
-                        raw_output: None,
-                    };
-                    Some(err_result)
-                }
+            }
+            #[cfg(not(feature = "verify"))]
+            {
+                None
             }
         };
 
@@ -498,6 +505,7 @@ fn hash_sql(sql: &str) -> u64 {
 }
 
 /// Build a [`RichSchema`] from an optional schema map with PK constraints.
+#[cfg(feature = "verify")]
 fn build_rich_schema(
     schema: Option<&std::collections::HashMap<String, TableSchemaEntry>>,
 ) -> metamorphosis_qed::schema::RichSchema {
@@ -701,12 +709,14 @@ mod tests {
 
     // ── build_rich_schema ──────────────────────────────────────────────
 
+    #[cfg(feature = "verify")]
     #[test]
     fn build_rich_schema_none_returns_empty() {
         let schema = build_rich_schema(None);
         assert!(schema.tables.is_empty());
     }
 
+    #[cfg(feature = "verify")]
     #[test]
     fn build_rich_schema_with_tables() {
         use std::collections::HashMap;
