@@ -231,7 +231,7 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
                 sql_unchanged,
             );
             if let LoopDecision::Stop(reason) = decision {
-                return finalize(&history, reason, &current_sql, &config);
+                return finalize(&history, reason, &current_sql, &config, None);
             }
             update_plateau(prev, &curr_snapshot, &loop_config, &mut plateau_count);
         }
@@ -239,11 +239,17 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         // 5. Filter rewritable findings
         let rewritable = filter_rewritable(&report.findings);
         if rewritable.is_empty() {
+            let initial = InitialSummary {
+                total_cost: curr_snapshot.total_cost.unwrap_or(0.0),
+                total_findings: report.findings.len(),
+                rewritable_count: rewritable.len(),
+            };
             return finalize(
                 &history,
                 StopReason::NoRewritableFindings,
                 &current_sql,
                 &config,
+                Some(initial),
             );
         }
 
@@ -267,7 +273,7 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
                             notes: vec![format!("Rewrite error: {}", e)],
                             verification: None,
                         });
-                        return finalize(&history, StopReason::FixedPoint, &current_sql, &config);
+                        return finalize(&history, StopReason::FixedPoint, &current_sql, &config, None);
                     }
                 }
             }
@@ -340,6 +346,7 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
                                     StopReason::VerificationFailed { counterexample },
                                     &current_sql,
                                     &config,
+                                    None,
                                 );
                             }
                             verify::VerificationDecision::Accept => Some(r),
@@ -369,7 +376,7 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         // Check for fixed-point after rewrite
         let rewritten_hash = hash_sql(&rewritten);
         if sql_history.contains(&rewritten_hash) {
-            return finalize(&history, StopReason::FixedPoint, &current_sql, &config);
+            return finalize(&history, StopReason::FixedPoint, &current_sql, &config, None);
         }
         sql_history.insert(rewritten_hash);
 
@@ -388,25 +395,45 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         current_sql = rewritten;
     }
 
-    finalize(&history, StopReason::MaxIterations, &current_sql, &config)
+    finalize(&history, StopReason::MaxIterations, &current_sql, &config, None)
 }
 
 // ---------------------------------------------------------------------------
 // Output (text report)
 // ---------------------------------------------------------------------------
 
+struct InitialSummary {
+    total_cost: f64,
+    total_findings: usize,
+    rewritable_count: usize,
+}
+
 fn finalize(
     history: &[IterationRecord],
     reason: StopReason,
     final_sql: &str,
     _config: &OptimizeConfig,
+    initial: Option<InitialSummary>,
 ) -> Result<String, String> {
-    Ok(render_report(history, &reason, final_sql))
+    Ok(render_report(history, &reason, final_sql, initial))
 }
 
-fn render_report(history: &[IterationRecord], reason: &StopReason, final_sql: &str) -> String {
+fn render_report(
+    history: &[IterationRecord],
+    reason: &StopReason,
+    final_sql: &str,
+    initial: Option<InitialSummary>,
+) -> String {
     let mut out = String::new();
     out.push_str("=== Optimization Report ===\n");
+    if history.is_empty() {
+        if let Some(s) = &initial {
+            out.push_str(&format!(
+                "Initial EXPLAIN: cost {:.2}, {} diagnostic findings ({} rewritable)\n",
+                s.total_cost, s.total_findings, s.rewritable_count,
+            ));
+        }
+    }
     out.push_str(&format!("Stop reason: {:?}\n", reason));
     out.push_str(&format!("Iterations: {}\n", history.len()));
     for record in history {
@@ -622,7 +649,7 @@ mod tests {
 
     #[test]
     fn render_report_handles_empty_history() {
-        let report = render_report(&[], &StopReason::Success, "SELECT 1");
+        let report = render_report(&[], &StopReason::Success, "SELECT 1", None);
         assert!(report.contains("Iterations: 0"));
         assert!(report.contains("SELECT 1"));
     }
@@ -647,7 +674,7 @@ mod tests {
             }),
         };
 
-        let report = render_report(&[verified_record], &StopReason::Success, "SELECT 1");
+        let report = render_report(&[verified_record], &StopReason::Success, "SELECT 1", None);
         assert!(
             report.contains("Verification: ✓ qed Equivalent (22ms)"),
             "report must include verification line; got:\n{report}"
@@ -663,7 +690,7 @@ mod tests {
             notes: Vec::new(),
             verification: None,
         };
-        let report2 = render_report(&[unverified_record], &StopReason::Success, "SELECT 1");
+        let report2 = render_report(&[unverified_record], &StopReason::Success, "SELECT 1", None);
         assert!(
             report2.contains("Verification: (not performed)"),
             "report must show not-performed for None; got:\n{report2}"
@@ -672,13 +699,13 @@ mod tests {
 
     #[test]
     fn render_report_shows_stop_reason() {
-        let report = render_report(&[], &StopReason::Success, "SELECT 1");
+        let report = render_report(&[], &StopReason::Success, "SELECT 1", None);
         assert!(report.contains("Stop reason: Success"));
 
-        let report2 = render_report(&[], &StopReason::MaxIterations, "SELECT 1");
+        let report2 = render_report(&[], &StopReason::MaxIterations, "SELECT 1", None);
         assert!(report2.contains("Stop reason: MaxIterations"));
 
-        let report3 = render_report(&[], &StopReason::Regression, "SELECT 1");
+        let report3 = render_report(&[], &StopReason::Regression, "SELECT 1", None);
         assert!(report3.contains("Stop reason: Regression"));
     }
 
@@ -702,9 +729,23 @@ mod tests {
             notes: Vec::new(),
             verification: None,
         };
-        let report = render_report(&[record], &StopReason::Success, "SELECT 1");
+        let report = render_report(&[record], &StopReason::Success, "SELECT 1", None);
         assert!(report.contains("Cost: 100.00 → 80.00 (-20.0%)"));
         assert!(report.contains("Critical findings: 2 → 1"));
+    }
+
+    #[test]
+    fn render_report_shows_initial_summary_when_provided() {
+        let initial = Some(InitialSummary {
+            total_cost: 75.00,
+            total_findings: 3,
+            rewritable_count: 0,
+        });
+        let report = render_report(&[], &StopReason::NoRewritableFindings, "SELECT 1", initial);
+        assert!(
+            report.contains("Initial EXPLAIN: cost 75.00, 3 diagnostic findings (0 rewritable)"),
+            "report must include initial EXPLAIN summary; got:\n{report}"
+        );
     }
 
     // ── build_rich_schema ──────────────────────────────────────────────
