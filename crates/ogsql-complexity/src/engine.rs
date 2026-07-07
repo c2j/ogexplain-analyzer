@@ -769,7 +769,8 @@ fn score_package(
                 pkg.package_level_variables += 1;
             }
             ogsql_parser::ast::PackageItem::Variable(_)
-            | ogsql_parser::ast::PackageItem::Type(_) => {}
+            | ogsql_parser::ast::PackageItem::Type(_)
+            | ogsql_parser::ast::PackageItem::Cursor(_) => {}
         }
     }
 

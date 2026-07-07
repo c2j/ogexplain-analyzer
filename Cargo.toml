@@ -43,7 +43,7 @@ color-eyre = { version = "0.6", optional = true }
 [dev-dependencies]
 ogexplain-cli = { path = "crates/ogexplain-cli", features = ["db", "mcp"] }
 ogexplain-optimizer = { path = "crates/ogexplain-optimizer" }
-metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", tag = "v0.2.1", package = "metamorphosis-qed" }
+metamorphosis-qed = { git = "https://github.com/c2j/metamorphosis.git", rev = "a50c83e96384c382cad2e38284c81473fa8ba0a5", package = "metamorphosis-qed" }
 testcontainers = "0.27"
 tokio = { version = "1", features = ["rt", "macros", "time"] }
 serde = { version = "1", features = ["derive"] }
@@ -63,6 +63,6 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.4.6"
+version = "0.4.8"
 edition = "2021"
 license = "MIT"
