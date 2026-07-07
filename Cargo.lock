@@ -2497,7 +2497,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-analyzer"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "anyhow",
  "color-eyre",
@@ -2517,7 +2517,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-cli"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -2539,7 +2539,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-core"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "insta",
  "ogsql-parser",
@@ -2554,7 +2554,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-mcp"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "ogexplain-core",
  "ogsql-complexity",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-optimizer"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "metamorphosis-core",
  "metamorphosis-qed",
@@ -2583,7 +2583,7 @@ dependencies = [
 
 [[package]]
 name = "ogexplain-tui"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "clap",
  "color-eyre",
@@ -2599,7 +2599,7 @@ dependencies = [
 
 [[package]]
 name = "ogsql-complexity"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "insta",
  "ogsql-parser",
