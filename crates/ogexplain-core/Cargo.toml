@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.29" }
+ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.31" }
 regex = "1"
 rust-i18n = "3"
 serde = { version = "1", features = ["derive"] }

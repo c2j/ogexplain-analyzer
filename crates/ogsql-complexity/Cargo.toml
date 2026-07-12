@@ -6,7 +6,7 @@ license.workspace = true
 description = "SQL complexity analyzer for OpenGauss/GaussDB queries"
 
 [dependencies]
-ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.29" }
+ogsql-parser = { git = "https://github.com/c2j/ogsql-parser", tag = "v0.8.31" }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
