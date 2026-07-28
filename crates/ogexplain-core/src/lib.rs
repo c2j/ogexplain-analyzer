@@ -6,6 +6,7 @@ pub mod i18n;
 pub mod model;
 pub mod parser;
 pub mod rewriter;
+pub mod session;
 pub mod sql;
 pub mod suggester;
 pub mod summary;
@@ -13,6 +14,7 @@ pub mod summary;
 pub use diagnostic_hint::DiagnosticHint;
 pub use parser::parse;
 pub use parser::parse_multi;
+pub use session::analyze_session;
 
 pub fn analyze(plan: &model::ExplainPlan) -> analyzer::report::DiagnosticReport {
     analyzer::DiagnosticEngine::new(analyzer::config::DiagnosticConfig::default()).analyze(plan)

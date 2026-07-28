@@ -42,7 +42,9 @@ impl std::str::FromStr for VerifyEngine {
         match s.to_ascii_lowercase().as_str() {
             "qed" => Ok(Self::Qed),
             "verieql" => Ok(Self::VeriEql),
-            other => Err(format!("unknown verify engine: {other} (expected qed|verieql)")),
+            other => Err(format!(
+                "unknown verify engine: {other} (expected qed|verieql)"
+            )),
         }
     }
 }
@@ -59,17 +61,11 @@ pub enum VerifyStatus {
         counterexample: Option<String>,
     },
     /// Prover gave up (bound too small, unsupported construct, etc.).
-    Unknown {
-        reason: String,
-    },
+    Unknown { reason: String },
     /// Prover did not finish within the timeout.
-    Timeout {
-        seconds: u64,
-    },
+    Timeout { seconds: u64 },
     /// Verification intentionally skipped.
-    Skipped {
-        reason: SkipReason,
-    },
+    Skipped { reason: SkipReason },
 }
 
 /// Why verification was skipped.
@@ -211,15 +207,11 @@ pub fn verify_qed(
                 counterexample: counterexample.clone(),
             }
         }
-        metamorphosis_qed::prover::ProofResult::Unknown { reason } => {
-            VerifyStatus::Unknown {
-                reason: reason.clone(),
-            }
-        }
+        metamorphosis_qed::prover::ProofResult::Unknown { reason } => VerifyStatus::Unknown {
+            reason: reason.clone(),
+        },
         metamorphosis_qed::prover::ProofResult::Timeout { seconds } => {
-            VerifyStatus::Timeout {
-                seconds: *seconds,
-            }
+            VerifyStatus::Timeout { seconds: *seconds }
         }
         _ => VerifyStatus::Unknown {
             reason: "unexpected proof result".into(),
@@ -274,11 +266,9 @@ pub fn verify_verieql(
                 counterexample: Some(ce_text),
             }
         }
-        metamorphosis_verieql::types::ProofResult::Unknown { reason } => {
-            VerifyStatus::Unknown {
-                reason: reason.clone(),
-            }
-        }
+        metamorphosis_verieql::types::ProofResult::Unknown { reason } => VerifyStatus::Unknown {
+            reason: reason.clone(),
+        },
     };
 
     Ok(VerifyResult {
@@ -381,7 +371,10 @@ mod tests {
             rewritten_sql: "Y".into(),
             raw_output: None,
         };
-        assert_eq!(decide_verification_outcome(&r), VerificationDecision::Accept);
+        assert_eq!(
+            decide_verification_outcome(&r),
+            VerificationDecision::Accept
+        );
     }
 
     #[test]
@@ -416,7 +409,10 @@ mod tests {
             rewritten_sql: "Y".into(),
             raw_output: None,
         };
-        assert_eq!(decide_verification_outcome(&r), VerificationDecision::Accept);
+        assert_eq!(
+            decide_verification_outcome(&r),
+            VerificationDecision::Accept
+        );
     }
 
     #[test]
@@ -431,7 +427,10 @@ mod tests {
             rewritten_sql: "Y".into(),
             raw_output: None,
         };
-        assert_eq!(decide_verification_outcome(&r), VerificationDecision::Accept);
+        assert_eq!(
+            decide_verification_outcome(&r),
+            VerificationDecision::Accept
+        );
     }
 
     #[test]
@@ -444,7 +443,10 @@ mod tests {
             rewritten_sql: "Y".into(),
             raw_output: None,
         };
-        assert_eq!(decide_verification_outcome(&r), VerificationDecision::Accept);
+        assert_eq!(
+            decide_verification_outcome(&r),
+            VerificationDecision::Accept
+        );
     }
 
     // ── VerifyResult helper methods ───────────────────────────────────────
@@ -631,7 +633,14 @@ mod tests {
 
     #[test]
     fn map_data_type_integer_variants() {
-        for dt in &["INTEGER", "int", "BIGINT", "SMALLINT", "SERIAL", "BIGSERIAL"] {
+        for dt in &[
+            "INTEGER",
+            "int",
+            "BIGINT",
+            "SMALLINT",
+            "SERIAL",
+            "BIGSERIAL",
+        ] {
             assert_eq!(
                 map_data_type(dt),
                 metamorphosis_verieql::types::ColumnType::Integer,

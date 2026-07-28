@@ -392,3 +392,245 @@ fn no_plan_nodes_errors() {
         err
     );
 }
+
+// --- auto_explain format tests (enable_auto_explain=on, auto_explain_level=notice) ---
+
+#[test]
+fn auto_explain_single_function_scan() {
+    let input = r#"NOTICE:  duration: 6.749 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_get_team_members(1)
+Function Scan on fn_get_team_members  (cost=0.25..10.25 rows=1000 width=68) (actual time=6.646..6.646 rows=0 loops=1)
+  (Buffers: shared hit=131 read=8)
+Total runtime: 6.749 ms"#;
+
+    let plan = parse(input).expect("auto_explain parse failed");
+    assert_eq!(plan.root.node_type, NodeType::FunctionScan);
+    assert_eq!(plan.root.children.len(), 0);
+    // "Total runtime:" should be parsed as summary
+    assert!(plan.summary.is_some());
+    let summary = plan.summary.as_ref().unwrap();
+    assert!(summary.total_runtime_ms.is_some());
+    // Buffers line should be attached as a property
+    assert!(!plan.root.properties.is_empty());
+}
+
+#[test]
+fn auto_explain_with_timestamp_prefix() {
+    let input = r#"2025-07-27 10:00:00.123 CST [12345] NOTICE:  duration: 6.749 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_get_team_members(1)
+Function Scan on fn_get_team_members  (cost=0.25..10.25 rows=1000 width=68)
+Total runtime: 6.749 ms"#;
+
+    let plan = parse(input).expect("parse with timestamp failed");
+    assert_eq!(plan.root.node_type, NodeType::FunctionScan);
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_nested_plan_with_sort() {
+    let input = r#"NOTICE:  duration: 10.234 ms  plan:
+Query Text: SELECT e.emp_name, e.base_salary FROM gaussdb.employees e WHERE e.dept_id = 1 ORDER BY e.base_salary DESC
+Sort  (cost=2.04..2.05 rows=1 width=46) (actual time=10.100..10.100 rows=5 loops=1)
+  Sort Key: e.base_salary DESC
+  ->  Seq Scan on employees e  (cost=0.00..1.03 rows=1 width=46) (actual time=0.050..10.050 rows=5 loops=1)
+        Filter: (dept_id = 1)
+Total runtime: 10.234 ms"#;
+
+    let plan = parse(input).expect("nested auto_explain parse failed");
+    assert_eq!(plan.root.node_type, NodeType::Sort);
+    assert_eq!(plan.root.relation, None);
+    assert_eq!(plan.root.children.len(), 1);
+    assert_eq!(plan.root.children[0].node_type, NodeType::SeqScan);
+    assert_eq!(
+        plan.root.children[0].relation,
+        Some("employees".to_string())
+    );
+    // properties of the Seq Scan child
+    assert!(plan.root.children[0]
+        .properties
+        .iter()
+        .any(|p| p.label == "Filter"));
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_missing_query_text() {
+    let input = r#"NOTICE:  duration: 3.000 ms  plan:
+Seq Scan on employees  (cost=0.00..1.03 rows=100 width=46)
+Total runtime: 3.000 ms"#;
+
+    let plan = parse(input).expect("missing query text parse failed");
+    assert_eq!(plan.root.node_type, NodeType::SeqScan);
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_with_actual_runtime_only() {
+    let input = r#"NOTICE:  duration: 5.000 ms  plan:
+Query Text: SELECT * FROM t WHERE id = 1
+Seq Scan on t  (cost=0.00..10.00 rows=5 width=36) (actual time=0.100..4.500 rows=5 loops=1)
+Total runtime: 5.000 ms"#;
+
+    let plan = parse(input).expect("parse with actual runtime failed");
+    assert_eq!(plan.root.node_type, NodeType::SeqScan);
+    assert!(plan.root.actual.is_some());
+    let actual = plan.root.actual.as_ref().unwrap();
+    assert!(actual.executed);
+    assert_eq!(actual.rows, 5.0);
+    assert!(plan.summary.is_some());
+    let summary = plan.summary.as_ref().unwrap();
+    assert_eq!(summary.total_runtime_ms, Some(5.0));
+}
+
+#[test]
+fn auto_explain_vector_node() {
+    let input = r#"NOTICE:  duration: 2.345 ms  plan:
+Query Text: SELECT COUNT(*) FROM big_table
+Vector Hash Aggregate  (cost=100.00..100.05 rows=1 width=8) (actual time=2.000..2.100 rows=1 loops=1)
+  ->  Vec Sort  (cost=0.00..100.00 rows=1000 width=0)
+        Sort Key: 1
+        ->  CStore Scan on big_table  (cost=0.00..50.00 rows=1000 width=0)
+Total runtime: 2.345 ms"#;
+
+    let plan = parse(input).expect("vector auto_explain parse failed");
+    assert_eq!(plan.root.node_type, NodeType::VectorHashAggregate);
+    assert_eq!(plan.root.children.len(), 1);
+}
+
+#[test]
+fn auto_explain_multi_query_parse_multi() {
+    let input = r#"NOTICE:  duration: 6.749 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_get_team_members(1)
+Function Scan on fn_get_team_members  (cost=0.25..10.25 rows=1000 width=68)
+Total runtime: 6.749 ms
+NOTICE:  duration: 10.234 ms  plan:
+Query Text: SELECT * FROM gaussdb.employees WHERE dept_id = 1
+Seq Scan on employees  (cost=0.00..1.03 rows=100 width=46) (actual time=0.050..10.050 rows=5 loops=1)
+  Filter: (dept_id = 1)
+Total runtime: 10.234 ms"#;
+
+    let plans = parse_multi(input).expect("multi auto_explain parse failed");
+    assert_eq!(plans.len(), 2, "should extract 2 plans");
+
+    // First plan: Function Scan
+    assert_eq!(plans[0].root.node_type, NodeType::FunctionScan);
+    assert!(plans[0].summary.is_some());
+    assert_eq!(
+        plans[0].summary.as_ref().unwrap().total_runtime_ms,
+        Some(6.749)
+    );
+
+    // Second plan: Seq Scan with child properties
+    assert_eq!(plans[1].root.node_type, NodeType::SeqScan);
+    assert!(plans[1].root.actual.is_some());
+    assert!(plans[1].summary.is_some());
+    assert_eq!(
+        plans[1].summary.as_ref().unwrap().total_runtime_ms,
+        Some(10.234)
+    );
+}
+
+// --- auto_explain with stored procedure / cursor / loop scenarios ---
+
+#[test]
+fn auto_explain_proc_with_cursor_loop() {
+    // fn_pipe_emp_list has: FOR v_rec IN (SELECT ... FROM employees ...) LOOP ... RETURN QUERY ...
+    let input = r#"NOTICE:  duration: 3.826 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_pipe_emp_list(1)
+Function Scan on fn_pipe_emp_list  (cost=0.25..10.25 rows=1000 width=68) (actual time=3.655..3.655 rows=0 loops=1)
+  (Buffers: shared hit=35)
+Total runtime: 3.826 ms"#;
+
+    let plan = parse(input).expect("proc cursor parse failed");
+    assert_eq!(plan.root.node_type, NodeType::FunctionScan);
+    assert_eq!(plan.root.relation, Some("fn_pipe_emp_list".to_string()));
+    assert!(plan.root.actual.is_some());
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_proc_with_if_elsif_logic() {
+    // fn_get_tax_rate has: IF salary <= 5000 ... ELSIF ... ELSE ...
+    let input = r#"NOTICE:  duration: 1.774 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_get_tax_rate(15000)
+Function Scan on fn_get_tax_rate  (cost=0.25..0.26 rows=1 width=32) (actual time=1.738..1.738 rows=1 loops=1)
+  (Buffers: shared hit=64)
+Total runtime: 1.774 ms"#;
+
+    let plan = parse(input).expect("proc if-else parse failed");
+    assert_eq!(plan.root.node_type, NodeType::FunctionScan);
+    assert!(plan.root.actual.is_some());
+    assert_eq!(plan.root.actual.as_ref().unwrap().rows, 1.0);
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_multi_function_calls_result_node() {
+    // SELECT fn_dept_avg_salary(1), fn_calc_years_of_service(...) → Result node
+    let input = r#"NOTICE:  duration: 7.032 ms  plan:
+Query Text: SELECT gaussdb.fn_dept_avg_salary(1), gaussdb.fn_calc_years_of_service('2020-01-01'::timestamp)
+Result  (cost=0.00..0.51 rows=1 width=0) (actual time=6.987..6.987 rows=1 loops=1)
+Total runtime: 7.032 ms"#;
+
+    let plan = parse(input).expect("result node parse failed");
+    assert_eq!(plan.root.node_type, NodeType::Result);
+    assert!(plan.root.actual.is_some());
+    assert!(plan.summary.is_some());
+}
+
+#[test]
+fn auto_explain_proc_internal_sql_leaked() {
+    // Simulates auto_explain capturing a long-running internal SQL inside a stored procedure loop.
+    // The function call itself + the internal heavy query both appear in the log.
+    let input = r#"NOTICE:  duration: 2.100 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_pipe_emp_list(1)
+Function Scan on fn_pipe_emp_list  (cost=0.25..10.25 rows=1000 width=68)
+Total runtime: 2.100 ms
+NOTICE:  duration: 150.500 ms  plan:
+Query Text: SELECT emp_id, emp_name, fn_format_salary(base_salary * (1 + bonus_pct)) FROM gaussdb.employees WHERE dept_id = 1 AND status = 'ACTIVE' ORDER BY base_salary DESC
+Sort  (cost=5.50..5.51 rows=1 width=100) (actual time=100.000..150.000 rows=500 loops=1)
+  Sort Key: base_salary DESC
+  ->  Seq Scan on employees  (cost=0.00..5.49 rows=1 width=100) (actual time=0.050..50.000 rows=500 loops=1)
+        Filter: ((dept_id = 1) AND (status = 'ACTIVE'::text))
+        Rows Removed by Filter: 9500
+Total runtime: 150.500 ms"#;
+
+    let plans = parse_multi(input).expect("proc internal sql parse failed");
+    assert_eq!(plans.len(), 2);
+
+    // First: Function Scan wrapper
+    assert_eq!(plans[0].root.node_type, NodeType::FunctionScan);
+    assert_eq!(plans[0].root.children.len(), 0);
+
+    // Second: internal heavy query with full tree
+    assert_eq!(plans[1].root.node_type, NodeType::Sort);
+    assert_eq!(plans[1].root.children.len(), 1);
+    assert_eq!(plans[1].root.children[0].node_type, NodeType::SeqScan);
+    assert_eq!(
+        plans[1].root.children[0].relation,
+        Some("employees".to_string())
+    );
+    assert!(plans[1].root.children[0]
+        .properties
+        .iter()
+        .any(|p| p.label == "Rows Removed by Filter"));
+    assert!(plans[1].summary.is_some());
+    assert_eq!(
+        plans[1].summary.as_ref().unwrap().total_runtime_ms,
+        Some(150.5)
+    );
+}
+
+#[test]
+fn auto_explain_recursive_function() {
+    // fn_factorial calls itself recursively
+    let input = r#"NOTICE:  duration: 0.345 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_factorial(10)
+Function Scan on fn_factorial  (cost=0.25..0.26 rows=1 width=4) (actual time=0.200..0.300 rows=1 loops=1)
+Total runtime: 0.345 ms"#;
+
+    let plan = parse(input).expect("recursive func parse failed");
+    assert_eq!(plan.root.node_type, NodeType::FunctionScan);
+    assert!(plan.root.actual.is_some());
+    assert!(plan.summary.is_some());
+}

@@ -22,9 +22,7 @@ pub struct AggOverStreaming {
 
 impl Default for AggOverStreaming {
     fn default() -> Self {
-        Self {
-            threshold: 1.0_f64,
-        }
+        Self { threshold: 1.0_f64 }
     }
 }
 

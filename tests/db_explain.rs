@@ -180,7 +180,8 @@ async fn test_fetch_explain_bad_sql() {
 #[test]
 fn test_fetch_explain_connection_failure() {
     let config_path = write_temp_config("127.0.0.1", 1);
-    let result = ogexplain_cli::db::fetch_explain(Some(&config_path), None, "SELECT 1", false, false);
+    let result =
+        ogexplain_cli::db::fetch_explain(Some(&config_path), None, "SELECT 1", false, false);
     cleanup_temp_config(&config_path);
     assert!(result.is_err(), "Expected connection error");
 }

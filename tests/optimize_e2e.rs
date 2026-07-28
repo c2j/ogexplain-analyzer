@@ -4,11 +4,11 @@
 //! converge) without requiring a database or metamorphosis binary. Live-DB
 //! validation is in `tests/optimize_live_e2e.sh`.
 
-use ogexplain_optimizer::mapper::{filter_rewritable, map_diagnostic, RemediationAction};
+use ogexplain_core::{analyze, parse};
 use ogexplain_optimizer::converge::{
     should_continue, LoopConfig, LoopDecision, MetricsSnapshot, StopReason,
 };
-use ogexplain_core::{analyze, parse};
+use ogexplain_optimizer::mapper::{filter_rewritable, map_diagnostic, RemediationAction};
 
 /// Fixture 21 triggers SUBQ-001 via SubPlan path (table=None).
 /// Verify: the finding fires but filter_rewritable correctly filters it

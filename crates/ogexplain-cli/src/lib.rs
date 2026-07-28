@@ -1649,7 +1649,13 @@ fn run_explain(
         eprintln!("{}", t!("cli.explain.warning_analyze").to_string().yellow());
     }
 
-    let explain_text = db::fetch_explain(config_opt.map(Path::new), name_opt, &sql_text, analyze, verbose)?;
+    let explain_text = db::fetch_explain(
+        config_opt.map(Path::new),
+        name_opt,
+        &sql_text,
+        analyze,
+        verbose,
+    )?;
     let plan =
         ogexplain_core::parse(&explain_text).context(t!("cli.error.parse_failed").to_string())?;
     let complexity = try_complexity(&sql_text);

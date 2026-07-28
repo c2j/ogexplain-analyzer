@@ -81,6 +81,15 @@ pub struct DiagnosticReport {
     pub stats: super::context::GlobalStats,
 }
 
+impl DiagnosticReport {
+    pub fn empty() -> Self {
+        Self {
+            findings: Vec::new(),
+            stats: super::context::GlobalStats::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

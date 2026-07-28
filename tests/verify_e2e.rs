@@ -95,16 +95,17 @@ fn load_rich_schema_from_fixture(name: &str) -> metamorphosis_qed::schema::RichS
     }
 
     let path = schema_path(name);
-    let content =
-        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read schema '{}': {e}", path.display()));
+    let content = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("failed to read schema '{}': {e}", path.display()));
 
-    let entries: HashMap<String, TableSchemaEntry> =
-        serde_json::from_str(&content).unwrap_or_else(|e| panic!("failed to parse schema '{}': {e}", path.display()));
+    let entries: HashMap<String, TableSchemaEntry> = serde_json::from_str(&content)
+        .unwrap_or_else(|e| panic!("failed to parse schema '{}': {e}", path.display()));
 
     let tables: HashMap<String, TableInfo> = entries
         .into_iter()
         .map(|(table_name, entry)| {
-            let pk_set: HashSet<String> = entry.primary_key.iter().map(|s| s.to_lowercase()).collect();
+            let pk_set: HashSet<String> =
+                entry.primary_key.iter().map(|s| s.to_lowercase()).collect();
 
             let columns: Vec<ColumnInfo> = entry
                 .columns

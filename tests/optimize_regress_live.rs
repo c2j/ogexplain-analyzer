@@ -36,7 +36,7 @@
 
 use std::path::Path;
 
-use ogexplain_optimizer::orchestrator::{ExplainExecutor, OptimizeConfig, run_optimize};
+use ogexplain_optimizer::orchestrator::{run_optimize, ExplainExecutor, OptimizeConfig};
 
 // ---------------------------------------------------------------------------
 // Live-DB ExplainExecutor
@@ -76,7 +76,11 @@ impl GaussDbExecutor {
 
 impl ExplainExecutor for GaussDbExecutor {
     fn fetch_explain(&self, sql: &str, analyze: bool) -> Result<String, String> {
-        let verb = if analyze { "EXPLAIN ANALYZE" } else { "EXPLAIN" };
+        let verb = if analyze {
+            "EXPLAIN ANALYZE"
+        } else {
+            "EXPLAIN"
+        };
         let full_sql = format!("{verb} {sql}");
 
         let mut client = gaussdb::config::connect_sync(
@@ -137,12 +141,8 @@ fn load_case(case_dir: &Path) -> CaseFixture {
     };
 
     let config_table = &case_toml["config"];
-    let max_iterations = config_table["max_iterations"]
-        .as_integer()
-        .unwrap_or(5) as usize;
-    let skip_verify = config_table["skip_verify"]
-        .as_bool()
-        .unwrap_or(true);
+    let max_iterations = config_table["max_iterations"].as_integer().unwrap_or(5) as usize;
+    let skip_verify = config_table["skip_verify"].as_bool().unwrap_or(true);
 
     let original_sql = std::fs::read_to_string(case_dir.join("original.sql"))
         .unwrap_or_else(|e| panic!("failed to read original.sql: {e}"));
@@ -151,7 +151,11 @@ fn load_case(case_dir: &Path) -> CaseFixture {
     let contract: ExpectedContract = {
         // Prefer live-specific expectations, fall back to static
         let live_path = case_dir.join("expected.live.json");
-        let path = if live_path.exists() { &live_path } else { &case_dir.join("expected.json") };
+        let path = if live_path.exists() {
+            &live_path
+        } else {
+            &case_dir.join("expected.json")
+        };
         let content = std::fs::read_to_string(path)
             .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
         serde_json::from_str(&content)
@@ -275,7 +279,8 @@ fn all_regress_cases_live() {
     }
 
     assert_eq!(
-        failed, 0,
+        failed,
+        0,
         "{failed}/{total} live-DB cases failed ({passed} passed)",
         total = cases.len()
     );

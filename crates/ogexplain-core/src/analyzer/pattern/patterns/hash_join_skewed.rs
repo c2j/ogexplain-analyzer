@@ -21,9 +21,7 @@ pub struct HashJoinSkewed {
 
 impl Default for HashJoinSkewed {
     fn default() -> Self {
-        Self {
-            threshold: 5.0_f64,
-        }
+        Self { threshold: 5.0_f64 }
     }
 }
 
@@ -68,9 +66,7 @@ impl AntiPatternDef for HashJoinSkewed {
     ) -> Option<MatchResult<'a>> {
         let is_hash_join = matches!(
             root.node_type,
-            NodeType::HashJoin
-                | NodeType::VectorHashJoin
-                | NodeType::VectorSonicHashJoin
+            NodeType::HashJoin | NodeType::VectorHashJoin | NodeType::VectorSonicHashJoin
         );
         if !is_hash_join {
             return None;
