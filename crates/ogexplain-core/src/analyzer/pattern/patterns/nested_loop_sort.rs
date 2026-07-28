@@ -66,9 +66,7 @@ impl AntiPatternDef for NestedLoopSort {
         root: &'a PlanNode,
         ancestors: &[&'a PlanNode],
     ) -> Option<MatchResult<'a>> {
-        if root.node_type != NodeType::NestedLoop
-            && root.node_type != NodeType::VectorNestLoop
-        {
+        if root.node_type != NodeType::NestedLoop && root.node_type != NodeType::VectorNestLoop {
             return None;
         }
 
@@ -79,10 +77,7 @@ impl AntiPatternDef for NestedLoopSort {
 
         // Search children for Sort / VectorSort with large row count
         for child in &root.children {
-            let is_sort = matches!(
-                child.node_type,
-                NodeType::Sort | NodeType::VectorSort
-            );
+            let is_sort = matches!(child.node_type, NodeType::Sort | NodeType::VectorSort);
             if !is_sort {
                 continue;
             }

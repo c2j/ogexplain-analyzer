@@ -135,10 +135,9 @@ fn load_schema(
     if let Some(path) = schema_json_path {
         match std::fs::read_to_string(path) {
             Ok(content) => {
-                match serde_json::from_str::<
-                    std::collections::HashMap<String, TableSchemaEntry>,
-                >(&content)
-                {
+                match serde_json::from_str::<std::collections::HashMap<String, TableSchemaEntry>>(
+                    &content,
+                ) {
                     Ok(map) => {
                         if !map.is_empty() {
                             return Some(map);
@@ -157,7 +156,10 @@ fn load_schema(
     }
 
     if let Some(dir) = sql_dir {
-        warn!("SQL directory schema loading not yet implemented: '{}'", dir);
+        warn!(
+            "SQL directory schema loading not yet implemented: '{}'",
+            dir
+        );
     }
 
     None
@@ -181,7 +183,10 @@ fn load_schema(
 /// 9. Repeat until convergence
 ///
 /// Returns a text report of the optimization run.
-pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> Result<String, String> {
+pub fn run_optimize(
+    config: OptimizeConfig,
+    executor: &dyn ExplainExecutor,
+) -> Result<String, String> {
     let loop_config = LoopConfig {
         max_iterations: config.max_iterations,
         require_equivalence_proof: false,
@@ -191,8 +196,13 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
 
     // Load schema for rewriting
     let table_entries = load_schema(&config.schema_json_path, &config.sql_dir);
-    let schema: Option<std::collections::HashMap<String, std::collections::HashMap<String, String>>> = table_entries.as_ref().map(|entries| {
-        entries.iter().map(|(t, e)| (t.clone(), e.columns.clone())).collect()
+    let schema: Option<
+        std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    > = table_entries.as_ref().map(|entries| {
+        entries
+            .iter()
+            .map(|(t, e)| (t.clone(), e.columns.clone()))
+            .collect()
     });
 
     let mut current_sql = config.sql.clone();
@@ -210,7 +220,8 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
             .map_err(|e| format!("EXPLAIN failed at iteration {}: {}", iteration, e))?;
 
         // 2. Parse
-        let plan = parse(&explain_text).map_err(|e| format!("Parse failed at iteration {}: {}", iteration, e))?;
+        let plan = parse(&explain_text)
+            .map_err(|e| format!("Parse failed at iteration {}: {}", iteration, e))?;
 
         // 3. Analyze
         let report = analyze(&plan);
@@ -273,7 +284,13 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
                             notes: vec![format!("Rewrite error: {}", e)],
                             verification: None,
                         });
-                        return finalize(&history, StopReason::FixedPoint, &current_sql, &config, None);
+                        return finalize(
+                            &history,
+                            StopReason::FixedPoint,
+                            &current_sql,
+                            &config,
+                            None,
+                        );
                     }
                 }
             }
@@ -300,15 +317,18 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         } else {
             #[cfg(feature = "verify")]
             {
-                let engine: VerifyEngine = config
-                    .verify_engine
-                    .parse()
-                    .unwrap_or(VerifyEngine::Qed);
+                let engine: VerifyEngine =
+                    config.verify_engine.parse().unwrap_or(VerifyEngine::Qed);
 
                 let result = match engine {
                     VerifyEngine::Qed => {
                         let rich_schema = build_rich_schema(table_entries.as_ref());
-                        verify::verify_qed(&current_sql, &rewritten, &rich_schema, config.verify_timeout)
+                        verify::verify_qed(
+                            &current_sql,
+                            &rewritten,
+                            &rich_schema,
+                            config.verify_timeout,
+                        )
                     }
                     VerifyEngine::VeriEql => {
                         let rich_schema = build_rich_schema(table_entries.as_ref());
@@ -325,33 +345,31 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
                 };
 
                 match result {
-                    Ok(r) => {
-                        match verify::decide_verification_outcome(&r) {
-                            verify::VerificationDecision::Reject { counterexample } => {
-                                history.push(IterationRecord {
-                                    iteration,
-                                    rule_id: finding.rule_id.clone(),
-                                    action: action.clone(),
-                                    snapshot_before: prev_snapshot.clone(),
-                                    snapshot_after: curr_snapshot.clone(),
-                                    rewritten_sql: Some(rewritten.clone()),
-                                    notes: vec![format!(
-                                        "Verification rejected: {}",
-                                        counterexample.as_deref().unwrap_or("(no counterexample)")
-                                    )],
-                                    verification: Some(r),
-                                });
-                                return finalize(
-                                    &history,
-                                    StopReason::VerificationFailed { counterexample },
-                                    &current_sql,
-                                    &config,
-                                    None,
-                                );
-                            }
-                            verify::VerificationDecision::Accept => Some(r),
+                    Ok(r) => match verify::decide_verification_outcome(&r) {
+                        verify::VerificationDecision::Reject { counterexample } => {
+                            history.push(IterationRecord {
+                                iteration,
+                                rule_id: finding.rule_id.clone(),
+                                action: action.clone(),
+                                snapshot_before: prev_snapshot.clone(),
+                                snapshot_after: curr_snapshot.clone(),
+                                rewritten_sql: Some(rewritten.clone()),
+                                notes: vec![format!(
+                                    "Verification rejected: {}",
+                                    counterexample.as_deref().unwrap_or("(no counterexample)")
+                                )],
+                                verification: Some(r),
+                            });
+                            return finalize(
+                                &history,
+                                StopReason::VerificationFailed { counterexample },
+                                &current_sql,
+                                &config,
+                                None,
+                            );
                         }
-                    }
+                        verify::VerificationDecision::Accept => Some(r),
+                    },
                     Err(e) => {
                         let err_result = verify::VerifyResult {
                             engine,
@@ -376,7 +394,13 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         // Check for fixed-point after rewrite
         let rewritten_hash = hash_sql(&rewritten);
         if sql_history.contains(&rewritten_hash) {
-            return finalize(&history, StopReason::FixedPoint, &current_sql, &config, None);
+            return finalize(
+                &history,
+                StopReason::FixedPoint,
+                &current_sql,
+                &config,
+                None,
+            );
         }
         sql_history.insert(rewritten_hash);
 
@@ -395,7 +419,13 @@ pub fn run_optimize(config: OptimizeConfig, executor: &dyn ExplainExecutor) -> R
         current_sql = rewritten;
     }
 
-    finalize(&history, StopReason::MaxIterations, &current_sql, &config, None)
+    finalize(
+        &history,
+        StopReason::MaxIterations,
+        &current_sql,
+        &config,
+        None,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -445,11 +475,7 @@ fn render_report(
         if let Some(before) = &record.snapshot_before {
             let after = &record.snapshot_after;
             if let (Some(b), Some(a)) = (before.total_cost, after.total_cost) {
-                let delta = if b > 0.0 {
-                    ((a - b) / b) * 100.0
-                } else {
-                    0.0
-                };
+                let delta = if b > 0.0 { ((a - b) / b) * 100.0 } else { 0.0 };
                 out.push_str(&format!("Cost: {:.2} → {:.2} ({:+.1}%)\n", b, a, delta));
             }
             out.push_str(&format!(
@@ -791,10 +817,7 @@ mod tests {
 
     #[test]
     fn load_schema_nonexistent_file_returns_none() {
-        let result = load_schema(
-            &Some("/nonexistent/schema.json".into()),
-            &None,
-        );
+        let result = load_schema(&Some("/nonexistent/schema.json".into()), &None);
         // Should not panic, just warn and return None
         assert!(result.is_none());
     }
@@ -854,9 +877,7 @@ mod tests {
             critical_count: 1,
             ..Default::default()
         };
-        let decision = should_continue(
-            &prev, &curr, &LoopConfig::default(), 1, 0, true, false,
-        );
+        let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, false);
         assert!(matches!(decision, LoopDecision::Continue));
     }
 
@@ -872,9 +893,7 @@ mod tests {
             critical_count: 0,
             ..Default::default()
         };
-        let decision = should_continue(
-            &prev, &curr, &LoopConfig::default(), 1, 0, true, false,
-        );
+        let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, false);
         assert!(matches!(decision, LoopDecision::Stop(StopReason::Success)));
     }
 
@@ -890,10 +909,11 @@ mod tests {
             critical_count: 2,
             ..Default::default()
         };
-        let decision = should_continue(
-            &prev, &curr, &LoopConfig::default(), 1, 0, true, false,
-        );
-        assert!(matches!(decision, LoopDecision::Stop(StopReason::Regression)));
+        let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, false);
+        assert!(matches!(
+            decision,
+            LoopDecision::Stop(StopReason::Regression)
+        ));
     }
 
     #[test]
@@ -931,9 +951,7 @@ mod tests {
             critical_count: 2,
             ..Default::default()
         };
-        let decision = should_continue(
-            &prev, &curr, &LoopConfig::default(), 1, 0, true, true,
-        );
+        let decision = should_continue(&prev, &curr, &LoopConfig::default(), 1, 0, true, true);
         assert!(matches!(
             decision,
             LoopDecision::Stop(StopReason::FixedPoint)

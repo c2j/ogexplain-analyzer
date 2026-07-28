@@ -136,11 +136,7 @@ mod tests {
 
     #[test]
     fn rewrite_sql_parse_error_returns_err() {
-        let result = rewrite_sql(
-            "SELECT invalid sql syntax $$$",
-            None,
-            &["subquery-to-join"],
-        );
+        let result = rewrite_sql("SELECT invalid sql syntax $$$", None, &["subquery-to-join"]);
         assert!(
             result.is_err(),
             "invalid SQL should return Err, got {:?}",

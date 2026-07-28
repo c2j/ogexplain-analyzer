@@ -1014,3 +1014,77 @@ dedup_per_node = true
     assert!((config.memory_threshold_kb - 102400.0).abs() < 0.01);
     assert!((config.estimation_skew_factor - 100.0).abs() < 0.01);
 }
+
+// --- auto_explain: analyzer runs on Function Scan / Result / proc plans ---
+
+#[test]
+fn analyze_function_scan_from_auto_explain() {
+    let input = r#"NOTICE:  duration: 3.826 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_pipe_emp_list(1)
+Function Scan on fn_pipe_emp_list  (cost=0.25..10.25 rows=1000 width=68) (actual time=3.655..3.655 rows=0 loops=1)
+  (Buffers: shared hit=35)
+Total runtime: 3.826 ms"#;
+
+    let plan = parse(input).expect("parse failed");
+    let report = analyze(&plan);
+    // Must not panic — diagnostic engine should handle Function Scan gracefully
+    assert_eq!(
+        report.stats.total_nodes, 1,
+        "Function Scan: 1 node in plan tree"
+    );
+}
+
+#[test]
+fn analyze_result_node_from_auto_explain() {
+    let input = r#"NOTICE:  duration: 7.032 ms  plan:
+Query Text: SELECT gaussdb.fn_dept_avg_salary(1), gaussdb.fn_calc_years_of_service('2020-01-01'::timestamp)
+Result  (cost=0.00..0.51 rows=1 width=0) (actual time=6.987..6.987 rows=1 loops=1)
+Total runtime: 7.032 ms"#;
+
+    let plan = parse(input).expect("parse failed");
+    let report = analyze(&plan);
+    assert_eq!(report.stats.total_nodes, 1);
+}
+
+#[test]
+fn analyze_proc_internal_sql_from_auto_explain() {
+    let input = r#"NOTICE:  duration: 150.500 ms  plan:
+Query Text: SELECT emp_id, emp_name FROM gaussdb.employees WHERE dept_id = 1 AND status = 'ACTIVE' ORDER BY base_salary DESC
+Sort  (cost=5.50..5.51 rows=1 width=100) (actual time=100.000..150.000 rows=500 loops=1)
+  Sort Key: base_salary DESC
+  ->  Seq Scan on employees  (cost=0.00..5.49 rows=1 width=100) (actual time=0.050..50.000 rows=500 loops=1)
+        Filter: ((dept_id = 1) AND (status = 'ACTIVE'::text))
+        Rows Removed by Filter: 9500
+Total runtime: 150.500 ms"#;
+
+    let plan = parse(input).expect("parse failed");
+    let report = analyze(&plan);
+    assert_eq!(report.stats.total_nodes, 2);
+
+    // EST-001 should trigger: estimated 1 row vs actual 500 (500x skew)
+    assert!(
+        has_finding(&report, "EST-001"),
+        "EST-001 should fire for 500x row estimation error"
+    );
+    // SCAN-004 should trigger: Filter with 9500 Rows Removed by Filter and no index
+    assert!(
+        has_finding(&report, "SCAN-004"),
+        "SCAN-004 should fire for Filter without index support"
+    );
+}
+
+#[test]
+fn analyze_with_config_on_auto_explain_function_scan() {
+    let input = r#"NOTICE:  duration: 1.774 ms  plan:
+Query Text: SELECT * FROM gaussdb.fn_get_tax_rate(15000)
+Function Scan on fn_get_tax_rate  (cost=0.25..0.26 rows=1 width=32) (actual time=1.738..1.738 rows=1 loops=1)
+Total runtime: 1.774 ms"#;
+
+    let plan = parse(input).expect("parse failed");
+    let config = DiagnosticConfig {
+        large_table_rows: 500.0,
+        ..Default::default()
+    };
+    let report = analyze_with_config(&plan, &config);
+    assert_eq!(report.stats.total_nodes, 1);
+}

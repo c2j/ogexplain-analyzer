@@ -57,16 +57,14 @@ impl AntiPatternDef for MultiDistinct {
         root: &'a PlanNode,
         ancestors: &[&'a PlanNode],
     ) -> Option<MatchResult<'a>> {
-        if root.node_type != NodeType::Unique
-            && root.node_type != NodeType::VectorUnique
-        {
+        if root.node_type != NodeType::Unique && root.node_type != NodeType::VectorUnique {
             return None;
         }
 
         // Find a Unique/VectorUnique ancestor
-        let parent = ancestors.iter().find(|&a| {
-            a.node_type == NodeType::Unique || a.node_type == NodeType::VectorUnique
-        })?;
+        let parent = ancestors
+            .iter()
+            .find(|&a| a.node_type == NodeType::Unique || a.node_type == NodeType::VectorUnique)?;
 
         let mut captures = HashMap::new();
         captures.insert("current".to_string(), root);

@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::model::ExplainPlan;
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct GlobalStats {
     pub max_node_time_ms: f64,
     pub max_node_rows: f64,

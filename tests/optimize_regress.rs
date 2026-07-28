@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use ogexplain_optimizer::orchestrator::{ExplainExecutor, OptimizeConfig, run_optimize};
+use ogexplain_optimizer::orchestrator::{run_optimize, ExplainExecutor, OptimizeConfig};
 
 const CASES_ROOT: &str = "tests/regress_optimize";
 
@@ -80,12 +80,8 @@ fn load_case(case_dir: &Path) -> CaseFixture {
 
     let rule_id = case_toml["rule_id"].as_str().expect("missing rule_id");
     let config_table = &case_toml["config"];
-    let max_iterations = config_table["max_iterations"]
-        .as_integer()
-        .unwrap_or(5) as usize;
-    let skip_verify = config_table["skip_verify"]
-        .as_bool()
-        .unwrap_or(true);
+    let max_iterations = config_table["max_iterations"].as_integer().unwrap_or(5) as usize;
+    let skip_verify = config_table["skip_verify"].as_bool().unwrap_or(true);
 
     let original_sql = std::fs::read_to_string(case_dir.join("original.sql"))
         .unwrap_or_else(|e| panic!("failed to read original.sql: {e}"));
@@ -185,7 +181,8 @@ fn all_regress_cases() {
     }
 
     assert_eq!(
-        failed, 0,
+        failed,
+        0,
         "{failed}/{total} regression cases failed ({passed} passed)",
         total = cases.len()
     );
