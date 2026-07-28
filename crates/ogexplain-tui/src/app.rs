@@ -170,7 +170,8 @@ impl App {
     }
 
     pub fn load_file(&mut self, path: &str) -> color_eyre::Result<()> {
-        let content = std::fs::read_to_string(path)?;
+        let buf = std::fs::read(path)?;
+        let content = String::from_utf8_lossy(&buf).into_owned();
         self.set_textarea_content(&content);
         self.do_parse();
         Ok(())
@@ -465,9 +466,9 @@ impl App {
                     let trimmed = first.trim();
                     if let Some(path) = trimmed.strip_prefix(":load ") {
                         let path = path.trim().to_string();
-                        match std::fs::read_to_string(&path) {
-                            Ok(content) => {
-                                self.set_textarea_content(&content);
+                        match std::fs::read(&path) {
+                            Ok(buf) => {
+                                self.set_textarea_content(&String::from_utf8_lossy(&buf));
                                 self.do_parse();
                             }
                             Err(e) => {
@@ -486,9 +487,9 @@ impl App {
                 }
                 self.do_parse();
             }
-            Action::LoadFile(path) => match std::fs::read_to_string(&path) {
-                Ok(content) => {
-                    self.set_textarea_content(&content);
+            Action::LoadFile(path) => match std::fs::read(&path) {
+                Ok(buf) => {
+                    self.set_textarea_content(&String::from_utf8_lossy(&buf));
                     self.do_parse();
                 }
                 Err(e) => {

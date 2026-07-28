@@ -1635,8 +1635,11 @@ fn run_explain(
 
     let sql_text = match (sql, sql_file) {
         (Some(s), None) => s.to_string(),
-        (None, Some(path)) => std::fs::read_to_string(path)
-            .context(t!("cli.explain.error.read_file", path = path).to_string())?,
+        (None, Some(path)) => {
+            let buf = std::fs::read(path)
+                .context(t!("cli.explain.error.read_file", path = path).to_string())?;
+            String::from_utf8_lossy(&buf).into_owned()
+        }
         (Some(_), Some(_)) => {
             anyhow::bail!("Cannot use both -s and -f. Choose one.");
         }
@@ -1843,13 +1846,14 @@ fn analyze_and_output(
 
 fn read_input(file: &str) -> Result<String> {
     if file == "-" {
-        let mut buf = String::new();
+        let mut buf = Vec::new();
         io::stdin()
-            .read_to_string(&mut buf)
+            .read_to_end(&mut buf)
             .context("Failed to read from stdin")?;
-        Ok(buf)
+        Ok(String::from_utf8_lossy(&buf).into_owned())
     } else {
-        std::fs::read_to_string(file).context(format!("Failed to read file: {}", file))
+        let buf = std::fs::read(file).context(format!("Failed to read file: {}", file))?;
+        Ok(String::from_utf8_lossy(&buf).into_owned())
     }
 }
 
