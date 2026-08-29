@@ -6,7 +6,7 @@
 
 ### 先读再改
 1. 确认改动落在哪个 crate（本仓库是 Cargo workspace，见「仓库地图」）。
-2. 只用本文件列出的 cargo 命令；不要发明裸 `cargo update`、不要擅自切换 toolchain（以 `rust-toolchain.toml` 为准）。
+2. 只用本文件列出的 cargo 命令；不要发明裸 `cargo update`。本仓库**没有** `rust-toolchain.toml`，toolchain 以 CI 使用的 `stable` 为准，不要擅自切换或加 `+nightly`。
 3. 先跑与改动相关的最小测试；提交前再跑 workspace 门禁（fmt + clippy + test）。
 4. 完成一个循环后按「完成标准与汇报」汇报，不要只说「做完了」。
 
@@ -102,14 +102,16 @@ cargo test --test integration_tests
 # 分析器诊断测试
 cargo test --test analyzer_tests
 
-# 提交前门禁
+# 提交前门禁（本仓库没有测试 CI，必须本地跑完）
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 
 # snapshot 审阅（仅当行为含义变化且已 Ask first 才接受）
 cargo insta review
 ```
+
+> ⚠️ **本仓库 `.github/workflows/` 只有 `release.yml`，没有 PR/push 的测试 CI。**以上门禁没有 CI 兜底，必须本地逐条跑完，并在汇报里贴出实际命令与结果。
 
 `ogexplain-core` 是纯库（无 UI/IO 依赖），parser 永不 panic（返回 Result），诊断规则可独立测试。
 
